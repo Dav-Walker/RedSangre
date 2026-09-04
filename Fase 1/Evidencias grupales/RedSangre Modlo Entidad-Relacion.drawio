@@ -1,0 +1,51 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="ERD RedSangre" id="_vKuCwnQwQwO_y4x4Q8T">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#D9EAD3;strokeColor=#38761D;fontSize=12;" value="&lt;b&gt;AUDITORIA&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;usuario_id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(FK)&lt;/b&gt;&lt;br&gt;accion : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;entidad_afectada : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fecha_hora : &lt;i&gt;datetime&lt;/i&gt;" vertex="1">
+          <mxGeometry height="170" width="240" x="240" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#DCE6F1;strokeColor=#1F3864;fontSize=12;" value="&lt;b&gt;USUARIO&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;nombre : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;email : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;rol : &lt;i&gt;varchar&lt;/i&gt;" vertex="1">
+          <mxGeometry height="150" width="220" x="240" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#E7E1F0;strokeColor=#5B3E96;fontSize=12;" value="&lt;b&gt;DONANTE&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;rut : &lt;i&gt;varchar&lt;/i&gt; &lt;b&gt;(único)&lt;/b&gt;&lt;br&gt;nombre : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;correo : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;telefono : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;grupo_sanguineo : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fenotipo : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;ubicacion : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fecha_ultima_donacion : &lt;i&gt;date&lt;/i&gt;&lt;br&gt;fenotipo_raro : &lt;i&gt;boolean&lt;/i&gt;&lt;br&gt;donante_plaquetas_frecuente : &lt;i&gt;boolean&lt;/i&gt;" vertex="1">
+          <mxGeometry height="270" width="260" x="890" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#E7E1F0;strokeColor=#5B3E96;fontSize=12;" value="&lt;b&gt;CONSENTIMIENTO&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;donante_id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(FK)&lt;/b&gt;&lt;br&gt;acepta_cookies : &lt;i&gt;boolean&lt;/i&gt;&lt;br&gt;acepta_contacto : &lt;i&gt;boolean&lt;/i&gt;&lt;br&gt;fecha_hora : &lt;i&gt;datetime&lt;/i&gt;" vertex="1">
+          <mxGeometry height="150" width="260" x="540" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#F6DCDC;strokeColor=#B3413A;fontSize=12;" value="&lt;b&gt;SOLICITUD&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;creado_por : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(FK)&lt;/b&gt;&lt;br&gt;tipo_sangre_requerido : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fenotipo_requerido : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;urgencia : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;estado : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fecha_creacion : &lt;i&gt;datetime&lt;/i&gt;" vertex="1">
+          <mxGeometry height="190" width="260" x="650" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#FBEAD0;strokeColor=#95611A;fontSize=12;" value="&lt;b&gt;SOLICITUD_DONANTE&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;solicitud_id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(FK)&lt;/b&gt;&lt;br&gt;donante_id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(FK)&lt;/b&gt;&lt;br&gt;orden_prioridad : &lt;i&gt;int&lt;/i&gt;&lt;br&gt;estado : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fecha_agendada : &lt;i&gt;datetime&lt;/i&gt;" vertex="1">
+          <mxGeometry height="170" width="260" x="1020" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;spacingRight=8;fillColor=#E2E2E2;strokeColor=#555555;fontSize=12;" value="&lt;b&gt;CONTACTO&lt;/b&gt;&lt;hr size=&quot;1&quot;&gt;id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(PK)&lt;/b&gt;&lt;br&gt;solicitud_donante_id : &lt;i&gt;uuid&lt;/i&gt; &lt;b&gt;(FK)&lt;/b&gt;&lt;br&gt;canal : &lt;i&gt;varchar&lt;/i&gt;&lt;br&gt;fecha_hora : &lt;i&gt;datetime&lt;/i&gt;&lt;br&gt;resultado : &lt;i&gt;varchar&lt;/i&gt;" vertex="1">
+          <mxGeometry height="150" width="260" x="1370" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-8" edge="1" parent="1" source="qE-zXZwUdvoPtzJI7zzr-2" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;fontSize=11;strokeColor=#63697A;" target="qE-zXZwUdvoPtzJI7zzr-5" value="crea">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-9" edge="1" parent="1" source="qE-zXZwUdvoPtzJI7zzr-2" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;fontSize=11;strokeColor=#63697A;" target="qE-zXZwUdvoPtzJI7zzr-1" value="genera">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-10" edge="1" parent="1" source="qE-zXZwUdvoPtzJI7zzr-3" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;fontSize=11;strokeColor=#63697A;" target="qE-zXZwUdvoPtzJI7zzr-4" value="otorga">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-11" edge="1" parent="1" source="qE-zXZwUdvoPtzJI7zzr-5" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;fontSize=11;strokeColor=#63697A;" target="qE-zXZwUdvoPtzJI7zzr-6" value="incluye">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-12" edge="1" parent="1" source="qE-zXZwUdvoPtzJI7zzr-3" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;fontSize=11;strokeColor=#63697A;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="qE-zXZwUdvoPtzJI7zzr-6" value="es_candidato">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1170" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qE-zXZwUdvoPtzJI7zzr-13" edge="1" parent="1" source="qE-zXZwUdvoPtzJI7zzr-6" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERmandOne;startFill=0;endArrow=ERzeroToMany;endFill=0;fontSize=11;strokeColor=#63697A;" target="qE-zXZwUdvoPtzJI7zzr-7" value="registra">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
