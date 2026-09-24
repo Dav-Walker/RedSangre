@@ -1,0 +1,175 @@
+.contenedorLogin {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+/* COLUMNA IZQUIERDA: AZUL INSTITUCIONAL */
+.panelIzquierdo {
+  width: 45%;
+  background-color: #00a0df;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 60px 40px;
+  color: white;
+  box-sizing: border-box;
+}
+
+.logoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.logoImg {
+  max-width: 220px;
+  object-fit: contain;
+  margin-bottom: 20px;
+}
+
+.textoInferiorAzul {
+  font-size: 14px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+/* CERTIFICACIONES ABAJO A LA IZQUIERDA */
+.certificaciones {
+  font-size: 11px;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  text-transform: uppercase;
+  margin-top: 20px;
+}
+
+/* COLUMNA DERECHA: FORMULARIO BLANCO */
+.panelDerecho {
+  width: 55%;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+.formWrapper {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tituloApp {
+  font-size: 28px;
+  font-weight: bold;
+  color: #00a0df;
+  margin: 0;
+}
+
+.subtituloApp {
+  font-size: 14px;
+  color: #666;
+  margin-top: 5px;
+  margin-bottom: 40px;
+}
+
+.grupoInput {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  border-color: #00a0df;
+}
+
+/* ESTILO DE ERROR (TODO ROJO) */
+.inputError {
+  border-color: #bb4442 !important;
+}
+
+.labelError {
+  color: #bb4442 !important;
+}
+
+.mensajeError {
+  color: #bb4442;
+  font-size: 13px;
+  font-weight: bold;
+  margin-top: -12px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.botonLogin {
+  width: 100%;
+  padding: 14px;
+  background-color: #00a0df;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.botonLogin:hover {
+  background-color: #0088bd;
+}
+
+/* BOTÓN ROJO CUANDO HAY ERROR */
+.botonLoginError {
+  background-color: #bb4442 !important;
+}
+.botonLoginError:hover {
+  background-color: #9a3533 !important;
+}
+
+.textosAyuda {
+  margin-top: 30px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ayudaTextoPrincipal {
+  font-size: 13px;
+  color: #999;
+}
+
+.ayudaTextoSecundario {
+  font-size: 12px;
+  color: #bbb;
+}

@@ -1,0 +1,134 @@
+/* CONTENEDOR PRINCIPAL Y CABECERA */
+.contenedor {
+  padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.botonVolver {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.botonVolver:hover {
+  color: #00a0df;
+}
+
+.tituloPagina {
+  margin: 0 auto;
+  color: #333;
+}
+
+.nombreDonante {
+  color: #333;
+  margin-bottom: 30px;
+}
+
+/* DISEÑO A DOS COLUMNAS (TARJETAS) */
+.layoutColumnas {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.tarjeta {
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  flex: 1;
+}
+
+.tarjetaHeader {
+  background-color: #00a0df;
+  color: white;
+  padding: 15px 20px;
+  margin: 0;
+  font-size: 18px;
+}
+
+/* FILAS DE INFORMACIÓN */
+.filaDatos {
+  display: flex;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+}
+
+.etiquetaDato {
+  flex: 1;
+  color: #666;
+  font-weight: bold;
+}
+
+.valorDato {
+  flex: 2;
+  color: #333;
+  font-weight: bold;
+}
+
+.contenedorEtiquetas {
+  flex: 2;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pieFicha {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 30px;
+}
+
+/* ESTILOS PARA EL MODO EDICIÓN */
+.inputEdit {
+  flex: 2;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.selectEdit {
+  flex: 2;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.botonesPie {
+  display: flex;
+  gap: 15px;
+}
+
+.botonCancelar {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1px solid #ccc;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonCancelar:hover {
+  background-color: #e0e0e0;
+}

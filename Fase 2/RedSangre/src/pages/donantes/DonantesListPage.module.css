@@ -1,0 +1,93 @@
+.contenedor {
+  padding: 20px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+
+.cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+/* EL TRUCO DE LA LUPA */
+.buscadorContenedor {
+  position: relative;
+  width: 400px;
+}
+
+.inputBuscador {
+  width: 100%;
+  padding: 12px 40px 12px 15px; /* Los 40px de la derecha le hacen espacio a la lupa */
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.iconoLupa {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  width: 20px;
+  height: 20px;
+  cursor: pointer; /* ¡Ahora es un botón! */
+  transition: color 0.2s;
+}
+
+.iconoLupa:hover {
+  color: #00a0df; /* Se pinta celeste al pasar el mouse */
+}
+
+/* TABLA PRINCIPAL */
+.tablaContenedor {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.tabla th {
+  background-color: #00a0df;
+  color: white;
+  padding: 15px;
+  text-align: center;
+}
+
+.tabla th.thNombre {
+  text-align: left;
+}
+
+.tabla td {
+  padding: 15px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+}
+
+.tabla td.tdNombre {
+  color: #333;
+  text-align: left;
+}
+
+/* Efectos de la fila interactiva */
+.fila {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.fila:hover {
+  background-color: #f0f9ff;
+}
+
+.sinBorde {
+  border-bottom: none !important;
+}

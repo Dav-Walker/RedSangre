@@ -1,0 +1,201 @@
+.contenedor {
+  padding: 30px 40px;
+  background-color: #ffffff;
+  min-height: 100vh;
+}
+
+/* CABECERA (Volver y Títulos) */
+.headerSuperior {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.botonVolver {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.botonVolver:hover {
+  color: #555;
+}
+
+.tituloCentral {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: bold;
+  color: #000;
+  margin: 0;
+}
+
+.tituloPrincipal {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 30px;
+  color: #000;
+}
+
+/* LAYOUT A DOS COLUMNAS */
+.layoutPrincipal {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+/* PANEL IZQUIERDO: FORMULARIO */
+.panelIzquierdo {
+  background-color: #f4f7fa; /* El fondito gris claro de tu mockup */
+  padding: 30px;
+  border-radius: 12px;
+  flex: 1.5; /* Ocupa un poco más de espacio que el derecho */
+}
+
+.filaFormulario {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.grupoInput {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-bottom: 15px;
+}
+
+.label {
+  font-weight: bold;
+  color: #999;
+  margin-bottom: 5px;
+  font-size: 15px;
+}
+
+.input {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 15px;
+  background-color: white;
+  color: #333;
+}
+
+/* Estilo especial para los selectores con el cuadrito gris */
+/* Estilo especial para los selectores con el cuadrito gris */
+.selectContenedor {
+  position: relative; /* Necesario para que el icono flote encima */
+  width: 100%;
+}
+
+.select {
+  width: 100%;
+  padding: 12px 50px 12px 15px; /* Los 50px dejan espacio para que el texto no se meta debajo del icono gris */
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 15px;
+  background-color: white;
+  appearance: none; /* Quita la flechita fea por defecto del navegador */
+  color: #333;
+  cursor: pointer; /* Muestra la manito para invitar a hacer clic */
+}
+
+.selectIcon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  background-color: #a7a7a7;
+  color: black;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  pointer-events: none; /* ¡LA MAGIA! El clic traspasa el icono gris y abre la lista */
+}
+/* ETIQUETAS INFERIORES */
+.badgesContainer {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.badgeMorado {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.badgeAzul {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* PANEL DERECHO: CONSENTIMIENTO Y BOTÓN */
+.panelDerecho {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 10px;
+}
+
+.tituloConsentimiento {
+  font-weight: bold;
+  color: #666;
+  font-size: 16px;
+  margin: 0;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  font-size: 15px;
+  color: #111;
+  line-height: 1.4;
+}
+
+.botonGuardar {
+  background-color: #bb4442; /* El rojo ocre de tu mockup */
+  color: white;
+  padding: 15px;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 15px;
+  width: 100%;
+}
+
+.botonGuardar:hover {
+  background-color: #9a3533;
+}

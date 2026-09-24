@@ -1,0 +1,103 @@
+/* FRANJA SUPERIOR (Logo y Usuario) */
+.topHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 40px;
+  background-color: #ffffff;
+}
+
+.logoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.logoImg {
+  height: 45px; /* Tamaño ideal para que no quede ni muy gigante ni muy pequeño */
+  object-fit: contain;
+}
+
+.logoRedSangre {
+  font-size: 15px;
+  color: #00a0df;
+  font-weight: bold;
+  margin-left: 55px; /* Este margen empuja el texto para que quede alineado bajo "INDISA" */
+}
+.userActions {
+  display: flex;
+  gap: 15px;
+}
+
+.userBadge {
+  background-color: #00a0df;
+  color: white;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.logoutBtn {
+  background-color: #f47c36;
+  color: white;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.logoutBtn:hover {
+  background-color: #d66526; /* Naranja más oscuro al hacer hover */
+}
+
+/* FRANJA CELESTE DE NAVEGACIÓN */
+.navbar {
+  background-color: #00a0df; /* El celeste del mockup */
+  display: flex;
+}
+
+.links {
+  list-style: none;
+  display: flex;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.links li {
+  flex: 1; /* Hace que todos los botones midan lo mismo, como en tu imagen */
+  text-align: center;
+}
+
+.navLink {
+  display: block;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 18px;
+  padding: 15px 0;
+  transition: background-color 0.3s;
+}
+
+/* Efecto al pasar el mouse */
+.navLink:hover {
+  background-color: #0088bd; 
+}
+
+/* Efecto para la pestaña en la que estamos parados (como el Dashboard en el mockup) */
+.activeLink {
+  display: block;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 18px;
+  padding: 15px 0;
+  background-color: #3b74a8; /* Azul oscuro */
+}

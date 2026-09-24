@@ -1,0 +1,112 @@
+.contenedor {
+  padding: 30px 40px;
+  background-color: #ffffff;
+  min-height: 100vh;
+}
+
+.headerSuperior {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.botonVolver {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.botonVolver:hover {
+  color: #555;
+}
+
+.tituloCentral {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: bold;
+  color: #000;
+  margin: 0;
+}
+
+.tituloPrincipal {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 30px;
+  color: #000;
+}
+
+/* TARJETAS A DOS COLUMNAS */
+.layoutColumnas {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.tarjeta {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #eee;
+  flex: 1;
+}
+
+.tarjetaHeader {
+  background-color: #00a0df;
+  color: white;
+  padding: 15px 20px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* FILAS DE LA TABLA INTERNA */
+.filaDatos {
+  display: flex;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+}
+
+.filaDatos:last-child {
+  border-bottom: none;
+}
+
+.etiquetaDato {
+  flex: 1;
+  color: #666;
+  font-weight: bold;
+}
+
+.valorDato {
+  flex: 1;
+  color: #333;
+}
+
+/* BOTÓN AZUL DEL FINAL */
+.pieFicha {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 30px;
+}
+
+.botonAzul {
+  background-color: #00a0df;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonAzul:hover {
+  background-color: #0088bd;
+}
