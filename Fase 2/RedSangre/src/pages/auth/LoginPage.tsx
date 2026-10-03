@@ -1,23 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './LoginPage.module.css';
+import { useAuth } from '../../contexts/useAuth';
 // Importamos el nuevo logo que acabas de guardar
 import logoIndisa from '../../assets/cl_nica_indisa_logo_2.jpg';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { signIn, configured } = useAuth();
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
-  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    if (correo === 'error@indisa.cl' || correo === '') {
-      setHasError(true);
-    } else {
-      setHasError(false);
-      navigate('/'); 
+
+    setErrorMessage('');
+    setIsSubmitting(true);
+    try {
+      const error = await signIn(correo.trim(), password);
+
+      if (error) {
+        setErrorMessage(error);
+        return;
+      }
+
+      navigate('/dashboard', { replace: true });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -47,43 +60,55 @@ export function LoginPage() {
           <form onSubmit={handleLogin} style={{ width: '100%' }}>
             
             <div className={styles.grupoInput}>
-              <label className={`${styles.label} ${hasError ? styles.labelError : ''}`}>
+              <label className={`${styles.label} ${errorMessage ? styles.labelError : ''}`} htmlFor="correo">
                 Correo Institucional
               </label>
               <input 
+                id="correo"
                 type="email" 
-                className={`${styles.input} ${hasError ? styles.inputError : ''}`}
+                className={`${styles.input} ${errorMessage ? styles.inputError : ''}`}
                 placeholder="nombre.apellido@indisa.cl"
                 value={correo}
-                onChange={(e) => { setCorreo(e.target.value); setHasError(false); }}
+                onChange={(e) => { setCorreo(e.target.value); setErrorMessage(''); }}
+                autoComplete="username"
+                required
               />
             </div>
 
             <div className={styles.grupoInput}>
-              <label className={`${styles.label} ${hasError ? styles.labelError : ''}`}>
+              <label className={`${styles.label} ${errorMessage ? styles.labelError : ''}`} htmlFor="password">
                 Contraseña
               </label>
               <input 
+                id="password"
                 type="password" 
-                className={`${styles.input} ${hasError ? styles.inputError : ''}`}
+                className={`${styles.input} ${errorMessage ? styles.inputError : ''}`}
                 placeholder="********"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setHasError(false); }}
+                onChange={(e) => { setPassword(e.target.value); setErrorMessage(''); }}
+                autoComplete="current-password"
+                required
               />
             </div>
 
-            {hasError && (
-              <div className={styles.mensajeError}>
-                ¡Incorrecta vuelva a intentar!
+            {errorMessage && (
+              <div className={styles.mensajeError} role="alert">
+                {errorMessage}
               </div>
             )}
 
             <button 
               type="submit" 
-              className={`${styles.botonLogin} ${hasError ? styles.botonLoginError : ''}`}
+              className={`${styles.botonLogin} ${errorMessage ? styles.botonLoginError : ''}`}
+              disabled={isSubmitting || !configured}
             >
-              Iniciar sesión
+              {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
+            {!configured && (
+              <div className={styles.mensajeError} role="alert">
+                Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY en el archivo .env.
+              </div>
+            )}
 
           </form>
 

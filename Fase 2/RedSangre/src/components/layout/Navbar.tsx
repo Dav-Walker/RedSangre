@@ -1,14 +1,37 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import styles from './Navbar.module.css';
 import logoIndisa from '../../assets/logo-indisa.jpeg';
+import { useAuth } from '../../contexts/useAuth';
 
 export function Navbar() {
   const location = useLocation();
-  const navigate = useNavigate(); // Activamos el "GPS" de React
+  const navigate = useNavigate();
+  const { session, signOut } = useAuth();
+  const [logoutError, setLogoutError] = useState('');
+  const userMetadata = session?.user.user_metadata;
+  const displayName =
+    (typeof userMetadata?.full_name === 'string' && userMetadata.full_name) ||
+    (typeof userMetadata?.name === 'string' && userMetadata.name) ||
+    session?.user.email ||
+    'Usuario';
+
+  const handleLogout = async () => {
+    setLogoutError('');
+    try {
+      const error = await signOut();
+      if (error) {
+        setLogoutError(error);
+        return;
+      }
+      navigate('/', { replace: true });
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : 'No se pudo cerrar sesión.');
+    }
+  };
 
   const getLinkClass = (path: string) => {
-    if (path === '/' && location.pathname === '/') return styles.activeLink;
-    if (path !== '/' && location.pathname.startsWith(path)) return styles.activeLink;
+    if (location.pathname === path || location.pathname.startsWith(`${path}/`)) return styles.activeLink;
     return styles.navLink;
   };
 
@@ -21,9 +44,9 @@ export function Navbar() {
         </div>
         
         <div className={styles.userActions}>
-          <div className={styles.userBadge}>Lilith Juarez</div>
-          {/* ¡Aquí está la magia del cierre de sesión! */}
-          <button className={styles.logoutBtn} onClick={() => navigate('/login')}>
+          <div className={styles.userBadge}>{displayName}</div>
+          {logoutError && <span role="alert">{logoutError}</span>}
+          <button className={styles.logoutBtn} onClick={handleLogout}>
             Cerrar sesión
           </button>
         </div>
@@ -32,7 +55,7 @@ export function Navbar() {
       <nav className={styles.navbar}>
         <ul className={styles.links}>
           <li>
-            <Link to="/" className={getLinkClass('/')}>
+            <Link to="/dashboard" className={getLinkClass('/dashboard')}>
               Dashboard
             </Link>
           </li>

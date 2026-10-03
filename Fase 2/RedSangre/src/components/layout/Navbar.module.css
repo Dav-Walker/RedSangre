@@ -27,18 +27,21 @@
 }
 .userActions {
   display: flex;
+  align-items: center;
   gap: 15px;
 }
 
 .userBadge {
+  max-width: min(320px, 35vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background-color: #00a0df;
   color: white;
   padding: 12px 30px;
   border-radius: 25px;
   font-weight: bold;
   font-size: 16px;
-  display: flex;
-  align-items: center;
 }
 
 .logoutBtn {

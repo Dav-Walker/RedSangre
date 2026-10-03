@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { DonantesListPage } from './pages/donantes/DonantesListPage';
@@ -9,18 +9,26 @@ import { SolicitudDetallePage } from './pages/solicitudes/SolicitudDetallePage';
 import { NuevaSolicitudPage } from './pages/solicitudes/NuevaSolicitudPage';
 import { ConfiguracionPage } from './pages/configuracion/ConfiguracionPage';
 import { LoginPage } from './pages/auth/LoginPage';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/useAuth';
 
 function LayoutPrincipal() {
   const location = useLocation();
-  const esLogin = location.pathname === '/login';
+  const { session, loading } = useAuth();
+  const esLogin = location.pathname === '/' || location.pathname === '/login';
+
+  if (loading) return <p role="status">Verificando sesión...</p>;
+  if (esLogin && session) return <Navigate to="/dashboard" replace />;
+  if (!esLogin && !session) return <Navigate to="/" replace state={{ from: location }} />;
 
   return (
     <>
       {!esLogin && <Navbar />}
       <div style={{ padding: esLogin ? '0px' : '30px' }}>
         <Routes>
+          <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/donantes" element={<DonantesListPage />} />
           <Route path="/donantes/nuevo" element={<NuevoDonantePage />} />
           <Route path="/donantes/:id" element={<DonanteFichaPage />} />
@@ -37,7 +45,9 @@ function LayoutPrincipal() {
 export default function App() {
   return (
     <BrowserRouter>
-      <LayoutPrincipal />
+      <AuthProvider>
+        <LayoutPrincipal />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
