@@ -12,30 +12,45 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { session, loading } = useAuth();
+
+  if (loading) return <p role="status">Verificando sesión...</p>;
+  if (!session) return <Navigate to="/login" replace />;
+
+  return <>{children}</>;
+}
+
 function LayoutPrincipal() {
   const location = useLocation();
   const { session, loading } = useAuth();
-  const esLogin = location.pathname === '/' || location.pathname === '/login';
+  const isAuthPage = location.pathname === '/login';
 
   if (loading) return <p role="status">Verificando sesión...</p>;
-  if (esLogin && session) return <Navigate to="/dashboard" replace />;
-  if (!esLogin && !session) return <Navigate to="/" replace state={{ from: location }} />;
+
+  if (isAuthPage && session) return <Navigate to="/dashboard" replace />;
+  if (!isAuthPage && !session) return <Navigate to="/login" replace />;
 
   return (
     <>
-      {!esLogin && <Navbar />}
-      <div style={{ padding: esLogin ? '0px' : '30px' }}>
+      {!isAuthPage && <Navbar />}
+      <div style={{ padding: isAuthPage ? '0px' : '30px' }}>
         <Routes>
-          <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/donantes" element={<DonantesListPage />} />
-          <Route path="/donantes/nuevo" element={<NuevoDonantePage />} />
-          <Route path="/donantes/:id" element={<DonanteFichaPage />} />
-          <Route path="/solicitudes" element={<SolicitudesListPage />} />
-          <Route path="/solicitudes/nueva" element={<NuevaSolicitudPage />} />
-          <Route path="/solicitudes/:id" element={<SolicitudDetallePage />} />
-          <Route path="/configuracion" element={<ConfiguracionPage />} />
+          <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/donantes" element={<ProtectedRoute><DonantesListPage /></ProtectedRoute>} />
+          <Route path="/donantes/nuevo" element={<ProtectedRoute><NuevoDonantePage /></ProtectedRoute>} />
+          <Route path="/donantes/:id" element={<ProtectedRoute><DonanteFichaPage /></ProtectedRoute>} />
+          <Route path="/solicitudes" element={<ProtectedRoute><SolicitudesListPage /></ProtectedRoute>} />
+          <Route path="/solicitudes/nueva" element={<ProtectedRoute><NuevaSolicitudPage /></ProtectedRoute>} />
+          <Route path="/solicitudes/:id" element={<ProtectedRoute><SolicitudDetallePage /></ProtectedRoute>} />
+          <Route path="/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </div>
     </>
