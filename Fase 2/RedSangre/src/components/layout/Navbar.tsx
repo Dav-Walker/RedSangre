@@ -7,14 +7,15 @@ import { useAuth } from '../../contexts/useAuth';
 export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, signOut } = useAuth();
+  const { session, user, signOut } = useAuth();
   const [logoutError, setLogoutError] = useState('');
   const userMetadata = session?.user.user_metadata;
-  const displayName =
+  const displayName = user ? `${user.nombre} ${user.apellido}` :
     (typeof userMetadata?.full_name === 'string' && userMetadata.full_name) ||
     (typeof userMetadata?.name === 'string' && userMetadata.name) ||
     session?.user.email ||
     'Usuario';
+  const isAdmin = user?.rol === 'administrador';
 
   const handleLogout = async () => {
     setLogoutError('');
@@ -44,7 +45,10 @@ export function Navbar() {
         </div>
         
         <div className={styles.userActions}>
-          <div className={styles.userBadge}>{displayName}</div>
+          <div className={styles.userBadge}>
+            {displayName}
+            {user && <span style={{ marginLeft: '8px', fontSize: '0.85em', opacity: 0.7 }}>({user.rol})</span>}
+          </div>
           {logoutError && <span role="alert">{logoutError}</span>}
           <button className={styles.logoutBtn} onClick={handleLogout}>
             Cerrar sesión
@@ -69,11 +73,13 @@ export function Navbar() {
               Solicitudes
             </Link>
           </li>
-          <li>
-            <Link to="/configuracion" className={getLinkClass('/configuracion')}>
-              Configuración
-            </Link>
-          </li>
+          {isAdmin && (
+            <li>
+              <Link to="/configuracion" className={getLinkClass('/configuracion')}>
+                Configuración
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
     </header>
