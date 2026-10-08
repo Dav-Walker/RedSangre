@@ -199,3 +199,66 @@
 .botonGuardar:hover {
   background-color: #9a3533;
 }
+
+/* CLASE ESPECIAL: GRUPO SANGUÍNEO ROJO Y GRUESO */
+.sangreRojo {
+  color: #bb4442 !important; /* Tu rojo ocre */
+  font-weight: 900 !important; /* Muy grueso */
+  font-size: 18px !important; /* Más grande para que destaque */
+}
+
+/* TABLA DE FENOTIPOS MODERNIZADA (ESTILO REDSANGRE) */
+.tablaFenotiposContainer {
+  margin-bottom: 25px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  max-height: 240px; /* Un poco más bajita para que quepa todo perfecto */
+  overflow-y: auto;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.tablaFenotipos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tablaFenotipos th {
+  position: sticky;
+  top: 0;
+  background-color: #00a0df; /* Azul INDISA */
+  color: white;
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: bold;
+  z-index: 1;
+}
+
+.tablaFenotipos td {
+  padding: 8px 15px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+
+/* Efecto hover suave como en el resto del proyecto */
+.tablaFenotipos tr:hover {
+  background-color: #f0f9ff; 
+}
+
+.selectFenotipoDetalle {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  background-color: white;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.selectFenotipoDetalle:focus {
+  border-color: #00a0df;
+  outline: none;
+}

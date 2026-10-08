@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './NuevoDonantePage.module.css';
 
-// DICCIONARIO DE REGIONES Y COMUNAS DE CHILE
 const REGIONES_CHILE: Record<string, string[]> = {
   "Arica y Parinacota": ["Arica", "Camarones", "Putre", "General Lagos"],
   "Tarapacá": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Pica"],
@@ -22,13 +21,15 @@ const REGIONES_CHILE: Record<string, string[]> = {
   "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir", "Cabo de Hornos"]
 };
 
+const FENOTIPOS_EXTENDIDOS = [
+  'D', 'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb', 
+  'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub'
+];
+
 export function NuevoDonantePage() {
   const navigate = useNavigate();
   
-  // ESTADO: Aquí guardamos la región que el usuario selecciona
   const [regionSeleccionada, setRegionSeleccionada] = useState('');
-
-  // Calculamos las comunas disponibles. Si no hay región, es una lista vacía.
   const comunasDisponibles = regionSeleccionada ? REGIONES_CHILE[regionSeleccionada] : [];
 
   return (
@@ -44,6 +45,7 @@ export function NuevoDonantePage() {
 
       <div className={styles.layoutPrincipal}>
         
+        {/* PANEL IZQUIERDO: DATOS PERSONALES */}
         <div className={styles.panelIzquierdo} style={{ textAlign: 'left' }}>
           
           <div className={styles.grupoInput}>
@@ -61,7 +63,6 @@ export function NuevoDonantePage() {
             <input type="email" className={styles.input} placeholder="ejemplo@correo.com" />
           </div>
 
-          {/* RUT Y SEXO */}
           <div className={styles.filaFormulario}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>RUT</label>
@@ -82,7 +83,6 @@ export function NuevoDonantePage() {
             </div>
           </div>
 
-          {/* FECHA NACIMIENTO Y TELÉFONO */}
           <div className={styles.filaFormulario}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Fecha de nacimiento</label>
@@ -95,50 +95,11 @@ export function NuevoDonantePage() {
             </div>
           </div>
 
-          {/* GRUPO SANGUÍNEO Y FENOTIPO */}
-          <div className={styles.filaFormulario}>
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Grupo sanguíneo</label>
-              <div className={styles.selectContenedor}>
-                <select className={styles.select}>
-                  <option value="">Seleccionar...</option>
-                  <option value="O-">O (-)</option>
-                  <option value="O+">O (+)</option>
-                  <option value="A-">A (-)</option>
-                  <option value="A+">A (+)</option>
-                  <option value="B-">B (-)</option>
-                  <option value="B+">B (+)</option>
-                  <option value="AB-">AB (-)</option>
-                  <option value="AB+">AB (+)</option>
-                </select>
-                <div className={styles.selectIcon}>▼</div>
-              </div>
-            </div>
-            
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Fenotipo</label>
-              <div className={styles.selectContenedor}>
-                <select className={styles.select}>
-                  <option value="">Seleccionar...</option>
-                  <option value="dce/dce">dce/dce</option>
-                  <option value="dCe/dce">dCe/dce</option>
-                  <option value="DCe/dce">DCe/dce</option>
-                  <option value="Dce/dce">Dce/dce</option>
-                  <option value="DcE/dce">DcE/dce</option>
-                  <option value="DCE/dce">DCE/dce</option>
-                </select>
-                <div className={styles.selectIcon}>▼</div>
-              </div>
-            </div>
-          </div>
-
-          {/* DIRECCIÓN ALARGADA (Sola en su grupo, sin filaFormulario) */}
           <div className={styles.grupoInput} style={{ marginTop: '15px' }}>
             <label className={styles.label}>Dirección</label>
             <input type="text" className={styles.input} placeholder="Ej: Av. Apoquindo 4567, Depto 102" />
           </div>
 
-          {/* REGIÓN Y COMUNA DINÁMICAS */}
           <div className={styles.filaFormulario}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Región</label>
@@ -160,7 +121,6 @@ export function NuevoDonantePage() {
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Comuna</label>
               <div className={styles.selectContenedor}>
-                {/* El select de comuna se deshabilita si no hay región seleccionada */}
                 <select className={styles.select} disabled={!regionSeleccionada}>
                   <option value="">Seleccionar comuna...</option>
                   {comunasDisponibles.map((comuna) => (
@@ -178,26 +138,95 @@ export function NuevoDonantePage() {
           </div>
         </div>
 
-        {/* PANEL DERECHO: CONSENTIMIENTO Y BOTÓN */}
+        {/* PANEL DERECHO: DATOS HEMATOLÓGICOS */}
         <div className={styles.panelDerecho} style={{ textAlign: 'left' }}>
-          <h3 className={styles.tituloConsentimiento}>Consentimiento del donante</h3>
+          
+          <h3 className={styles.tituloConsentimiento} style={{ marginTop: 0 }}>Datos hematológicos</h3>
+          
+          {/* SANGRE Y FENOTIPO BASE */}
+          <div className={styles.filaFormulario}>
+            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+              <label className={styles.label}>Grupo sanguíneo</label>
+              <div className={styles.selectContenedor}>
+                {/* ¡LA MAGIA DEL ROJO GRUESO ESTÁ AQUÍ! */}
+                <select className={`${styles.select} ${styles.sangreRojo}`}>
+                  <option value="">Seleccionar...</option>
+                  <option value="O-">O (-)</option>
+                  <option value="O+">O (+)</option>
+                  <option value="A-">A (-)</option>
+                  <option value="A+">A (+)</option>
+                  <option value="B-">B (-)</option>
+                  <option value="B+">B (+)</option>
+                  <option value="AB-">AB (-)</option>
+                  <option value="AB+">AB (+)</option>
+                </select>
+                <div className={styles.selectIcon}>▼</div>
+              </div>
+            </div>
+            
+            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+              <label className={styles.label}>Fenotipo Base</label>
+              <div className={styles.selectContenedor}>
+                <select className={styles.select}>
+                  <option value="">Seleccionar...</option>
+                  <option value="dce/dce">dce/dce</option>
+                  <option value="dCe/dce">dCe/dce</option>
+                  <option value="DCe/dce">DCe/dce</option>
+                  <option value="Dce/dce">Dce/dce</option>
+                  <option value="DcE/dce">DcE/dce</option>
+                  <option value="DCE/dce">DCE/dce</option>
+                </select>
+                <div className={styles.selectIcon}>▼</div>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLA DE FENOTIPOS EXTENDIDOS (Diseño moderno) */}
+          <div className={styles.tablaFenotiposContainer} style={{ marginTop: '15px' }}>
+            <table className={styles.tablaFenotipos}>
+              <thead>
+                <tr>
+                  <th>Tipificación extendida</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FENOTIPOS_EXTENDIDOS.map((fenotipo) => (
+                  <tr key={fenotipo}>
+                    <td style={{ fontWeight: 'bold', color: '#555' }}>{fenotipo}</td>
+                    <td>
+                      <select className={styles.selectFenotipoDetalle} defaultValue="">
+                        <option value=""></option>
+                        <option value="POSITIVO">POSITIVO</option>
+                        <option value="NEGATIVO">NEGATIVO</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* CONSENTIMIENTOS */}
+          <h3 className={styles.tituloConsentimiento} style={{ marginTop: '15px' }}>Consentimiento del donante</h3>
           
           <div className={styles.checkboxGroup}>
-            <input type="checkbox" className={styles.checkbox} />
-            <label className={styles.checkboxLabel}>
-              Acepta el uso de cookies y el tratamiento de sus datos según la política del sistema
+            <input type="checkbox" className={styles.checkbox} id="ck1" />
+            <label htmlFor="ck1" className={styles.checkboxLabel}>
+              Acepta el uso de cookies y el tratamiento de datos según política
             </label>
           </div>
 
           <div className={styles.checkboxGroup}>
-            <input type="checkbox" className={styles.checkbox} />
-            <label className={styles.checkboxLabel}>
-              Autoriza a ser contactado telefónicamente ante una necesidad de transfusión compatible
+            <input type="checkbox" className={styles.checkbox} id="ck2" />
+            <label htmlFor="ck2" className={styles.checkboxLabel}>
+              Autoriza a ser contactado telefónicamente ante necesidad
             </label>
           </div>
 
           <button 
             className={styles.botonGuardar}
+            style={{ marginTop: '15px' }}
             onClick={() => {
               alert('¡Donante guardado exitosamente!');
               navigate('/donantes');
