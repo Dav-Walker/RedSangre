@@ -200,65 +200,135 @@
   background-color: #9a3533;
 }
 
-/* CLASE ESPECIAL: GRUPO SANGUÍNEO ROJO Y GRUESO */
-.sangreRojo {
-  color: #bb4442 !important; /* Tu rojo ocre */
-  font-weight: 900 !important; /* Muy grueso */
-  font-size: 18px !important; /* Más grande para que destaque */
+/* ========================================= */
+/* MODAL DE TIPIFICACIÓN (VENTANA COMPACTA)  */
+/* ========================================= */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6); /* Fondo oscurecido de nuevo */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
 }
 
-/* TABLA DE FENOTIPOS MODERNIZADA (ESTILO REDSANGRE) */
-.tablaFenotiposContainer {
-  margin-bottom: 25px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  max-height: 240px; /* Un poco más bajita para que quepa todo perfecto */
-  overflow-y: auto;
+.modalContenido {
   background-color: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  padding: 20px 30px;
+  border-radius: 10px;
+  width: 780px; /* Ancho suficiente para las 4 columnas */
+  max-width: 95%;
+  border: 3px solid #00a0df; 
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
 }
 
-.tablaFenotipos {
+.modalCabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #00a0df;
+  padding-bottom: 10px;
+}
+
+.modalCabecera h2 {
+  margin: 0;
+  font-size: 18px; /* Texto más pequeño */
+  color: #00a0df;
+}
+
+/* LA TABLA PERFECTAMENTE ALINEADA */
+.tablaCompacta {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  table-layout: fixed; /* TRUCO MAESTRO: Obliga a que las columnas midan lo mismo y no se enchuequen */
 }
 
-.tablaFenotipos th {
-  position: sticky;
-  top: 0;
-  background-color: #00a0df; /* Azul INDISA */
-  color: white;
-  padding: 12px 15px;
-  text-align: left;
+/* Agrupamos TH y TD para que tengan exactamente el mismo padding y alineación */
+.tablaCompacta th,
+.tablaCompacta td {
+  padding: 5px 12px; /* Mismo espacio exacto para el título y el contenido */
+  text-align: left !important; /* Todo clavado a la izquierda */
+  vertical-align: middle;
+}
+
+.tablaCompacta th {
+  background-color: #f5f7fa;
+  color: #555;
   font-weight: bold;
-  z-index: 1;
+  font-size: 12px;
+  border-bottom: 1px solid #ddd;
 }
 
-.tablaFenotipos td {
-  padding: 8px 15px;
+.tablaCompacta td {
   border-bottom: 1px solid #eee;
+  font-size: 12px;
+}
+
+.tablaCompacta tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+.tablaCompacta tr:nth-child(even) {
+  background-color: #f0f9ff;
+}
+
+.nombreAntigeno {
+  font-weight: bold;
   color: #333;
 }
 
-/* Efecto hover suave como en el resto del proyecto */
-.tablaFenotipos tr:hover {
-  background-color: #f0f9ff; 
-}
-
-.selectFenotipoDetalle {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 13px;
+.selectCompacto {
+  width: 100%; /* Hace que todos los rectángulos midan exactamente lo mismo */
+  max-width: 130px; /* Límite para que no se vean grotescos */
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 11px;
   background-color: white;
   color: #333;
   cursor: pointer;
-  transition: border-color 0.2s;
+  box-sizing: border-box; /* Evita que el padding desborde la celda */
+  margin: 0; /* Asegura que empiece pegado a la izquierda de su celda */
 }
 
-.selectFenotipoDetalle:focus {
+.selectCompacto:focus {
   border-color: #00a0df;
   outline: none;
+}
+.modalPie {
+  margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.botonGuardarModal {
+  background-color: #f47c36;
+  color: white;
+  border: none;
+  padding: 10px 25px; /* Botón un poco más pequeño */
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonGuardarModal:hover:not(:disabled) {
+  background-color: #e66a25;
+}
+
+.botonGuardarModal:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  color: #888;
 }
