@@ -21,6 +21,16 @@ const REGIONES_CHILE: Record<string, string[]> = {
   "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir", "Cabo de Hornos"]
 };
 
+const ETIQUETAS_DISPONIBLES = [
+  'Fenotipo sanguíneo raro',
+  'Donación altruista',
+  'Grupo sanguíneo de interés',
+  'Donante derivado o referido',
+  'Donante corporativo',
+  'Donante de plaquetas',
+  'Donante de plasma',
+];
+
 const FENOTIPOS_EXTENDIDOS = [
   'D', 'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb', 
   'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub'
@@ -33,6 +43,13 @@ export function NuevoDonantePage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [valoresFenotipos, setValoresFenotipos] = useState<Record<string, string>>({});
+  const [etiquetasSeleccionadas, setEtiquetasSeleccionadas] = useState<string[]>([]);
+
+  const toggleEtiqueta = (etiqueta: string) => {
+    setEtiquetasSeleccionadas(prev =>
+      prev.includes(etiqueta) ? prev.filter(e => e !== etiqueta) : [...prev, etiqueta]
+    );
+  };
 
   const handleCambioFenotipo = (fenotipo: string, valor: string) => {
     setValoresFenotipos(prev => ({ ...prev, [fenotipo]: valor }));
@@ -168,6 +185,23 @@ export function NuevoDonantePage() {
         </div>
 
         <div className={styles.panelDerecho} style={{ textAlign: 'left', justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>
+
+          <div className={styles.grupoInput}>
+            <label className={styles.label}>Etiquetas del donante</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              {ETIQUETAS_DISPONIBLES.map(etiqueta => (
+                <label key={etiqueta} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={etiquetasSeleccionadas.includes(etiqueta)}
+                    onChange={() => toggleEtiqueta(etiqueta)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  {etiqueta}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className={styles.grupoInput}>
             <label className={styles.label}>Observaciones / Comentarios</label>

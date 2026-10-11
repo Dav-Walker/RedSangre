@@ -6,6 +6,7 @@ import styles from './DonantesListPage.module.css';
 import { supabase } from '../../utils/supabase';
 
 interface Donante {
+  id: string;
   codigo_donante: string;
   rut: string;
   nombre: string;
@@ -20,6 +21,15 @@ interface Donante {
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 const OPCIONES_POR_PAGINA = [10, 25, 50, 100];
+const ETIQUETAS_DISPONIBLES = [
+  'Fenotipo sanguíneo raro',
+  'Donación altruista',
+  'Grupo sanguíneo de interés',
+  'Donante derivado o referido',
+  'Donante corporativo',
+  'Donante de plaquetas',
+  'Donante de plasma',
+];
 
 function calcularUltimaDonacion(fecha: string | null): string {
   if (!fecha) return '-';
@@ -37,6 +47,7 @@ export function DonantesListPage() {
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [filtroFenotipo, setFiltroFenotipo] = useState('');
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paginaActual, setPaginaActual] = useState(1);
@@ -49,9 +60,19 @@ export function DonantesListPage() {
     setCargando(true);
     setError(null);
 
+    // Si hay filtro por etiqueta de texto libre, primero obtenemos los IDs desde etiqueta_donante
+    let idsConEtiqueta: string[] | null = null;
+    if (filtroEtiqueta && filtroEtiqueta !== 'Fenotipo sanguíneo raro' && filtroEtiqueta !== 'Donante de plaquetas') {
+      const { data: etiquetaData } = await supabase!
+        .from('etiqueta_donante')
+        .select('donante_id')
+        .ilike('etiqueta', `%${filtroEtiqueta}%`);
+      idsConEtiqueta = (etiquetaData || []).map((e: { donante_id: string }) => e.donante_id);
+    }
+
     let query = supabase!
       .from('donante')
-      .select('codigo_donante, rut, nombre, apellido, grupo_sanguineo, fenotipo, fenotipo_raro, frecuente_plaquetas, fecha_ultima_donacion, observaciones', { count: 'exact' })
+      .select('id, codigo_donante, rut, nombre, apellido, grupo_sanguineo, fenotipo, fenotipo_raro, frecuente_plaquetas, fecha_ultima_donacion, observaciones', { count: 'exact' })
       .order('codigo_donante', { ascending: false });
 
     if (filtroGrupo) query = query.eq('grupo_sanguineo', filtroGrupo);
@@ -60,6 +81,17 @@ export function DonantesListPage() {
       query = query.or(
         `nombre.ilike.%${textoBusqueda}%,apellido.ilike.%${textoBusqueda}%,rut.ilike.%${textoBusqueda}%`
       );
+    }
+    if (filtroEtiqueta === 'Fenotipo sanguíneo raro') query = query.eq('fenotipo_raro', true);
+    else if (filtroEtiqueta === 'Donante de plaquetas') query = query.eq('frecuente_plaquetas', true);
+    else if (idsConEtiqueta !== null) {
+      if (idsConEtiqueta.length === 0) {
+        setDonantes([]);
+        setTotalDonantes(0);
+        setCargando(false);
+        return;
+      }
+      query = query.in('id', idsConEtiqueta);
     }
 
     const from = (paginaActual - 1) * porPagina;
@@ -75,7 +107,7 @@ export function DonantesListPage() {
       setTotalDonantes(count || 0);
     }
     setCargando(false);
-  }, [paginaActual, porPagina, filtroGrupo, filtroFenotipo, textoBusqueda]);
+  }, [paginaActual, porPagina, filtroGrupo, filtroFenotipo, filtroEtiqueta, textoBusqueda]);
 
   useEffect(() => {
     cargarDonantes();
@@ -90,6 +122,7 @@ export function DonantesListPage() {
     setTextoBusqueda('');
     setFiltroGrupo('');
     setFiltroFenotipo('');
+    setFiltroEtiqueta('');
     setPaginaActual(1);
   };
 
@@ -137,7 +170,16 @@ export function DonantesListPage() {
           style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', minWidth: '220px' }}
         />
 
-        {(filtroGrupo || filtroFenotipo || textoBusqueda) && (
+        <select
+          value={filtroEtiqueta}
+          onChange={(e) => { setFiltroEtiqueta(e.target.value); setPaginaActual(1); }}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+        >
+          <option value="">Todas las etiquetas</option>
+          {ETIQUETAS_DISPONIBLES.map(e => <option key={e} value={e}>{e}</option>)}
+        </select>
+
+        {(filtroGrupo || filtroFenotipo || filtroEtiqueta || textoBusqueda) && (
           <button
             onClick={handleLimpiarFiltros}
             style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', fontSize: '13px' }}
