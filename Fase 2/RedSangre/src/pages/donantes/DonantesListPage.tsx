@@ -15,6 +15,7 @@ interface Donante {
   fenotipo_raro: boolean;
   frecuente_plaquetas: boolean;
   fecha_ultima_donacion: string | null;
+  observaciones: string | null;
 }
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
@@ -50,7 +51,7 @@ export function DonantesListPage() {
 
     let query = supabase!
       .from('donante')
-      .select('codigo_donante, rut, nombre, apellido, grupo_sanguineo, fenotipo, fenotipo_raro, frecuente_plaquetas, fecha_ultima_donacion', { count: 'exact' })
+      .select('codigo_donante, rut, nombre, apellido, grupo_sanguineo, fenotipo, fenotipo_raro, frecuente_plaquetas, fecha_ultima_donacion, observaciones', { count: 'exact' })
       .order('codigo_donante', { ascending: false });
 
     if (filtroGrupo) query = query.eq('grupo_sanguineo', filtroGrupo);
@@ -164,13 +165,14 @@ export function DonantesListPage() {
               <th>Fenotipo</th>
               <th>Etiqueta</th>
               <th>Última donación</th>
+              <th>Comentarios</th>
             </tr>
           </thead>
           <tbody>
             {cargando ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#aaa' }}>Cargando donantes...</td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#aaa' }}>Cargando donantes...</td></tr>
             ) : donantes.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#aaa' }}>No se encontraron donantes</td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#aaa' }}>No se encontraron donantes</td></tr>
             ) : (
               donantes.map((donante, index) => {
                 const etiqueta = donante.fenotipo_raro ? 'Fenotipo raro' : donante.frecuente_plaquetas ? 'Plaquetas' : null;
@@ -194,6 +196,10 @@ export function DonantesListPage() {
                       )}
                     </td>
                     <td>{calcularUltimaDonacion(donante.fecha_ultima_donacion)}</td>
+                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: donante.observaciones ? '#333' : '#aaa' }}
+                        title={donante.observaciones || ''}>
+                      {donante.observaciones || '-'}
+                    </td>
                   </tr>
                 );
               })

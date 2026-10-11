@@ -168,8 +168,18 @@ export function NuevoDonantePage() {
         </div>
 
         <div className={styles.panelDerecho} style={{ textAlign: 'left', justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>
-          
-          <h3 className={styles.tituloConsentimiento} style={{ marginTop: 0 }}>Consentimiento del donante</h3>
+
+          <div className={styles.grupoInput}>
+            <label className={styles.label}>Observaciones / Comentarios</label>
+            <textarea
+              className={styles.input}
+              placeholder="Ej: Donó sin problemas, se desmayó brevemente, requirió hidratación..."
+              rows={4}
+              style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '14px', padding: '10px' }}
+            />
+          </div>
+
+          <h3 className={styles.tituloConsentimiento}>Consentimiento del donante</h3>
           
           <div className={styles.checkboxGroup}>
             <input type="checkbox" className={styles.checkbox} id="ck1" />
