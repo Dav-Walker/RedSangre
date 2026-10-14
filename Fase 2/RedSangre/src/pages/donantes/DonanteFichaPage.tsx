@@ -12,6 +12,7 @@ interface DonanteDetalle {
   nombre: string;
   apellido: string;
   rut: string;
+  sexo?: string; // <--- Agregamos sexo para la regla médica
   correo: string | null;
   telefono: string | null;
   grupo_sanguineo: string;
@@ -128,7 +129,6 @@ export function DonanteFichaPage() {
       return;
     }
 
-    // Si el consentimiento cambió, insertar nueva fila (tabla inmutable)
     if (consentimientoEdit && (
       consentimientoEdit.acepta_cookies !== consentimiento?.acepta_cookies ||
       consentimientoEdit.autoriza_contacto !== consentimiento?.autoriza_contacto
@@ -173,10 +173,30 @@ export function DonanteFichaPage() {
 
   const handleRegistrarDonacion = async () => {
     if (!donante) return;
-    setRegistrandoDonacion(true);
     setError(null);
 
-    // INSERT en tabla donacion
+    // ==========================================
+    // REGLA MÉDICA DE INTERVALO DE DONACIÓN
+    // ==========================================
+    if (donante.fecha_ultima_donacion) {
+      const ultimaDonacion = new Date(donante.fecha_ultima_donacion);
+      const nuevaDonacion = new Date(fechaDonacion);
+      
+      // Hombres: cada 3 meses | Mujeres o No especifica: cada 4 meses
+      const mesesRequeridos = donante.sexo === 'Masculino' ? 3 : 4;
+      
+      // Calculamos la fecha mínima permitida sumando los meses requeridos a la última donación
+      const fechaPermitida = new Date(ultimaDonacion);
+      fechaPermitida.setMonth(fechaPermitida.getMonth() + mesesRequeridos);
+
+      if (nuevaDonacion < fechaPermitida) {
+        setError(`No se puede registrar la donación. Según el sexo (${donante.sexo || 'No especifica'}), debe esperar un intervalo mínimo de ${mesesRequeridos} meses entre donaciones (Aún debe esperar hasta el ${fechaPermitida.toLocaleDateString('es-CL')}).`);
+        return;
+      }
+    }
+
+    setRegistrandoDonacion(true);
+
     const { error: donacionErr } = await supabase!
       .from('donacion')
       .insert({
@@ -194,7 +214,6 @@ export function DonanteFichaPage() {
       return;
     }
 
-    // Actualizar donante: fecha_ultima_donacion y reaccion_adversa_previa si aplica
     const actualizacionDonante: Record<string, unknown> = { fecha_ultima_donacion: fechaDonacion };
     if (huboReaccion) actualizacionDonante.reaccion_adversa_previa = true;
 
@@ -222,11 +241,6 @@ export function DonanteFichaPage() {
 
   if (cargando) return <p style={{ textAlign: 'center', padding: '40px' }}>Cargando donante...</p>;
   if (!donante) return <p style={{ textAlign: 'center', padding: '40px', color: 'red' }}>{error ?? 'No se encontró el donante.'}</p>;
-
-  const etiquetas = [
-    ...(donante.fenotipo_raro ? [{ texto: 'Fenotipo raro', color: 'morado' }] : []),
-    ...(donante.frecuente_plaquetas ? [{ texto: 'Plaquetas', color: 'azul' }] : []),
-  ];
 
   return (
     <div className={styles.contenedor}>

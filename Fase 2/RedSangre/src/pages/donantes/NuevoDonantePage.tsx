@@ -46,6 +46,7 @@ export function NuevoDonantePage() {
     nombre: '',
     apellido: '',
     correo: '',
+    telefono: '', // <--- NUEVO CAMPO TELÉFONO
     rut: '',
     sexo: '',
     region: '',
@@ -105,6 +106,13 @@ export function NuevoDonantePage() {
       setError('La conexión a la base de datos no está configurada.');
       return;
     }
+
+    // VALIDACIÓN ESTRICTA DE COOKIES
+    if (!consentCookies) {
+      setError('Debe aceptar la política de cookies y tratamiento de datos para registrar al donante.');
+      return;
+    }
+
     const camposFaltantes = [];
     if (!form.nombre.trim()) camposFaltantes.push('Nombre');
     if (!form.apellido.trim()) camposFaltantes.push('Apellido');
@@ -132,6 +140,7 @@ export function NuevoDonantePage() {
           nombre: form.nombre.trim(),
           apellido: form.apellido.trim(),
           correo: form.correo.trim() || null,
+          telefono: form.telefono.trim() || null, // <--- GUARDAMOS TELÉFONO (asegúrate de que exista la columna en tu BD o adáptalo si se llama distinto)
           rut: form.rut.trim(),
           grupo_sanguineo: form.grupoSanguineo,
           fenotipo: fenotipoTexto || null,
@@ -232,6 +241,19 @@ export function NuevoDonantePage() {
               className={styles.input}
               placeholder="ejemplo@correo.com"
               value={form.correo}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* NUEVO CAMPO: TELÉFONO */}
+          <div className={styles.grupoInput}>
+            <label className={styles.label}>Número telefónico</label>
+            <input
+              type="tel"
+              name="telefono"
+              className={styles.input}
+              placeholder="+56 9 1234 5678"
+              value={form.telefono}
               onChange={handleChange}
             />
           </div>
@@ -340,9 +362,9 @@ export function NuevoDonantePage() {
                 <input
                   type="text"
                   className={styles.select}
-                  style={{ cursor: 'pointer', caretColor: 'transparent', color: '#333' }}
+                  style={{ cursor: 'pointer', caretColor: 'transparent', color: '#333', width: '100%', boxSizing: 'border-box' }}
                   readOnly
-                  value={estanTodosCompletos ? fenotipoTexto : 'Haga clic para definir...'}
+                  value={estanTodosCompletos ? fenotipoTexto : 'Seleccionar...'}
                 />
                 <div className={styles.selectIcon}>▼</div>
               </div>
@@ -394,7 +416,7 @@ export function NuevoDonantePage() {
               onChange={e => setConsentCookies(e.target.checked)}
             />
             <label htmlFor="ck1" className={styles.checkboxLabel}>
-              Acepta el uso de cookies y el tratamiento de datos según la política del sistema
+              Acepta el uso de cookies y el tratamiento de datos según la política del sistema <span className={styles.requerido}>*</span>
             </label>
           </div>
 
