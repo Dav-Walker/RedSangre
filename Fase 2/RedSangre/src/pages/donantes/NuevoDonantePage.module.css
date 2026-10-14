@@ -97,6 +97,7 @@
 
 .select {
   width: 100%;
+  box-sizing: border-box;
   padding: 12px 50px 12px 15px; /* Los 50px dejan espacio para que el texto no se meta debajo del icono gris */
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -182,6 +183,16 @@
   line-height: 1.4;
 }
 
+.mensajeError {
+  background-color: #fff0f0;
+  border: 1px solid #e74c3c;
+  color: #c0392b;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
 .botonGuardar {
   background-color: #bb4442; /* El rojo ocre de tu mockup */
   color: white;
@@ -196,8 +207,13 @@
   width: 100%;
 }
 
-.botonGuardar:hover {
+.botonGuardar:hover:not(:disabled) {
   background-color: #9a3533;
+}
+
+.botonGuardar:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 
 /* ========================================= */

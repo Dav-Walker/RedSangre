@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../utils/supabase';
+import { useAuth } from '../../contexts/useAuth';
 import styles from './NuevoDonantePage.module.css';
 
 const REGIONES_CHILE: Record<string, string[]> = {
@@ -32,18 +34,46 @@ const ETIQUETAS_DISPONIBLES = [
 ];
 
 const FENOTIPOS_EXTENDIDOS = [
-  'D', 'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb', 
+  'D', 'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb',
   'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub'
 ];
 
 export function NuevoDonantePage() {
   const navigate = useNavigate();
-  const [regionSeleccionada, setRegionSeleccionada] = useState('');
-  const comunasDisponibles = regionSeleccionada ? REGIONES_CHILE[regionSeleccionada] : [];
+  const { user } = useAuth();
+
+  const [form, setForm] = useState({
+    nombre: '',
+    apellido: '',
+    correo: '',
+    rut: '',
+    sexo: '',
+    region: '',
+    comuna: '',
+    grupoSanguineo: '',
+    observaciones: '',
+  });
+
+  const comunasDisponibles = form.region ? (REGIONES_CHILE[form.region] ?? []) : [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [valoresFenotipos, setValoresFenotipos] = useState<Record<string, string>>({});
   const [etiquetasSeleccionadas, setEtiquetasSeleccionadas] = useState<string[]>([]);
+  const [consentCookies, setConsentCookies] = useState(false);
+  const [consentContacto, setConsentContacto] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'region' ? { comuna: '' } : {}),
+    }));
+  };
 
   const toggleEtiqueta = (etiqueta: string) => {
     setEtiquetasSeleccionadas(prev =>
@@ -55,17 +85,95 @@ export function NuevoDonantePage() {
     setValoresFenotipos(prev => ({ ...prev, [fenotipo]: valor }));
   };
 
-  const estanTodosCompletos = FENOTIPOS_EXTENDIDOS.every(f => valoresFenotipos[f] && valoresFenotipos[f] !== "");
+  const estanTodosCompletos = FENOTIPOS_EXTENDIDOS.every(
+    f => valoresFenotipos[f] && valoresFenotipos[f] !== ''
+  );
 
-  // Lógica para emparejar los 19 fenotipos (Antígeno 1 y Antígeno 2)
-  const filasAgrupadas = [];
+  const fenotipoTexto = estanTodosCompletos
+    ? FENOTIPOS_EXTENDIDOS.map(f =>
+        `${f}${valoresFenotipos[f] === 'POSITIVO' ? '+' : '-'}`
+      ).join('/')
+    : '';
+
+  const filasAgrupadas: (string | undefined)[][] = [];
   for (let i = 0; i < FENOTIPOS_EXTENDIDOS.length; i += 2) {
     filasAgrupadas.push([FENOTIPOS_EXTENDIDOS[i], FENOTIPOS_EXTENDIDOS[i + 1]]);
   }
 
+  const handleGuardar = async () => {
+    if (!supabase) {
+      setError('La conexión a la base de datos no está configurada.');
+      return;
+    }
+    if (!form.nombre.trim() || !form.apellido.trim() || !form.rut.trim() || !form.grupoSanguineo) {
+      setError('Nombre, apellido, RUT y grupo sanguíneo son obligatorios.');
+      return;
+    }
+    if (!estanTodosCompletos) {
+      setError('Debe definir todos los fenotipos antes de guardar al donante.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data: donante, error: donanteError } = await supabase
+        .from('donante')
+        .insert({
+          nombre: form.nombre.trim(),
+          apellido: form.apellido.trim(),
+          correo: form.correo.trim() || null,
+          rut: form.rut.trim(),
+          grupo_sanguineo: form.grupoSanguineo,
+          fenotipo: fenotipoTexto || null,
+          fenotipo_raro: etiquetasSeleccionadas.includes('Fenotipo sanguíneo raro'),
+          frecuente_plaquetas: etiquetasSeleccionadas.includes('Donante de plaquetas'),
+          observaciones: form.observaciones.trim() || null,
+          comuna: form.comuna || null,
+          reaccion_adversa_previa: false,
+          sincronizado_registro_global: false,
+        })
+        .select('id')
+        .single();
+
+      if (donanteError) throw donanteError;
+
+      const donanteId = donante.id;
+
+      const { error: consentError } = await supabase
+        .from('consentimiento')
+        .insert({
+          donante_id: donanteId,
+          acepta_cookies: consentCookies,
+          fecha_cookies: consentCookies ? new Date().toISOString() : null,
+          autoriza_contacto: consentContacto,
+          fecha_autoriza_contacto: consentContacto ? new Date().toISOString() : null,
+          registrado_por: user?.id ?? null,
+        });
+
+      if (consentError) throw consentError;
+
+      if (etiquetasSeleccionadas.length > 0) {
+        const { error: etiquetasError } = await supabase
+          .from('etiqueta_donante')
+          .insert(
+            etiquetasSeleccionadas.map(e => ({ donante_id: donanteId, etiqueta: e }))
+          );
+        if (etiquetasError) throw etiquetasError;
+      }
+
+      navigate('/donantes');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al guardar el donante.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.contenedor}>
-      
+
       <div className={styles.headerSuperior}>
         <button className={styles.botonVolver} onClick={() => navigate('/donantes')}>
           ← Volver a donantes
@@ -74,35 +182,74 @@ export function NuevoDonantePage() {
 
       <h1 className={styles.tituloPrincipal}>Nuevo donante</h1>
 
+      {error && (
+        <div className={styles.mensajeError}>
+          {error}
+        </div>
+      )}
+
       <div className={styles.layoutPrincipal}>
-        
+
         <div className={styles.panelIzquierdo} style={{ textAlign: 'left' }}>
-          
+
           <div className={styles.grupoInput}>
             <label className={styles.label}>Nombre</label>
-            <input type="text" className={styles.input} placeholder="Ej: María" />
+            <input
+              type="text"
+              name="nombre"
+              className={styles.input}
+              placeholder="Ej: María"
+              value={form.nombre}
+              onChange={handleChange}
+            />
           </div>
 
           <div className={styles.grupoInput}>
             <label className={styles.label}>Apellido</label>
-            <input type="text" className={styles.input} placeholder="Ej: Fernández Soto" />
+            <input
+              type="text"
+              name="apellido"
+              className={styles.input}
+              placeholder="Ej: Fernández Soto"
+              value={form.apellido}
+              onChange={handleChange}
+            />
           </div>
 
           <div className={styles.grupoInput}>
             <label className={styles.label}>Correo electrónico</label>
-            <input type="email" className={styles.input} placeholder="ejemplo@correo.com" />
+            <input
+              type="email"
+              name="correo"
+              className={styles.input}
+              placeholder="ejemplo@correo.com"
+              value={form.correo}
+              onChange={handleChange}
+            />
           </div>
 
           <div className={styles.filaFormulario}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>RUT</label>
-              <input type="text" className={styles.input} placeholder="12345678-9" />
+              <input
+                type="text"
+                name="rut"
+                className={styles.input}
+                placeholder="12345678-9"
+                value={form.rut}
+                onChange={handleChange}
+              />
             </div>
-            
+
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Sexo</label>
               <div className={styles.selectContenedor}>
-                <select className={styles.select}>
+                <select
+                  name="sexo"
+                  className={styles.select}
+                  value={form.sexo}
+                  onChange={handleChange}
+                >
                   <option value="">Seleccionar...</option>
                   <option value="Femenino">Femenino</option>
                   <option value="Masculino">Masculino</option>
@@ -117,10 +264,11 @@ export function NuevoDonantePage() {
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Región</label>
               <div className={styles.selectContenedor}>
-                <select 
+                <select
+                  name="region"
                   className={styles.select}
-                  value={regionSeleccionada}
-                  onChange={(e) => setRegionSeleccionada(e.target.value)}
+                  value={form.region}
+                  onChange={handleChange}
                 >
                   <option value="">Seleccionar región...</option>
                   {Object.keys(REGIONES_CHILE).map((region) => (
@@ -130,11 +278,17 @@ export function NuevoDonantePage() {
                 <div className={styles.selectIcon}>▼</div>
               </div>
             </div>
-            
+
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Comuna</label>
               <div className={styles.selectContenedor}>
-                <select className={styles.select} disabled={!regionSeleccionada}>
+                <select
+                  name="comuna"
+                  className={styles.select}
+                  value={form.comuna}
+                  onChange={handleChange}
+                  disabled={!form.region}
+                >
                   <option value="">Seleccionar comuna...</option>
                   {comunasDisponibles.map((comuna) => (
                     <option key={comuna} value={comuna}>{comuna}</option>
@@ -149,7 +303,12 @@ export function NuevoDonantePage() {
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Grupo sanguíneo</label>
               <div className={styles.selectContenedor}>
-                <select className={styles.select}>
+                <select
+                  name="grupoSanguineo"
+                  className={styles.select}
+                  value={form.grupoSanguineo}
+                  onChange={handleChange}
+                >
                   <option value="">Seleccionar...</option>
                   <option value="O-">O (-)</option>
                   <option value="O+">O (+)</option>
@@ -163,19 +322,19 @@ export function NuevoDonantePage() {
                 <div className={styles.selectIcon}>▼</div>
               </div>
             </div>
-            
+
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
               <label className={styles.label}>Fenotipo</label>
-              <div 
-                className={styles.selectContenedor} 
+              <div
+                className={styles.selectContenedor}
                 onClick={() => setIsModalOpen(true)}
               >
-                <input 
-                  type="text" 
-                  className={styles.select} 
+                <input
+                  type="text"
+                  className={styles.select}
                   style={{ cursor: 'pointer', caretColor: 'transparent', color: '#333' }}
-                  readOnly 
-                  value={estanTodosCompletos ? "DcE/dce" : "Haga clic para definir..."} 
+                  readOnly
+                  value={estanTodosCompletos ? fenotipoTexto : 'Haga clic para definir...'}
                 />
                 <div className={styles.selectIcon}>▼</div>
               </div>
@@ -206,53 +365,59 @@ export function NuevoDonantePage() {
           <div className={styles.grupoInput}>
             <label className={styles.label}>Observaciones / Comentarios</label>
             <textarea
+              name="observaciones"
               className={styles.input}
               placeholder="Ej: Donó sin problemas, se desmayó brevemente, requirió hidratación..."
               rows={4}
+              value={form.observaciones}
+              onChange={handleChange}
               style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '14px', padding: '10px' }}
             />
           </div>
 
           <h3 className={styles.tituloConsentimiento}>Consentimiento del donante</h3>
-          
+
           <div className={styles.checkboxGroup}>
-            <input type="checkbox" className={styles.checkbox} id="ck1" />
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              id="ck1"
+              checked={consentCookies}
+              onChange={e => setConsentCookies(e.target.checked)}
+            />
             <label htmlFor="ck1" className={styles.checkboxLabel}>
               Acepta el uso de cookies y el tratamiento de datos según la política del sistema
             </label>
           </div>
 
           <div className={styles.checkboxGroup}>
-            <input type="checkbox" className={styles.checkbox} id="ck2" />
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              id="ck2"
+              checked={consentContacto}
+              onChange={e => setConsentContacto(e.target.checked)}
+            />
             <label htmlFor="ck2" className={styles.checkboxLabel}>
               Autoriza a ser contactado telefónicamente ante una necesidad de transfusión compatible
             </label>
           </div>
 
-          <button 
+          <button
             className={styles.botonGuardar}
             style={{ marginTop: '30px' }}
-            onClick={() => {
-              if (!estanTodosCompletos) {
-                alert('Debe definir los fenotipos antes de guardar al donante.');
-                return;
-              }
-              alert('¡Donante guardado exitosamente!');
-              navigate('/donantes');
-            }}
+            disabled={loading}
+            onClick={handleGuardar}
           >
-            Finalizar y guardar donante
+            {loading ? 'Guardando...' : 'Finalizar y guardar donante'}
           </button>
         </div>
       </div>
 
-      {/* ========================================= */}
-      {/* VENTANA EMERGENTE (COMPACTA SIN SCROLL)   */}
-      {/* ========================================= */}
       {isModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContenido}>
-            
+
             <div className={styles.modalCabecera}>
               <h2>Tipificación Extendida</h2>
             </div>
@@ -271,10 +436,10 @@ export function NuevoDonantePage() {
                   <tr key={index}>
                     <td className={styles.nombreAntigeno}>{par[0]}</td>
                     <td>
-                      <select 
-                        className={styles.selectCompacto} 
-                        value={valoresFenotipos[par[0]] || ""}
-                        onChange={(e) => handleCambioFenotipo(par[0], e.target.value)}
+                      <select
+                        className={styles.selectCompacto}
+                        value={valoresFenotipos[par[0]!] || ''}
+                        onChange={(e) => handleCambioFenotipo(par[0]!, e.target.value)}
                       >
                         <option value=""></option>
                         <option value="POSITIVO">POSITIVO (+)</option>
@@ -286,10 +451,10 @@ export function NuevoDonantePage() {
                       <>
                         <td className={styles.nombreAntigeno}>{par[1]}</td>
                         <td>
-                          <select 
-                            className={styles.selectCompacto} 
-                            value={valoresFenotipos[par[1]] || ""}
-                            onChange={(e) => handleCambioFenotipo(par[1], e.target.value)}
+                          <select
+                            className={styles.selectCompacto}
+                            value={valoresFenotipos[par[1]] || ''}
+                            onChange={(e) => handleCambioFenotipo(par[1]!, e.target.value)}
                           >
                             <option value=""></option>
                             <option value="POSITIVO">POSITIVO (+)</option>
@@ -306,7 +471,7 @@ export function NuevoDonantePage() {
             </table>
 
             <div className={styles.modalPie}>
-              <button 
+              <button
                 className={styles.botonGuardarModal}
                 disabled={!estanTodosCompletos}
                 onClick={() => setIsModalOpen(false)}
