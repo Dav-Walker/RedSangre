@@ -105,8 +105,16 @@ export function NuevoDonantePage() {
       setError('La conexión a la base de datos no está configurada.');
       return;
     }
-    if (!form.nombre.trim() || !form.apellido.trim() || !form.rut.trim() || !form.grupoSanguineo) {
-      setError('Nombre, apellido, RUT y grupo sanguíneo son obligatorios.');
+    const camposFaltantes = [];
+    if (!form.nombre.trim()) camposFaltantes.push('Nombre');
+    if (!form.apellido.trim()) camposFaltantes.push('Apellido');
+    if (!form.rut.trim()) camposFaltantes.push('RUT');
+    if (!form.sexo) camposFaltantes.push('Sexo');
+    if (!form.region) camposFaltantes.push('Región');
+    if (!form.comuna) camposFaltantes.push('Comuna');
+    if (!form.grupoSanguineo) camposFaltantes.push('Grupo Sanguíneo');
+    if (camposFaltantes.length > 0) {
+      setError(`Campos obligatorios incompletos: ${camposFaltantes.join(', ')}.`);
       return;
     }
     if (!estanTodosCompletos) {
@@ -193,7 +201,7 @@ export function NuevoDonantePage() {
         <div className={styles.panelIzquierdo} style={{ textAlign: 'left' }}>
 
           <div className={styles.grupoInput}>
-            <label className={styles.label}>Nombre</label>
+            <label className={styles.label}>Nombre <span className={styles.requerido}>*</span></label>
             <input
               type="text"
               name="nombre"
@@ -205,7 +213,7 @@ export function NuevoDonantePage() {
           </div>
 
           <div className={styles.grupoInput}>
-            <label className={styles.label}>Apellido</label>
+            <label className={styles.label}>Apellido <span className={styles.requerido}>*</span></label>
             <input
               type="text"
               name="apellido"
@@ -230,7 +238,7 @@ export function NuevoDonantePage() {
 
           <div className={styles.filaFormulario}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>RUT</label>
+              <label className={styles.label}>RUT <span className={styles.requerido}>*</span></label>
               <input
                 type="text"
                 name="rut"
@@ -242,7 +250,7 @@ export function NuevoDonantePage() {
             </div>
 
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Sexo</label>
+              <label className={styles.label}>Sexo <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
                   name="sexo"
@@ -262,7 +270,7 @@ export function NuevoDonantePage() {
 
           <div className={styles.filaFormulario}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Región</label>
+              <label className={styles.label}>Región <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
                   name="region"
@@ -280,7 +288,7 @@ export function NuevoDonantePage() {
             </div>
 
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Comuna</label>
+              <label className={styles.label}>Comuna <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
                   name="comuna"
@@ -301,7 +309,7 @@ export function NuevoDonantePage() {
 
           <div className={styles.filaFormulario} style={{ marginTop: '15px' }}>
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Grupo sanguíneo</label>
+              <label className={styles.label}>Grupo sanguíneo <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
                   name="grupoSanguineo"

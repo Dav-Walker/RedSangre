@@ -79,6 +79,11 @@
   font-size: 15px;
 }
 
+.requerido {
+  color: #bb4442;
+  margin-left: 2px;
+}
+
 .input {
   padding: 12px 15px;
   border: 1px solid #ddd;
