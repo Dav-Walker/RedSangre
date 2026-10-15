@@ -250,45 +250,45 @@ export function DonantesListPage() {
         </table>
       </div>
 
-      {/* PAGINACIÓN */}
+     {/* PAGINACIÓN */}
       {!cargando && !error && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#555' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#666' }}>
             <span>Mostrar</span>
             <select
               value={porPagina}
               onChange={(e) => { setPorPagina(Number(e.target.value)); setPaginaActual(1); }}
-              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', cursor: 'pointer', backgroundColor: '#ffffff', color: '#333333' }}
             >
               {OPCIONES_POR_PAGINA.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
             <span>por página</span>
           </div>
 
-          <span style={{ fontSize: '14px', color: '#555' }}>
-            Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong>
+          <span style={{ fontSize: '14px', color: '#666' }}>
+            Página <strong style={{ color: '#333' }}>{paginaActual}</strong> de <strong style={{ color: '#333' }}>{totalPaginas}</strong>
           </span>
 
           <div style={{ display: 'flex', gap: '6px' }}>
             <button
               onClick={() => setPaginaActual(1)}
               disabled={paginaActual === 1}
-              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ddd', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', opacity: paginaActual === 1 ? 0.4 : 1, fontSize: '14px' }}
+              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', opacity: paginaActual === 1 ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
             >«</button>
             <button
               onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
               disabled={paginaActual === 1}
-              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #ddd', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', opacity: paginaActual === 1 ? 0.4 : 1, fontSize: '14px' }}
+              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', opacity: paginaActual === 1 ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
             >‹ Anterior</button>
             <button
               onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
               disabled={paginaActual === totalPaginas}
-              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #ddd', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', opacity: paginaActual === totalPaginas ? 0.4 : 1, fontSize: '14px' }}
+              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', opacity: paginaActual === totalPaginas ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
             >Siguiente ›</button>
             <button
               onClick={() => setPaginaActual(totalPaginas)}
               disabled={paginaActual === totalPaginas}
-              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ddd', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', opacity: paginaActual === totalPaginas ? 0.4 : 1, fontSize: '14px' }}
+              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', opacity: paginaActual === totalPaginas ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
             >»</button>
           </div>
         </div>

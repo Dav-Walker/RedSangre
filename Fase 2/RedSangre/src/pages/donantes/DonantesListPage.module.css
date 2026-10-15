@@ -1,7 +1,9 @@
+/* CONTENEDOR PRINCIPAL Y CABECERA */
 .contenedor {
   padding: 20px;
-  background-color: #f5f7fa;
+  background-color: #f5f7fa !important;
   min-height: 100vh;
+  color: #333333;
 }
 
 .cabecera {
@@ -17,9 +19,27 @@
   width: 400px;
 }
 
+/* BLINDAJE PARA INPUTS Y SELECTS CONTRA EL MODO OSCURO */
+.inputBuscador,
+input[type="text"],
+input[type="search"],
+select {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border: 1px solid #ccc !important;
+}
+
+/* BLINDAJE EXCLUSIVO PARA LOS BOTONES DE PAGINACIÓN DE ABAJO */
+button.botonPaginacion,
+.paginacion button {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+  border: 1px solid #ccc !important;
+}
+
 .inputBuscador {
   width: 100%;
-  padding: 12px 40px 12px 15px; /* Los 40px de la derecha le hacen espacio a la lupa */
+  padding: 12px 40px 12px 15px;
   border-radius: 8px;
   border: 1px solid #ccc;
   font-size: 15px;
@@ -34,12 +54,12 @@
   color: #999;
   width: 20px;
   height: 20px;
-  cursor: pointer; /* ¡Ahora es un botón! */
+  cursor: pointer;
   transition: color 0.2s;
 }
 
 .iconoLupa:hover {
-  color: #00a0df; /* Se pinta celeste al pasar el mouse */
+  color: #00a0df;
 }
 
 /* TABLA PRINCIPAL */

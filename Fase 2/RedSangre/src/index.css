@@ -64,6 +64,11 @@
 
 body {
   margin: 0;
+  /* BLINDAJE GLOBAL CONTRA EL MODO OSCURO DEL SISTEMA */
+html, body, #root {
+  background-color: #f5f7fa !important;
+  color: #333333 !important;
+}
 }
 
 h1,

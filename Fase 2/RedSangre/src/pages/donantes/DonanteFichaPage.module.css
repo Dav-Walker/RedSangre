@@ -90,7 +90,7 @@
   margin-top: 30px;
 }
 
-/* ESTILOS PARA EL MODO EDICIÓN */
+/* ESTILOS PARA EL MODO EDICIÓN (FORZANDO FONDO BLANCO CONTRA MODO OSCURO) */
 .inputEdit {
   flex: 2;
   padding: 8px 12px;
@@ -100,6 +100,8 @@
   width: 100%;
   box-sizing: border-box;
   font-family: inherit;
+  background-color: #ffffff !important;
+  color: #333333 !important;
 }
 
 .selectEdit {
@@ -110,6 +112,8 @@
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
+  background-color: #ffffff !important;
+  color: #333333 !important;
 }
 
 .botonesPie {
@@ -218,6 +222,8 @@
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
+  background-color: #ffffff !important;
+  color: #333333 !important;
 }
 
 .toggleGrupo {
@@ -268,7 +274,8 @@
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
-  background-color: white;
+  background-color: #ffffff !important;
+  color: #333333 !important;
 }
 
 .botonesPanel {
@@ -314,4 +321,3 @@
   background-color: #cccccc;
   cursor: not-allowed;
 }
-
