@@ -34,7 +34,7 @@ const ETIQUETAS_DISPONIBLES = [
 ];
 
 const FENOTIPOS_EXTENDIDOS = [
-  'D', 'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb',
+  'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb',
   'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub'
 ];
 
@@ -59,7 +59,9 @@ export function NuevoDonantePage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [valoresFenotipos, setValoresFenotipos] = useState<Record<string, string>>({});
+  const [valoresFenotiposBackup, setValoresFenotiposBackup] = useState<Record<string, string>>({});
   const [etiquetasSeleccionadas, setEtiquetasSeleccionadas] = useState<string[]>([]);
+  const [reaccionAdversaPrevia, setReaccionAdversaPrevia] = useState(false);
   const [consentCookies, setConsentCookies] = useState(false);
   const [consentContacto, setConsentContacto] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -86,15 +88,14 @@ export function NuevoDonantePage() {
     setValoresFenotipos(prev => ({ ...prev, [fenotipo]: valor }));
   };
 
-  const estanTodosCompletos = FENOTIPOS_EXTENDIDOS.every(
+  const hayAlMenosUnoSeleccionado = FENOTIPOS_EXTENDIDOS.some(
     f => valoresFenotipos[f] && valoresFenotipos[f] !== ''
   );
 
-  const fenotipoTexto = estanTodosCompletos
-    ? FENOTIPOS_EXTENDIDOS.map(f =>
-        `${f}${valoresFenotipos[f] === 'POSITIVO' ? '+' : '-'}`
-      ).join('/')
-    : '';
+  const fenotipoTexto = FENOTIPOS_EXTENDIDOS
+    .filter(f => valoresFenotipos[f] && valoresFenotipos[f] !== '')
+    .map(f => `${f}${valoresFenotipos[f] === 'POSITIVO' ? '+' : '-'}`)
+    .join('/');
 
   const filasAgrupadas: (string | undefined)[][] = [];
   for (let i = 0; i < FENOTIPOS_EXTENDIDOS.length; i += 2) {
@@ -125,8 +126,8 @@ export function NuevoDonantePage() {
       setError(`Campos obligatorios incompletos: ${camposFaltantes.join(', ')}.`);
       return;
     }
-    if (!estanTodosCompletos) {
-      setError('Debe definir todos los fenotipos antes de guardar al donante.');
+    if (!hayAlMenosUnoSeleccionado) {
+      setError('Debe seleccionar al menos un fenotipo antes de guardar al donante.');
       return;
     }
 
@@ -148,7 +149,7 @@ export function NuevoDonantePage() {
           frecuente_plaquetas: etiquetasSeleccionadas.includes('Donante de plaquetas'),
           observaciones: form.observaciones.trim() || null,
           comuna: form.comuna || null,
-          reaccion_adversa_previa: false,
+          reaccion_adversa_previa: reaccionAdversaPrevia,
           sincronizado_registro_global: false,
         })
         .select('id')
@@ -357,14 +358,14 @@ export function NuevoDonantePage() {
               <label className={styles.label}>Fenotipo</label>
               <div
                 className={styles.selectContenedor}
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setIsModalOpen(true); }}
               >
                 <input
                   type="text"
                   className={styles.select}
                   style={{ cursor: 'pointer', caretColor: 'transparent', color: '#333', width: '100%', boxSizing: 'border-box' }}
                   readOnly
-                  value={estanTodosCompletos ? fenotipoTexto : 'Seleccionar...'}
+                  value={hayAlMenosUnoSeleccionado ? fenotipoTexto : 'Seleccionar...'}
                 />
                 <div className={styles.selectIcon}>▼</div>
               </div>
@@ -403,6 +404,15 @@ export function NuevoDonantePage() {
               onChange={handleChange}
               style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '14px', padding: '10px' }}
             />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', cursor: 'pointer', fontSize: '14px', color: reaccionAdversaPrevia ? '#bb4442' : '#666' }}>
+              <input
+                type="checkbox"
+                checked={reaccionAdversaPrevia}
+                onChange={e => setReaccionAdversaPrevia(e.target.checked)}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              El donante tiene reacción adversa
+            </label>
           </div>
 
           <h3 className={styles.tituloConsentimiento}>Consentimiento del donante</h3>
@@ -502,8 +512,14 @@ export function NuevoDonantePage() {
 
             <div className={styles.modalPie}>
               <button
+                className={styles.botonCancelarModal}
+                onClick={() => { setValoresFenotipos(valoresFenotiposBackup); setIsModalOpen(false); }}
+              >
+                Cancelar
+              </button>
+              <button
                 className={styles.botonGuardarModal}
-                disabled={!estanTodosCompletos}
+                disabled={!hayAlMenosUnoSeleccionado}
                 onClick={() => setIsModalOpen(false)}
               >
                 Guardar

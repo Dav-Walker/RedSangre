@@ -159,16 +159,43 @@
   margin-bottom: 20px;
 }
 
-/* PANEL DE REGISTRO DE DONACIÓN */
-.panelDonacion {
+/* MODAL DE REGISTRO DE DONACIÓN */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContenido {
+  background-color: white;
+  border-radius: 12px;
+  padding: 28px 32px;
+  width: 500px;
+  max-width: 95%;
+  border: 2px solid #00a0df;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background-color: #f0f9ff;
-  border: 1px solid #00a0df;
-  border-radius: 8px;
-  padding: 20px 24px;
-  min-width: 480px;
+  gap: 16px;
+}
+
+.modalCabecera {
+  border-bottom: 2px solid #00a0df;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.modalCabecera h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #00a0df;
 }
 
 .filaPanelDonacion {

@@ -330,6 +330,23 @@
   margin-top: 15px;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+}
+
+.botonCancelarModal {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1px solid #ccc;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonCancelarModal:hover {
+  background-color: #e0e0e0;
 }
 
 .botonGuardarModal {

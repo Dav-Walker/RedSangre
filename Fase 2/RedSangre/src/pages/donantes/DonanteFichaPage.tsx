@@ -431,8 +431,29 @@ export function DonanteFichaPage() {
             </button>
             <Button texto={guardando ? 'Guardando...' : 'Guardar cambios'} onClick={handleGuardar} />
           </div>
-        ) : isRegistrandoDonacion ? (
-          <div className={styles.panelDonacion}>
+        ) : (
+          <div className={styles.botonesPie}>
+            <button
+              className={styles.botonDonacion}
+              onClick={() => setIsRegistrandoDonacion(true)}
+            >
+              + Registrar donación
+            </button>
+            <Button texto="Editar donante" onClick={() => {
+              setIsEditing(true);
+              setConsentimientoEdit(consentimiento ?? { acepta_cookies: false, autoriza_contacto: false });
+            }} />
+          </div>
+        )}
+      </div>
+
+      {isRegistrandoDonacion && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContenido}>
+            <div className={styles.modalCabecera}>
+              <h2>Registrar donación</h2>
+            </div>
+
             <div className={styles.filaPanelDonacion}>
               <span className={styles.labelDonacion}>Fecha de donación</span>
               <input
@@ -506,21 +527,8 @@ export function DonanteFichaPage() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className={styles.botonesPie}>
-            <button
-              className={styles.botonDonacion}
-              onClick={() => setIsRegistrandoDonacion(true)}
-            >
-              + Registrar donación
-            </button>
-            <Button texto="Editar donante" onClick={() => {
-              setIsEditing(true);
-              setConsentimientoEdit(consentimiento ?? { acepta_cookies: false, autoriza_contacto: false });
-            }} />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
