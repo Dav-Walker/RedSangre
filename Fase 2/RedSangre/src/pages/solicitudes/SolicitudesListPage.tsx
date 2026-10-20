@@ -1,27 +1,92 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
+import { supabase } from '../../utils/supabase';
 import styles from './SolicitudesListPage.module.css';
 
-const SOLICITUDES_MOCK = [
-  { id: 'S2026002', tipo: 'O (-)', fenotipo: 'dce/dce', urgencia: 'Alta', estado: 'En proceso', candidato: 'María Fernández', color: 'rojo' },
-  { id: 'S2026003', tipo: 'A +', fenotipo: 'DCe/dce', urgencia: 'Media', estado: 'Cerrada', candidato: 'Jorge Álvarez', color: 'gris' },
-];
+interface Solicitud {
+  id: string | number;
+  codigo_solicitud?: string;
+  grupo_sanguineo_requerido?: string;
+  fenotipo_requerido?: string;
+  urgencia?: string;
+  estado?: string;
+  donante_asignado_id?: string | null;
+  [key: string]: any;
+}
 
 export function SolicitudesListPage() {
   const navigate = useNavigate();
   
+  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [solicitudesFiltradas, setSolicitudesFiltradas] = useState<Solicitud[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState('');
-  const [solicitudesFiltradas, setSolicitudesFiltradas] = useState(SOLICITUDES_MOCK);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function cargarSolicitudes() {
+      setCargando(true);
+      setError(null);
+
+      const { data, error: err } = await supabase!
+        .from('solicitud')
+        .select('*');
+
+      if (err) {
+        setError('Error al cargar las solicitudes: ' + err.message);
+        setCargando(false);
+        return;
+      }
+
+      const lista = data ?? [];
+
+    // ORDENAR: Las abiertas / en proceso primero (arriba), y las cerradas al final (abajo)
+      lista.sort((a, b) => {
+        const estA = (a.estado || '').toLowerCase();
+        const estB = (b.estado || '').toLowerCase();
+        const esCerradaA = estA.includes('cerrada') || estA.includes('completada');
+        const esCerradaB = estB.includes('cerrada') || estB.includes('completada');
+
+        if (esCerradaA === esCerradaB) return 0;
+        return esCerradaA ? -1 : 1; // Si A está cerrada, va antes (-1) o después (1 invertido) -> Ahora las abiertas van primero
+      });  // ORDENAR: Las abiertas / en proceso primero, y las cerradas al final
+      lista.sort((a, b) => {
+        const estA = (a.estado || '').toLowerCase();
+        const estB = (b.estado || '').toLowerCase();
+        const esCerradaA = estA.includes('cerrada') || estA.includes('completada');
+        const esCerradaB = estB.includes('cerrada') || estB.includes('completada');
+
+        if (esCerradaA === esCerradaB) return 0;
+        return esCerradaA ? 1 : -1; // Si A está cerrada, va después (1)
+      });
+
+      setSolicitudes(lista);
+      setSolicitudesFiltradas(lista);
+      setCargando(false);
+    }
+
+    cargarSolicitudes();
+  }, []);
 
   const handleBuscar = () => {
-    const filtrados = SOLICITUDES_MOCK.filter((sol) => 
-      sol.id.toLowerCase().includes(textoBusqueda.toLowerCase()) ||
-      sol.tipo.toLowerCase().includes(textoBusqueda.toLowerCase()) ||
-      sol.candidato.toLowerCase().includes(textoBusqueda.toLowerCase())
-    );
+    const filtrados = solicitudes.filter((sol) => {
+      const codigoStr = String(sol.codigo_solicitud ?? '').toLowerCase();
+      const grupoStr = String(sol.grupo_sanguineo_requerido ?? '').toLowerCase();
+      const fenotipoStr = String(sol.fenotipo_requerido ?? '').toLowerCase();
+      const busqueda = textoBusqueda.toLowerCase();
+
+      return codigoStr.includes(busqueda) || grupoStr.includes(busqueda) || fenotipoStr.includes(busqueda);
+    });
     setSolicitudesFiltradas(filtrados);
+  };
+
+  const obtenerColorBadge = (estado: string) => {
+    const est = (estado || '').toLowerCase();
+    if (est.includes('proceso') || est.includes('pendiente')) return 'rojo';
+    if (est.includes('cerrada') || est.includes('completada')) return 'gris';
+    return 'azul';
   };
 
   return (
@@ -31,10 +96,20 @@ export function SolicitudesListPage() {
         <div className={styles.buscadorContenedor}>
           <input 
             type="text" 
-            placeholder="Buscar solicitud..." 
+            placeholder="Buscar por código, grupo o fenotipo..." 
             className={styles.inputBuscador}
             value={textoBusqueda}
-            onChange={(e) => setTextoBusqueda(e.target.value)}
+            onChange={(e) => {
+              setTextoBusqueda(e.target.value);
+              const busqueda = e.target.value.toLowerCase();
+              const filtrados = solicitudes.filter((sol) => {
+                const codigoStr = String(sol.codigo_solicitud ?? '').toLowerCase();
+                const grupoStr = String(sol.grupo_sanguineo_requerido ?? '').toLowerCase();
+                const fenotipoStr = String(sol.fenotipo_requerido ?? '').toLowerCase();
+                return codigoStr.includes(busqueda) || grupoStr.includes(busqueda) || fenotipoStr.includes(busqueda);
+              });
+              setSolicitudesFiltradas(filtrados);
+            }}
             onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
           />
           <svg 
@@ -49,6 +124,8 @@ export function SolicitudesListPage() {
         <Button texto="+ Nueva solicitud" onClick={() => navigate('/solicitudes/nueva')} />
       </div>
 
+      {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
+
       <div className={styles.tablaContenedor}>
         <table className={styles.tabla}>
           <thead>
@@ -62,22 +139,42 @@ export function SolicitudesListPage() {
             </tr>
           </thead>
           <tbody>
-            {solicitudesFiltradas.map((sol) => (
-              <tr 
-                key={sol.id} 
-                onClick={() => navigate('/solicitudes/' + sol.id)}
-                className={styles.fila}
-              >
-                <td>{sol.id}</td>
-                <td style={{ color: '#333', fontWeight: 'bold' }}>{sol.tipo}</td>
-                <td>{sol.fenotipo}</td>
-                <td>{sol.urgencia}</td>
-                <td style={{ textAlign: 'center' }}>
-                  <Badge texto={sol.estado} color={sol.color as any} />
+            {cargando ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                  Cargando solicitudes desde la base de datos...
                 </td>
-                <td>{sol.candidato}</td>
               </tr>
-            ))}
+            ) : solicitudesFiltradas.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                  No se encontraron solicitudes registradas.
+                </td>
+              </tr>
+            ) : (
+              solicitudesFiltradas.map((sol) => {
+                const idMostrado = sol.codigo_solicitud ?? sol.id;
+                const estadoTexto = sol.estado || 'En proceso';
+                const colorBadge = obtenerColorBadge(estadoTexto);
+
+                return (
+                  <tr 
+                    key={sol.id} 
+                    onClick={() => navigate('/solicitudes/' + idMostrado)}
+                    className={styles.fila}
+                  >
+                    <td>{idMostrado}</td>
+                    <td style={{ color: '#333', fontWeight: 'bold' }}>{sol.grupo_sanguineo_requerido || '-'}</td>
+                    <td>{sol.fenotipo_requerido || '-'}</td>
+                    <td>{sol.urgencia || '-'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <Badge texto={estadoTexto} color={colorBadge as any} />
+                    </td>
+                    <td>{sol.donante_asignado_id ? `Donante ID: ${sol.donante_asignado_id}` : 'Sin asignar'}</td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
