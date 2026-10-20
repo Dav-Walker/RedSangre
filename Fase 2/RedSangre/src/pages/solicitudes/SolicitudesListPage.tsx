@@ -42,16 +42,7 @@ export function SolicitudesListPage() {
 
       const lista = data ?? [];
 
-    // ORDENAR: Las abiertas / en proceso primero (arriba), y las cerradas al final (abajo)
-      lista.sort((a, b) => {
-        const estA = (a.estado || '').toLowerCase();
-        const estB = (b.estado || '').toLowerCase();
-        const esCerradaA = estA.includes('cerrada') || estA.includes('completada');
-        const esCerradaB = estB.includes('cerrada') || estB.includes('completada');
-
-        if (esCerradaA === esCerradaB) return 0;
-        return esCerradaA ? -1 : 1; // Si A está cerrada, va antes (-1) o después (1 invertido) -> Ahora las abiertas van primero
-      });  // ORDENAR: Las abiertas / en proceso primero, y las cerradas al final
+      // ORDENAR: Las abiertas / en proceso primero, y las cerradas al final
       lista.sort((a, b) => {
         const estA = (a.estado || '').toLowerCase();
         const estB = (b.estado || '').toLowerCase();
