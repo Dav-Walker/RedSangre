@@ -58,8 +58,8 @@ export function SolicitudDetallePage() {
     const { error: errUpdate } = await supabase!
       .from('solicitud')
       .update({ 
-        estado: 'Cerrada', 
-        fecha_cierre: fechaHoy 
+        estado: 'cerrada',
+        fecha_cierre: fechaHoy
       })
       .eq('id', solicitud.id);
 
@@ -152,6 +152,20 @@ export function SolicitudDetallePage() {
             <span className={styles.etiquetaDato}>Fecha Agendada</span>
             <span className={styles.valorDato}>
               {solicitud.fecha_agendada ? new Date(solicitud.fecha_agendada).toLocaleDateString('es-CL') : 'Sin agendar'}
+            </span>
+          </div>
+
+          <div className={styles.filaDatos}>
+            <span className={styles.etiquetaDato}>Fecha de inicio</span>
+            <span className={styles.valorDato}>
+              {solicitud.created_at ? new Date(solicitud.created_at).toLocaleDateString('es-CL') : '-'}
+            </span>
+          </div>
+
+          <div className={styles.filaDatos}>
+            <span className={styles.etiquetaDato}>Fecha de cierre</span>
+            <span className={styles.valorDato}>
+              {solicitud.fecha_cierre ? new Date(solicitud.fecha_cierre).toLocaleDateString('es-CL') : 'Sin cerrar'}
             </span>
           </div>
         </div>
