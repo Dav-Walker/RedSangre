@@ -32,7 +32,7 @@ export function SolicitudesListPage() {
 
       const { data, error: err } = await supabase!
         .from('solicitud')
-        .select('*');
+        .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)');
 
       if (err) {
         setError('Error al cargar las solicitudes: ' + err.message);
@@ -161,7 +161,7 @@ export function SolicitudesListPage() {
                     <td style={{ textAlign: 'center' }}>
                       <Badge texto={estadoTexto} color={colorBadge as any} />
                     </td>
-                    <td>{sol.donante_asignado_id ? `Donante ID: ${sol.donante_asignado_id}` : 'Sin asignar'}</td>
+                    <td>{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido} (${sol.donante.codigo_donante})` : 'Sin asignar'}</td>
                   </tr>
                 );
               })
