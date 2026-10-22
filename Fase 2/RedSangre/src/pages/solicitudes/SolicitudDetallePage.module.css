@@ -116,6 +116,33 @@
   cursor: not-allowed;
 }
 
+.bitacoraFila {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+}
+
+.bitacoraCabecera {
+  background-color: #fafafa;
+  color: #999;
+  font-weight: bold;
+}
+
+.bitacoraEtiqueta {
+  font-weight: bold;
+  color: #666;
+}
+
+.bitacoraCelda {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
 .botonCorreo {
   background-color: #00a0df;
   color: white;

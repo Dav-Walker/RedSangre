@@ -221,36 +221,40 @@ export function SolicitudDetallePage() {
         <div className={styles.tarjeta}>
           <h3 className={styles.tarjetaHeader}>Bítacora de contacto</h3>
           
-          <div className={styles.filaDatos} style={{ backgroundColor: '#fafafa' }}>
-            <span className={styles.etiquetaDato} style={{ color: '#999' }}>Canal</span>
-            <span className={styles.valorDato} style={{ color: '#999', fontWeight: 'bold' }}>Resultado</span>
+          <div className={`${styles.bitacoraFila} ${styles.bitacoraCabecera}`}>
+            <span>Canal</span>
+            <span>Resultado</span>
+            <span>Acción</span>
           </div>
-          
-          <div className={styles.filaDatos}>
-            <span className={styles.etiquetaDato}>Teléfono</span>
-            <div className={styles.valorDato}>
+
+          <div className={styles.bitacoraFila}>
+            <span className={styles.bitacoraEtiqueta}>Teléfono</span>
+            <div className={styles.bitacoraCelda}>
               <Badge texto="Confirmado" color="verde" />
             </div>
+            <div className={styles.bitacoraCelda}>
+              <button type="button" className={styles.botonCorreo}>Llamada</button>
+            </div>
           </div>
-          
-          <div className={styles.filaDatos}>
-            <span className={styles.etiquetaDato}>Correo</span>
-            <div className={styles.valorDato} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {ultimoCorreo ? (
-                  <Badge texto={BADGES_CORREO[ultimoCorreo]?.texto ?? ultimoCorreo} color={(BADGES_CORREO[ultimoCorreo]?.color ?? 'gris') as any} />
-                ) : (
-                  <Badge texto="Sin enviar" color="gris" />
-                )}
-                <button
-                  type="button"
-                  className={styles.botonCorreo}
-                  onClick={handleEnviarCorreo}
-                  disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
-                >
-                  {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
-                </button>
-              </div>
+
+          <div className={styles.bitacoraFila}>
+            <span className={styles.bitacoraEtiqueta}>Correo</span>
+            <div className={styles.bitacoraCelda}>
+              {ultimoCorreo ? (
+                <Badge texto={BADGES_CORREO[ultimoCorreo]?.texto ?? ultimoCorreo} color={(BADGES_CORREO[ultimoCorreo]?.color ?? 'gris') as any} />
+              ) : (
+                <Badge texto="Sin enviar" color="gris" />
+              )}
+            </div>
+            <div className={styles.bitacoraCelda}>
+              <button
+                type="button"
+                className={styles.botonCorreo}
+                onClick={handleEnviarCorreo}
+                disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
+              >
+                {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
+              </button>
               {!solicitud.donante?.correo && (
                 <span className={styles.avisoCorreo}>El donante no tiene correo registrado.</span>
               )}
@@ -261,11 +265,14 @@ export function SolicitudDetallePage() {
               )}
             </div>
           </div>
-          
-          <div className={styles.filaDatos}>
-            <span className={styles.etiquetaDato}>WhatsApp</span>
-            <div className={styles.valorDato}>
+
+          <div className={styles.bitacoraFila}>
+            <span className={styles.bitacoraEtiqueta}>WhatsApp</span>
+            <div className={styles.bitacoraCelda}>
               <Badge texto="Enviado" color="rojo" />
+            </div>
+            <div className={styles.bitacoraCelda}>
+              <button type="button" className={styles.botonCorreo}>Mensaje</button>
             </div>
           </div>
 
