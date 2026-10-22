@@ -7,23 +7,20 @@ import styles from './NuevaSolicitudPage.module.css';
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
 interface CandidatoRow {
-  id: string;
+  prioridad: number;
+  donante_id: string;
   codigo_donante: string;
-  nombre: string;
-  apellido: string;
+  nombre_completo: string;
   grupo_sanguineo: string;
   fenotipo: string | null;
   fecha_ultima_donacion: string | null;
-  ubicacion: string | null;
-  reaccion_adversa_previa: boolean;
-}
-
-function esDisponible(c: CandidatoRow): boolean {
-  if (c.reaccion_adversa_previa) return false;
-  if (!c.fecha_ultima_donacion) return true;
-  const tresMesesAtras = new Date();
-  tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
-  return new Date(c.fecha_ultima_donacion) <= tresMesesAtras;
+  meses_desde_ultima_donacion: number | null;
+  disponible: boolean;
+  puede_contactarse: boolean;
+  asignado_activo: boolean;
+  apto: boolean;
+  distancia_km: number | null;
+  compatibilidad: 'exacta' | 'compatible';
 }
 
 function formatearUltimaDonacion(fecha: string | null): string {
@@ -57,32 +54,20 @@ export function NuevaSolicitudPage() {
     setError(null);
 
     supabase
-      .from('donante')
-      .select('id, codigo_donante, nombre, apellido, grupo_sanguineo, fenotipo, fecha_ultima_donacion, ubicacion, reaccion_adversa_previa')
-      .eq('grupo_sanguineo', grupoSanguineo)
+      .rpc('fn_buscar_donantes_compatibles', {
+        p_grupo_requerido: grupoSanguineo,
+        p_fenotipo_requerido: fenotipoSearch.trim() || null,
+        p_limite: 20,
+      })
       .then(({ data, error: err }) => {
         setCargandoCandidatos(false);
         if (err) {
-          setError('Error al cargar candidatos: ' + err.message);
+          setError('Error al buscar candidatos: ' + err.message);
           return;
         }
-        setCandidatos(data ?? []);
+        setCandidatos((data as CandidatoRow[]) ?? []);
       });
-  }, [grupoSanguineo]);
-
-  const candidatosFiltrados = fenotipoSearch.trim()
-    ? candidatos.filter(c =>
-        c.fenotipo?.toLowerCase().includes(fenotipoSearch.trim().toLowerCase())
-      )
-    : candidatos;
-
-  const candidatosOrdenados = [...candidatosFiltrados].sort((a, b) => {
-    const aDisp = esDisponible(a);
-    const bDisp = esDisponible(b);
-    if (aDisp && !bDisp) return -1;
-    if (!aDisp && bDisp) return 1;
-    return 0;
-  });
+  }, [grupoSanguineo, fenotipoSearch]);
 
   const handleCrearSolicitud = async () => {
     if (!candidatoSeleccionado || !supabase) return;
@@ -94,7 +79,7 @@ export function NuevaSolicitudPage() {
       grupo_sanguineo_requerido: grupoSanguineo,
       fenotipo_requerido: fenotipoSearch.trim() || null,
       urgencia,
-      estado: 'Abierta',
+      estado: 'abierta',
       donante_asignado_id: candidatoSeleccionado,
     };
 
@@ -186,35 +171,34 @@ export function NuevaSolicitudPage() {
         {/* LISTA DE CANDIDATOS */}
         {cargandoCandidatos ? (
           <div className={styles.mensajeCargando}>Cargando candidatos...</div>
-        ) : candidatosOrdenados.length === 0 ? (
+        ) : candidatos.length === 0 ? (
           <div className={styles.mensajeVacio}>
             No se encontraron donantes con grupo {grupoSanguineo}
             {fenotipoSearch.trim() ? ` y fenotipo que contenga "${fenotipoSearch}"` : ''}.
           </div>
         ) : (
-          candidatosOrdenados.map((candidato, index) => {
-            const disponible = esDisponible(candidato);
+          candidatos.map((candidato, index) => {
+            const disponible = candidato.apto;
             return (
               <div
-                key={candidato.id}
+                key={candidato.donante_id}
                 className={[
                   styles.tarjetaCandidato,
                   disponible ? styles.disponible : styles.noDisponible,
-                  candidatoSeleccionado === candidato.id ? styles.seleccionado : '',
+                  candidatoSeleccionado === candidato.donante_id ? styles.seleccionado : '',
                 ].join(' ')}
                 onClick={() => {
-                  if (disponible) setCandidatoSeleccionado(candidato.id);
+                  if (disponible) setCandidatoSeleccionado(candidato.donante_id);
                 }}
               >
                 <div className={styles.numeroRanking}>{index + 1}</div>
 
                 <div className={styles.infoCandidato}>
                   <span className={styles.nombreCandidato}>
-                    {candidato.nombre} {candidato.apellido}
+                    {candidato.nombre_completo}
                   </span>
                   <span className={styles.detallesCandidato}>
                     {candidato.grupo_sanguineo} · {formatearUltimaDonacion(candidato.fecha_ultima_donacion)}
-                    {candidato.ubicacion ? ` · ${candidato.ubicacion}` : ''}
                     {candidato.fenotipo ? ` · ${candidato.fenotipo}` : ''}
                   </span>
                 </div>
@@ -223,9 +207,7 @@ export function NuevaSolicitudPage() {
                   {disponible ? (
                     <span className={styles.badgeDisponible}>Disponible</span>
                   ) : (
-                    <span className={styles.badgeNoDisponible}>
-                      {candidato.reaccion_adversa_previa ? 'Reacción adversa' : 'No disponible'}
-                    </span>
+                    <span className={styles.badgeNoDisponible}>No disponible</span>
                   )}
                 </div>
               </div>
