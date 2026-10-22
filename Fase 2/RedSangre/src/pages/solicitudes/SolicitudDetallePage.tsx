@@ -21,7 +21,7 @@ export function SolicitudDetallePage() {
       // 1. Intentamos buscar primero por el campo de texto 'codigo_solicitud'
       let { data, error: err } = await supabase!
         .from('solicitud')
-        .select('*')
+        .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)')
         .eq('codigo_solicitud', id)
         .maybeSingle();
 
@@ -29,7 +29,7 @@ export function SolicitudDetallePage() {
       if (!data && !err) {
         const resId = await supabase!
           .from('solicitud')
-          .select('*')
+          .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)')
           .eq('id', id)
           .maybeSingle();
         data = resId.data;
@@ -137,9 +137,9 @@ export function SolicitudDetallePage() {
           </div>
           
           <div className={styles.filaDatos}>
-            <span className={styles.etiquetaDato}>Donante asignado ID</span>
+            <span className={styles.etiquetaDato}>Donante asignado</span>
             <span className={styles.valorDato}>
-              {solicitud.donante_asignado_id ? `Donante #${solicitud.donante_asignado_id}` : 'Sin asignar'}
+              {solicitud.donante ? `${solicitud.donante.nombre} ${solicitud.donante.apellido} (${solicitud.donante.codigo_donante})` : 'Sin asignar'}
             </span>
           </div>
           
