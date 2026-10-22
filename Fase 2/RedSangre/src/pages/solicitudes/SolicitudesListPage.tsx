@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { supabase } from '../../utils/supabase';
 import styles from './SolicitudesListPage.module.css';
+
+const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
 interface Solicitud {
   id: string | number;
@@ -20,8 +22,10 @@ export function SolicitudesListPage() {
   const navigate = useNavigate();
   
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
-  const [solicitudesFiltradas, setSolicitudesFiltradas] = useState<Solicitud[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState('');
+  const [grupoFiltro, setGrupoFiltro] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [fechaFiltro, setFechaFiltro] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,24 +58,33 @@ export function SolicitudesListPage() {
       });
 
       setSolicitudes(lista);
-      setSolicitudesFiltradas(lista);
       setCargando(false);
     }
 
     cargarSolicitudes();
   }, []);
 
-  const handleBuscar = () => {
-    const filtrados = solicitudes.filter((sol) => {
-      const codigoStr = String(sol.codigo_solicitud ?? '').toLowerCase();
-      const grupoStr = String(sol.grupo_sanguineo_requerido ?? '').toLowerCase();
-      const fenotipoStr = String(sol.fenotipo_requerido ?? '').toLowerCase();
-      const busqueda = textoBusqueda.toLowerCase();
-
-      return codigoStr.includes(busqueda) || grupoStr.includes(busqueda) || fenotipoStr.includes(busqueda);
+  const solicitudesFiltradas = useMemo(() => {
+    const busqueda = textoBusqueda.trim().toLowerCase();
+    return solicitudes.filter((sol) => {
+      if (busqueda) {
+        const coincide =
+          String(sol.codigo_solicitud ?? '').toLowerCase().includes(busqueda) ||
+          String(sol.grupo_sanguineo_requerido ?? '').toLowerCase().includes(busqueda) ||
+          String(sol.fenotipo_requerido ?? '').toLowerCase().includes(busqueda);
+        if (!coincide) return false;
+      }
+      if (grupoFiltro && sol.grupo_sanguineo_requerido !== grupoFiltro) return false;
+      if (estadoFiltro && sol.estado !== estadoFiltro) return false;
+      if (fechaFiltro) {
+        if (!sol.created_at) return false;
+        const f = new Date(sol.created_at);
+        const fechaLocal = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+        if (fechaLocal !== fechaFiltro) return false;
+      }
+      return true;
     });
-    setSolicitudesFiltradas(filtrados);
-  };
+  }, [solicitudes, textoBusqueda, grupoFiltro, estadoFiltro, fechaFiltro]);
 
   const obtenerColorBadge = (estado: string) => {
     const est = (estado || '').toLowerCase();
@@ -90,22 +103,10 @@ export function SolicitudesListPage() {
             placeholder="Buscar por código, grupo o fenotipo..." 
             className={styles.inputBuscador}
             value={textoBusqueda}
-            onChange={(e) => {
-              setTextoBusqueda(e.target.value);
-              const busqueda = e.target.value.toLowerCase();
-              const filtrados = solicitudes.filter((sol) => {
-                const codigoStr = String(sol.codigo_solicitud ?? '').toLowerCase();
-                const grupoStr = String(sol.grupo_sanguineo_requerido ?? '').toLowerCase();
-                const fenotipoStr = String(sol.fenotipo_requerido ?? '').toLowerCase();
-                return codigoStr.includes(busqueda) || grupoStr.includes(busqueda) || fenotipoStr.includes(busqueda);
-              });
-              setSolicitudesFiltradas(filtrados);
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+            onChange={(e) => setTextoBusqueda(e.target.value)}
           />
-          <svg 
-            className={styles.iconoLupa} 
-            onClick={handleBuscar}
+          <svg
+            className={styles.iconoLupa}
             fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -113,6 +114,44 @@ export function SolicitudesListPage() {
         </div>
 
         <Button texto="+ Nueva solicitud" onClick={() => navigate('/solicitudes/nueva')} />
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          value={grupoFiltro}
+          onChange={(e) => setGrupoFiltro(e.target.value)}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+        >
+          <option value="">Todos los grupos</option>
+          {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+
+        <select
+          value={estadoFiltro}
+          onChange={(e) => setEstadoFiltro(e.target.value)}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+        >
+          <option value="">Todos los estados</option>
+          <option value="abierta">Abierta</option>
+          <option value="en_proceso">En proceso</option>
+          <option value="cerrada">Cerrada</option>
+        </select>
+
+        <input
+          type="date"
+          value={fechaFiltro}
+          onChange={(e) => setFechaFiltro(e.target.value)}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px' }}
+        />
+
+        {(grupoFiltro || estadoFiltro || fechaFiltro || textoBusqueda) && (
+          <button
+            onClick={() => { setTextoBusqueda(''); setGrupoFiltro(''); setEstadoFiltro(''); setFechaFiltro(''); }}
+            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', fontSize: '13px' }}
+          >
+            ✕ Limpiar filtros
+          </button>
+        )}
       </div>
 
       {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
