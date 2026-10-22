@@ -23,6 +23,13 @@ interface CandidatoRow {
   compatibilidad: 'exacta' | 'compatible';
 }
 
+function motivoNoApto(c: CandidatoRow): string {
+  if (!c.disponible) return `En espera (${c.meses_desde_ultima_donacion ?? 0} de 3 meses)`;
+  if (c.asignado_activo) return 'Asignado a otra solicitud';
+  if (!c.puede_contactarse) return 'Sin consentimiento de contacto';
+  return 'No disponible';
+}
+
 function formatearUltimaDonacion(fecha: string | null): string {
   if (!fecha) return 'sin donaciones previas';
   const hoy = new Date();
@@ -207,7 +214,7 @@ export function NuevaSolicitudPage() {
                   {disponible ? (
                     <span className={styles.badgeDisponible}>Disponible</span>
                   ) : (
-                    <span className={styles.badgeNoDisponible}>No disponible</span>
+                    <span className={styles.badgeNoDisponible}>{motivoNoApto(candidato)}</span>
                   )}
                 </div>
               </div>
