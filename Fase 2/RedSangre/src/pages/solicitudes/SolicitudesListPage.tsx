@@ -120,7 +120,7 @@ export function SolicitudesListPage() {
         <select
           value={grupoFiltro}
           onChange={(e) => setGrupoFiltro(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
+          style={{ boxSizing: 'border-box', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
         >
           <option value="">Todos los grupos</option>
           {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
@@ -129,7 +129,7 @@ export function SolicitudesListPage() {
         <select
           value={estadoFiltro}
           onChange={(e) => setEstadoFiltro(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
+          style={{ boxSizing: 'border-box', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
         >
           <option value="">Todos los estados</option>
           <option value="abierta">Abierta</option>
@@ -138,8 +138,9 @@ export function SolicitudesListPage() {
         </select>
 
         <div style={{ position: 'relative', minWidth: '150px' }}>
-          <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', background: '#fff', color: fechaFiltro ? '#333' : '#757575' }}>
-            {fechaFiltro ? fechaFiltro.split('-').reverse().join('-') : 'Fecha'}
+          <div style={{ boxSizing: 'border-box', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', fontFamily: 'inherit', background: '#fff', color: fechaFiltro ? '#333' : '#757575', cursor: 'pointer' }}>
+            <span>{fechaFiltro ? fechaFiltro.split('-').reverse().join('-') : 'Fecha'}</span>
+            <span style={{ fontSize: '10px', color: '#333' }}>▼</span>
           </div>
           <input
             type="date"
