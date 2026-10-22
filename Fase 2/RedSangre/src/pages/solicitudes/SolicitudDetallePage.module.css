@@ -116,12 +116,25 @@
   cursor: not-allowed;
 }
 
-.accionesCorreo {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 16px;
+.botonCorreo {
+  background-color: #00a0df;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonCorreo:hover {
+  background-color: #0088bd;
+}
+
+.botonCorreo:disabled {
+  background-color: #9fd8ef;
+  cursor: not-allowed;
 }
 
 .avisoCorreo {

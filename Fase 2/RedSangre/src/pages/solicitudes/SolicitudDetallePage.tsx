@@ -4,6 +4,13 @@ import { Badge } from '../../components/common/Badge';
 import { supabase } from '../../utils/supabase';
 import styles from './SolicitudDetallePage.module.css';
 
+const BADGES_CORREO: Record<string, { texto: string; color: string }> = {
+  enviado: { texto: 'Enviado', color: 'rojo' },
+  confirmado: { texto: 'Confirmado', color: 'verde' },
+  sin_respuesta: { texto: 'Sin respuesta', color: 'gris' },
+  rechazado: { texto: 'Rechazado', color: 'gris' },
+};
+
 export function SolicitudDetallePage() {
   const navigate = useNavigate();
   const { id } = useParams(); // Atrapamos el ID o código de la URL
@@ -12,6 +19,7 @@ export function SolicitudDetallePage() {
   const [cargando, setCargando] = useState(true);
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [mensajeCorreo, setMensajeCorreo] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [ultimoCorreo, setUltimoCorreo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,11 +53,24 @@ export function SolicitudDetallePage() {
       }
 
       setSolicitud(data);
+      await cargarUltimoCorreo(data.id);
       setCargando(false);
     }
 
     cargarDetalleSolicitud();
   }, [id]);
+
+  const cargarUltimoCorreo = async (solicitudId: string) => {
+    const { data } = await supabase!
+      .from('seguimiento_contacto')
+      .select('resultado')
+      .eq('solicitud_id', solicitudId)
+      .eq('canal', 'correo')
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setUltimoCorreo(data?.resultado ?? null);
+  };
 
   const handleEnviarCorreo = async () => {
     if (!solicitud) return;
@@ -72,6 +93,7 @@ export function SolicitudDetallePage() {
       return;
     }
     setMensajeCorreo({ tipo: 'ok', texto: 'Correo enviado y registrado en la bitácora.' });
+    await cargarUltimoCorreo(solicitud.id);
   };
 
   const handleFinalizar = async () => {
@@ -213,8 +235,30 @@ export function SolicitudDetallePage() {
           
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>Correo</span>
-            <div className={styles.valorDato}>
-              <Badge texto="Enviado" color="rojo" />
+            <div className={styles.valorDato} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {ultimoCorreo ? (
+                  <Badge texto={BADGES_CORREO[ultimoCorreo]?.texto ?? ultimoCorreo} color={(BADGES_CORREO[ultimoCorreo]?.color ?? 'gris') as any} />
+                ) : (
+                  <Badge texto="Sin enviar" color="gris" />
+                )}
+                <button
+                  type="button"
+                  className={styles.botonCorreo}
+                  onClick={handleEnviarCorreo}
+                  disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
+                >
+                  {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
+                </button>
+              </div>
+              {!solicitud.donante?.correo && (
+                <span className={styles.avisoCorreo}>El donante no tiene correo registrado.</span>
+              )}
+              {mensajeCorreo && (
+                <span className={mensajeCorreo.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
+                  {mensajeCorreo.texto}
+                </span>
+              )}
             </div>
           </div>
           
@@ -225,24 +269,6 @@ export function SolicitudDetallePage() {
             </div>
           </div>
 
-          <div className={styles.accionesCorreo}>
-            <button
-              type="button"
-              className={styles.botonAzul}
-              onClick={handleEnviarCorreo}
-              disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
-            >
-              {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
-            </button>
-            {!solicitud.donante?.correo && (
-              <span className={styles.avisoCorreo}>El donante no tiene correo registrado.</span>
-            )}
-            {mensajeCorreo && (
-              <span className={mensajeCorreo.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
-                {mensajeCorreo.texto}
-              </span>
-            )}
-          </div>
         </div>
 
       </div>
