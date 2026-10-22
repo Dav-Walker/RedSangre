@@ -10,6 +10,8 @@ export function SolicitudDetallePage() {
 
   const [solicitud, setSolicitud] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+  const [mensajeCorreo, setMensajeCorreo] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function SolicitudDetallePage() {
       // 1. Intentamos buscar primero por el campo de texto 'codigo_solicitud'
       let { data, error: err } = await supabase!
         .from('solicitud')
-        .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)')
+        .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo)')
         .eq('codigo_solicitud', id)
         .maybeSingle();
 
@@ -29,7 +31,7 @@ export function SolicitudDetallePage() {
       if (!data && !err) {
         const resId = await supabase!
           .from('solicitud')
-          .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)')
+          .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo)')
           .eq('id', id)
           .maybeSingle();
         data = resId.data;
@@ -48,6 +50,29 @@ export function SolicitudDetallePage() {
 
     cargarDetalleSolicitud();
   }, [id]);
+
+  const handleEnviarCorreo = async () => {
+    if (!solicitud) return;
+    setEnviandoCorreo(true);
+    setMensajeCorreo(null);
+
+    const { data, error: errFuncion } = await supabase!.functions.invoke('enviar-correo-contacto', {
+      body: { solicitud_id: solicitud.id },
+    });
+
+    setEnviandoCorreo(false);
+
+    if (errFuncion) {
+      const cuerpo = await (errFuncion as any).context?.json?.().catch(() => null);
+      setMensajeCorreo({ tipo: 'error', texto: cuerpo?.error ?? 'No se pudo enviar el correo.' });
+      return;
+    }
+    if (data?.error) {
+      setMensajeCorreo({ tipo: 'error', texto: data.error });
+      return;
+    }
+    setMensajeCorreo({ tipo: 'ok', texto: 'Correo enviado y registrado en la bitácora.' });
+  };
 
   const handleFinalizar = async () => {
     if (!solicitud) return;
@@ -198,6 +223,25 @@ export function SolicitudDetallePage() {
             <div className={styles.valorDato}>
               <Badge texto="Enviado" color="rojo" />
             </div>
+          </div>
+
+          <div className={styles.accionesCorreo}>
+            <button
+              type="button"
+              className={styles.botonAzul}
+              onClick={handleEnviarCorreo}
+              disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
+            >
+              {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
+            </button>
+            {!solicitud.donante?.correo && (
+              <span className={styles.avisoCorreo}>El donante no tiene correo registrado.</span>
+            )}
+            {mensajeCorreo && (
+              <span className={mensajeCorreo.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
+                {mensajeCorreo.texto}
+              </span>
+            )}
           </div>
         </div>
 
