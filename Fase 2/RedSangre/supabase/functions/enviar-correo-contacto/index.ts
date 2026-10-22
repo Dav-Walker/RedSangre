@@ -88,7 +88,8 @@ Deno.serve(async (req) => {
       subject: `Solicitud ${solicitud.codigo_solicitud} – Banco de Sangre`,
       text: textoCorreo(donante.nombre, solicitud.codigo_solicitud, solicitud.grupo_sanguineo_requerido, solicitud.urgencia),
     });
-  } catch {
+  } catch (errorEnvio) {
+    console.error('Error al enviar correo de contacto:', errorEnvio);
     return responder({ error: 'No se pudo enviar el correo' }, 502);
   }
 
