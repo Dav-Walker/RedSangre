@@ -13,15 +13,26 @@ function responder(cuerpo: unknown, status = 200) {
   });
 }
 
-function textoCorreo(nombre: string, codigoSolicitud: string) {
+const CONTACTO_BANCO = '[teléfono o correo por confirmar]';
+
+function textoCorreo(nombre: string, codigoSolicitud: string, grupo: string, urgencia: string) {
+  const urgente = urgencia === 'alta' || urgencia === 'emergencia vital';
+  const frase = urgente
+    ? `Existe una necesidad urgente de sangre del grupo ${grupo}.`
+    : `Existe una necesidad de sangre del grupo ${grupo}, con fecha por confirmar.`;
+
   return [
     `Estimado/a ${nombre}:`,
     '',
-    `Le escribimos desde el Banco de Sangre de Clínica Indisa en relación con la solicitud ${codigoSolicitud}.`,
-    'Por favor comuníquese con nuestro equipo para coordinar.',
+    frase,
     '',
-    'Gracias por su disposición a donar.',
+    `Solicitud: ${codigoSolicitud}.`,
     '',
+    'Si está disponible y cumple los requisitos para donar, su colaboración puede ayudar a salvar vidas. Para coordinar, comuníquese con el Banco de Sangre al ' + CONTACTO_BANCO + '.',
+    '',
+    'Agradecemos sinceramente su solidaridad.',
+    '',
+    'Atentamente,',
     'Banco de Sangre – Clínica Indisa',
   ].join('\n');
 }
@@ -46,7 +57,7 @@ Deno.serve(async (req) => {
 
   const { data: solicitud, error: errSolicitud } = await supabase
     .from('solicitud')
-    .select('id, codigo_solicitud, estado, donante:donante_asignado_id (id, nombre, apellido, correo)')
+    .select('id, codigo_solicitud, estado, grupo_sanguineo_requerido, urgencia, donante:donante_asignado_id (id, nombre, apellido, correo)')
     .eq('id', solicitudId)
     .maybeSingle();
 
@@ -75,7 +86,7 @@ Deno.serve(async (req) => {
       from: `"RedSangre – Banco de Sangre" <${usuarioGmail}>`,
       to: donante.correo,
       subject: `Solicitud ${solicitud.codigo_solicitud} – Banco de Sangre`,
-      text: textoCorreo(donante.nombre, solicitud.codigo_solicitud),
+      text: textoCorreo(donante.nombre, solicitud.codigo_solicitud, solicitud.grupo_sanguineo_requerido, solicitud.urgencia),
     });
   } catch {
     return responder({ error: 'No se pudo enviar el correo' }, 502);
