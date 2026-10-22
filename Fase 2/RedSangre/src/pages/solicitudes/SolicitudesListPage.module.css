@@ -75,3 +75,68 @@
 .fila:hover {
   background-color: #f0f9ff;
 }
+
+/* FILTROS */
+.filtros {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.controlFiltro {
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: #333;
+  color-scheme: light;
+  cursor: pointer;
+}
+
+.botonFecha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 150px;
+  text-align: left;
+}
+
+.botonFechaVacio {
+  color: #757575;
+}
+
+.flechaFecha {
+  font-size: 10px;
+  color: #333;
+}
+
+.fechaOculta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.grupoFecha {
+  position: relative;
+}
+
+.botonLimpiar {
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  color: #333;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -20,7 +20,7 @@ interface Solicitud {
 
 export function SolicitudesListPage() {
   const navigate = useNavigate();
-  
+
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [grupoFiltro, setGrupoFiltro] = useState('');
@@ -28,6 +28,7 @@ export function SolicitudesListPage() {
   const [fechaFiltro, setFechaFiltro] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const fechaRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function cargarSolicitudes() {
@@ -95,12 +96,12 @@ export function SolicitudesListPage() {
 
   return (
     <div className={styles.contenedor}>
-      
+
       <div className={styles.cabecera}>
         <div className={styles.buscadorContenedor}>
-          <input 
-            type="text" 
-            placeholder="Buscar por código, grupo o fenotipo..." 
+          <input
+            type="text"
+            placeholder="Buscar por código, grupo o fenotipo..."
             className={styles.inputBuscador}
             value={textoBusqueda}
             onChange={(e) => setTextoBusqueda(e.target.value)}
@@ -116,20 +117,20 @@ export function SolicitudesListPage() {
         <Button texto="+ Nueva solicitud" onClick={() => navigate('/solicitudes/nueva')} />
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className={styles.filtros}>
         <select
+          className={styles.controlFiltro}
           value={grupoFiltro}
           onChange={(e) => setGrupoFiltro(e.target.value)}
-          style={{ boxSizing: 'border-box', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
         >
           <option value="">Todos los grupos</option>
           {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
 
         <select
+          className={styles.controlFiltro}
           value={estadoFiltro}
           onChange={(e) => setEstadoFiltro(e.target.value)}
-          style={{ boxSizing: 'border-box', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
         >
           <option value="">Todos los estados</option>
           <option value="abierta">Abierta</option>
@@ -137,23 +138,30 @@ export function SolicitudesListPage() {
           <option value="cerrada">Cerrada</option>
         </select>
 
-        <div style={{ position: 'relative', minWidth: '150px' }}>
-          <div style={{ boxSizing: 'border-box', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', fontFamily: 'inherit', background: '#fff', color: fechaFiltro ? '#333' : '#757575', cursor: 'pointer' }}>
+        <div className={styles.grupoFecha}>
+          <button
+            type="button"
+            className={`${styles.controlFiltro} ${styles.botonFecha} ${fechaFiltro ? '' : styles.botonFechaVacio}`}
+            onClick={() => fechaRef.current?.showPicker()}
+          >
             <span>{fechaFiltro ? fechaFiltro.split('-').reverse().join('-') : 'Fecha'}</span>
-            <span style={{ fontSize: '10px', color: '#333' }}>▼</span>
-          </div>
+            <span className={styles.flechaFecha}>▼</span>
+          </button>
           <input
+            ref={fechaRef}
             type="date"
+            className={styles.fechaOculta}
             value={fechaFiltro}
             onChange={(e) => setFechaFiltro(e.target.value)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', colorScheme: 'light' }}
+            tabIndex={-1}
           />
         </div>
 
         {(grupoFiltro || estadoFiltro || fechaFiltro || textoBusqueda) && (
           <button
+            type="button"
+            className={styles.botonLimpiar}
             onClick={() => { setTextoBusqueda(''); setGrupoFiltro(''); setEstadoFiltro(''); setFechaFiltro(''); }}
-            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', fontSize: '13px' }}
           >
             ✕ Limpiar filtros
           </button>
@@ -195,8 +203,8 @@ export function SolicitudesListPage() {
                 const colorBadge = obtenerColorBadge(estadoTexto);
 
                 return (
-                  <tr 
-                    key={sol.id} 
+                  <tr
+                    key={sol.id}
                     onClick={() => navigate('/solicitudes/' + idMostrado)}
                     className={styles.fila}
                   >
