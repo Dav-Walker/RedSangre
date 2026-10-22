@@ -198,15 +198,16 @@ export function NuevaSolicitudPage() {
                   if (disponible) setCandidatoSeleccionado(candidato.donante_id);
                 }}
               >
-                <div className={styles.numeroRanking}>{index + 1}</div>
+                <div className={styles.numeroRanking}>{candidato.prioridad ?? index + 1}</div>
 
                 <div className={styles.infoCandidato}>
                   <span className={styles.nombreCandidato}>
                     {candidato.nombre_completo}
                   </span>
                   <span className={styles.detallesCandidato}>
-                    {candidato.grupo_sanguineo} · {formatearUltimaDonacion(candidato.fecha_ultima_donacion)}
+                    {candidato.grupo_sanguineo} ({candidato.compatibilidad}) · {formatearUltimaDonacion(candidato.fecha_ultima_donacion)}
                     {candidato.fenotipo ? ` · ${candidato.fenotipo}` : ''}
+                    {candidato.distancia_km != null ? ` · ${candidato.distancia_km.toFixed(1)} km de la clínica` : ' · sin ubicación'}
                   </span>
                 </div>
 
