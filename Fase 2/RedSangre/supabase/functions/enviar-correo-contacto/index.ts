@@ -13,7 +13,7 @@ function responder(cuerpo: unknown, status = 200) {
   });
 }
 
-const CONTACTO_BANCO = '[teléfono o correo por confirmar]';
+const CONTACTO_BANCO = '+56 9 3640 5976 o al correo redsangre.notificaciones@gmail.com';
 
 function textoCorreo(nombre: string, codigoSolicitud: string, grupo: string, urgencia: string) {
   const urgente = urgencia === 'alta' || urgencia === 'emergencia vital';
