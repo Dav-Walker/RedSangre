@@ -127,18 +127,19 @@ export function SolicitudesListPage() {
               <th>Urgencia</th>
               <th style={{ textAlign: 'center' }}>Estado</th>
               <th>Candidato asignado</th>
+              <th>Fecha de creación</th>
             </tr>
           </thead>
           <tbody>
             {cargando ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
                   Cargando solicitudes desde la base de datos...
                 </td>
               </tr>
             ) : solicitudesFiltradas.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
                   No se encontraron solicitudes registradas.
                 </td>
               </tr>
@@ -161,7 +162,8 @@ export function SolicitudesListPage() {
                     <td style={{ textAlign: 'center' }}>
                       <Badge texto={estadoTexto} color={colorBadge as any} />
                     </td>
-                    <td>{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido} (${sol.donante.codigo_donante})` : 'Sin asignar'}</td>
+                    <td>{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido}` : 'Sin asignar'}</td>
+                    <td>{sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-CL') : '-'}</td>
                   </tr>
                 );
               })
