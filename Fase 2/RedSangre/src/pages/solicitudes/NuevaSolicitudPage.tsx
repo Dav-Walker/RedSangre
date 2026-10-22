@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { useAuth } from '../../contexts/useAuth';
 import styles from './NuevaSolicitudPage.module.css';
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
@@ -42,11 +41,9 @@ function formatearUltimaDonacion(fecha: string | null): string {
 
 export function NuevaSolicitudPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-
   const [grupoSanguineo, setGrupoSanguineo] = useState('O-');
   const [fenotipoSearch, setFenotipoSearch] = useState('');
-  const [urgencia, setUrgencia] = useState('Media');
+  const [urgencia, setUrgencia] = useState('media');
   const [candidatos, setCandidatos] = useState<CandidatoRow[]>([]);
   const [cargandoCandidatos, setCargandoCandidatos] = useState(false);
   const [candidatoSeleccionado, setCandidatoSeleccionado] = useState<string | null>(null);
@@ -82,17 +79,13 @@ export function NuevaSolicitudPage() {
     setGuardando(true);
     setError(null);
 
-    const payload: Record<string, unknown> = {
+    const { error: err } = await supabase.from('solicitud').insert({
       grupo_sanguineo_requerido: grupoSanguineo,
       fenotipo_requerido: fenotipoSearch.trim() || null,
       urgencia,
       estado: 'abierta',
       donante_asignado_id: candidatoSeleccionado,
-    };
-
-    if (user?.id) payload.registrado_por = user.id;
-
-    const { error: err } = await supabase.from('solicitud').insert(payload);
+    });
 
     setGuardando(false);
 
@@ -160,10 +153,10 @@ export function NuevaSolicitudPage() {
                 value={urgencia}
                 onChange={(e) => setUrgencia(e.target.value)}
               >
-                <option value="Baja">Baja (Programada)</option>
-                <option value="Media">Media (24 a 48 hrs)</option>
-                <option value="Alta">Alta (Menos de 24 hrs)</option>
-                <option value="Emergencia vital">Emergencia vital (Inmediata)</option>
+                <option value="baja">Baja (Programada)</option>
+                <option value="media">Media (24 a 48 hrs)</option>
+                <option value="alta">Alta (Menos de 24 hrs)</option>
+                <option value="emergencia_vital">Emergencia vital (Inmediata)</option>
               </select>
               <div className={styles.selectIcon}>▼</div>
             </div>
