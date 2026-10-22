@@ -120,7 +120,7 @@ export function SolicitudesListPage() {
         <select
           value={grupoFiltro}
           onChange={(e) => setGrupoFiltro(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
         >
           <option value="">Todos los grupos</option>
           {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
@@ -129,7 +129,7 @@ export function SolicitudesListPage() {
         <select
           value={estadoFiltro}
           onChange={(e) => setEstadoFiltro(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer', background: '#fff', color: '#333', colorScheme: 'light' }}
         >
           <option value="">Todos los estados</option>
           <option value="abierta">Abierta</option>
@@ -137,12 +137,17 @@ export function SolicitudesListPage() {
           <option value="cerrada">Cerrada</option>
         </select>
 
-        <input
-          type="date"
-          value={fechaFiltro}
-          onChange={(e) => setFechaFiltro(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px' }}
-        />
+        <div style={{ position: 'relative', minWidth: '150px' }}>
+          <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', background: '#fff', color: fechaFiltro ? '#333' : '#757575' }}>
+            {fechaFiltro ? fechaFiltro.split('-').reverse().join('-') : 'Fecha'}
+          </div>
+          <input
+            type="date"
+            value={fechaFiltro}
+            onChange={(e) => setFechaFiltro(e.target.value)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', colorScheme: 'light' }}
+          />
+        </div>
 
         {(grupoFiltro || estadoFiltro || fechaFiltro || textoBusqueda) && (
           <button
