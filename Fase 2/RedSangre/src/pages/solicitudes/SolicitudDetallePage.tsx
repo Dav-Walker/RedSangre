@@ -110,7 +110,7 @@ export function SolicitudDetallePage() {
     setMensajeEstado(null);
 
     const cambios = nuevoEstado === 'cerrada'
-      ? { estado: nuevoEstado, fecha_cierre: new Date().toISOString().split('T')[0] }
+      ? { estado: nuevoEstado, fecha_cierre: new Date().toLocaleDateString('en-CA') } // Formato AAAA-MM-DD en hora local
       : { estado: nuevoEstado };
 
     // El filtro neq evita reabrir una solicitud cerrada aunque la pantalla esté desactualizada

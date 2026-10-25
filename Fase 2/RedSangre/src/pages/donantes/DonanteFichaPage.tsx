@@ -36,7 +36,7 @@ function calcularUltimaDonacion(fecha: string | null): string {
 }
 
 function hoyISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA'); // Formato AAAA-MM-DD en hora local
 }
 
 type ConsentState = { acepta_cookies: boolean; autoriza_contacto: boolean };
