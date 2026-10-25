@@ -5,6 +5,8 @@ import {
 } from 'recharts';
 import styles from './DashboardPage.module.css';
 import { supabase } from '../../supabase';
+import { Badge } from '../../components/common/Badge';
+import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 
 const COLORES_PIE = ['#00a0df', '#f47c36', '#9b59b6', '#e74c3c', '#2ecc71', '#f1c40f']; 
 
@@ -239,9 +241,10 @@ export function DashboardPage() {
                   <td>{sol.tipo || sol.grupo_sanguineo || 'Sangre'}</td>
                   <td>{sol.urgencia}</td>
                   <td>
-                    <span className={sol.estado === 'en_proceso' ? styles.estadoProceso : styles.estadoNormal}>
-                      {sol.estado === 'en_proceso' ? 'En proceso' : sol.estado}
-                    </span>
+                    <Badge
+                      texto={ESTADOS_SOLICITUD[obtenerEstadoSolicitud(sol.estado)].texto}
+                      color={ESTADOS_SOLICITUD[obtenerEstadoSolicitud(sol.estado)].color}
+                    />
                   </td>
                 </tr>
               )) : (

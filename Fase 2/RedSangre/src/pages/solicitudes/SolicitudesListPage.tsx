@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { supabase } from '../../utils/supabase';
+import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import styles from './SolicitudesListPage.module.css';
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
@@ -49,10 +50,8 @@ export function SolicitudesListPage() {
 
       // ORDENAR: Las abiertas / en proceso primero, y las cerradas al final
       lista.sort((a, b) => {
-        const estA = (a.estado || '').toLowerCase();
-        const estB = (b.estado || '').toLowerCase();
-        const esCerradaA = estA.includes('cerrada') || estA.includes('completada');
-        const esCerradaB = estB.includes('cerrada') || estB.includes('completada');
+        const esCerradaA = obtenerEstadoSolicitud(a.estado) === 'cerrada';
+        const esCerradaB = obtenerEstadoSolicitud(b.estado) === 'cerrada';
 
         if (esCerradaA === esCerradaB) return 0;
         return esCerradaA ? 1 : -1; // Si A está cerrada, va después (1)
@@ -86,13 +85,6 @@ export function SolicitudesListPage() {
       return true;
     });
   }, [solicitudes, textoBusqueda, grupoFiltro, estadoFiltro, fechaFiltro]);
-
-  const obtenerColorBadge = (estado: string) => {
-    const est = (estado || '').toLowerCase();
-    if (est.includes('proceso') || est.includes('pendiente')) return 'rojo';
-    if (est.includes('cerrada') || est.includes('completada')) return 'gris';
-    return 'azul';
-  };
 
   return (
     <div className={styles.contenedor}>
@@ -133,9 +125,9 @@ export function SolicitudesListPage() {
           onChange={(e) => setEstadoFiltro(e.target.value)}
         >
           <option value="">Todos los estados</option>
-          <option value="abierta">Abierta</option>
-          <option value="en_proceso">En proceso</option>
-          <option value="cerrada">Cerrada</option>
+          {Object.entries(ESTADOS_SOLICITUD).map(([valor, { texto }]) => (
+            <option key={valor} value={valor}>{texto}</option>
+          ))}
         </select>
 
         <div className={styles.grupoFecha}>
@@ -199,8 +191,7 @@ export function SolicitudesListPage() {
             ) : (
               solicitudesFiltradas.map((sol) => {
                 const idMostrado = sol.codigo_solicitud ?? sol.id;
-                const estadoTexto = sol.estado || 'En proceso';
-                const colorBadge = obtenerColorBadge(estadoTexto);
+                const estado = ESTADOS_SOLICITUD[obtenerEstadoSolicitud(sol.estado)];
 
                 return (
                   <tr
@@ -213,7 +204,7 @@ export function SolicitudesListPage() {
                     <td>{sol.fenotipo_requerido || '-'}</td>
                     <td>{sol.urgencia || '-'}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <Badge texto={estadoTexto} color={colorBadge as any} />
+                      <Badge texto={estado.texto} color={estado.color} />
                     </td>
                     <td>{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido}` : 'Sin asignar'}</td>
                     <td>{sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-CL') : '-'}</td>

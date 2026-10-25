@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '../../components/common/Badge';
 import { supabase } from '../../utils/supabase';
+import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud, type EstadoSolicitud } from '../../utils/estadosSolicitud';
 import styles from './SolicitudDetallePage.module.css';
 
 const BADGES_CORREO: Record<string, { texto: string; color: string }> = {
@@ -20,6 +21,8 @@ export function SolicitudDetallePage() {
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [mensajeCorreo, setMensajeCorreo] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [ultimoCorreo, setUltimoCorreo] = useState<string | null>(null);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [mensajeEstado, setMensajeEstado] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,27 +99,42 @@ export function SolicitudDetallePage() {
     await cargarUltimoCorreo(solicitud.id);
   };
 
-  const handleFinalizar = async () => {
-    if (!solicitud) return;
+  const handleCambiarEstado = async (nuevoEstado: EstadoSolicitud) => {
+    if (!solicitud || nuevoEstado === estadoActual) return;
 
-    const fechaHoy = new Date().toISOString().split('T')[0];
-
-    // Actualizamos usando el id interno real del registro
-    const { error: errUpdate } = await supabase!
-      .from('solicitud')
-      .update({ 
-        estado: 'cerrada',
-        fecha_cierre: fechaHoy
-      })
-      .eq('id', solicitud.id);
-
-    if (errUpdate) {
-      alert('Error al finalizar la solicitud: ' + errUpdate.message);
+    if (nuevoEstado === 'cerrada' && !window.confirm('¿Cerrar la solicitud? Una vez cerrada no podrá modificarse.')) {
       return;
     }
 
-    alert('Solicitud finalizada con éxito');
-    navigate('/solicitudes');
+    setCambiandoEstado(true);
+    setMensajeEstado(null);
+
+    const cambios = nuevoEstado === 'cerrada'
+      ? { estado: nuevoEstado, fecha_cierre: new Date().toISOString().split('T')[0] }
+      : { estado: nuevoEstado };
+
+    // El filtro neq evita reabrir una solicitud cerrada aunque la pantalla esté desactualizada
+    const { data, error: errUpdate } = await supabase!
+      .from('solicitud')
+      .update(cambios)
+      .eq('id', solicitud.id)
+      .neq('estado', 'cerrada')
+      .select('id');
+
+    setCambiandoEstado(false);
+
+    if (errUpdate) {
+      setMensajeEstado({ tipo: 'error', texto: 'No se pudo cambiar el estado: ' + errUpdate.message });
+      return;
+    }
+    if (!data || data.length === 0) {
+      setMensajeEstado({ tipo: 'error', texto: 'La solicitud ya está cerrada y no puede modificarse.' });
+      setSolicitud({ ...solicitud, estado: 'cerrada' });
+      return;
+    }
+
+    setSolicitud({ ...solicitud, ...cambios });
+    setMensajeEstado({ tipo: 'ok', texto: `Estado actualizado a ${ESTADOS_SOLICITUD[nuevoEstado].texto}.` });
   };
 
   if (cargando) {
@@ -139,9 +157,8 @@ export function SolicitudDetallePage() {
   }
 
   const identificador = solicitud.codigo_solicitud ?? solicitud.id;
-  const estadoTexto = solicitud.estado || 'En proceso';
-  const esCerrada = estadoTexto.toLowerCase().includes('cerrada') || Boolean(solicitud.fecha_cierre);
-  const badgeColor = esCerrada ? 'gris' : 'rojo';
+  const estadoActual = obtenerEstadoSolicitud(solicitud.estado);
+  const esCerrada = estadoActual === 'cerrada';
 
   return (
     <div className={styles.contenedor}>
@@ -163,8 +180,24 @@ export function SolicitudDetallePage() {
           
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>Estado</span>
-            <div className={styles.valorDato}>
-              <Badge texto={estadoTexto} color={badgeColor} />
+            <div className={styles.valorEstado}>
+              <Badge texto={ESTADOS_SOLICITUD[estadoActual].texto} color={ESTADOS_SOLICITUD[estadoActual].color} />
+              <select
+                className={styles.selectEstado}
+                value={estadoActual}
+                onChange={(e) => handleCambiarEstado(e.target.value as EstadoSolicitud)}
+                disabled={cambiandoEstado || esCerrada}
+              >
+                {Object.entries(ESTADOS_SOLICITUD).map(([valor, { texto }]) => (
+                  <option key={valor} value={valor}>{texto}</option>
+                ))}
+              </select>
+              {esCerrada && <span className={styles.avisoCorreo}>Solicitud cerrada: no admite cambios.</span>}
+              {mensajeEstado && (
+                <span className={mensajeEstado.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
+                  {mensajeEstado.texto}
+                </span>
+              )}
             </div>
           </div>
           
@@ -279,17 +312,6 @@ export function SolicitudDetallePage() {
         </div>
 
       </div>
-
-      {!esCerrada && (
-        <div className={styles.pieFicha}>
-          <button 
-            className={styles.botonAzul}
-            onClick={handleFinalizar}
-          >
-            Finalizar solicitud
-          </button>
-        </div>
-      )}
 
     </div>
   );
