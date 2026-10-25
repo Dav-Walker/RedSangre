@@ -102,3 +102,12 @@
   border-bottom: 1px solid #eee;
 }
 
+/* Mensajes cuando un panel no tiene datos o falla la carga */
+.mensajePanel {
+  margin: 0;
+  padding: 40px 10px;
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+}
+
