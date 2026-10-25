@@ -15,7 +15,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(currentSession);
 
       if (currentSession?.user) {
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabase!
           .from('usuario')
           .select('*')
           .eq('id', currentSession.user.id)
