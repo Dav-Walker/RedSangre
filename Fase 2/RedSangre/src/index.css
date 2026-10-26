@@ -114,3 +114,17 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Elimina cualquier margen, padding o restricción global */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f5f7fa; /* O el color de fondo general que uses */
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}

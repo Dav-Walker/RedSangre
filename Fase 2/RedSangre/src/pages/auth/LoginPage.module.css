@@ -1,9 +1,10 @@
 .contenedorLogin {
   display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 /* COLUMNA IZQUIERDA: AZUL INSTITUCIONAL */
@@ -29,6 +30,7 @@
 
 .logoImg {
   max-width: 220px;
+  width: 100%;
   object-fit: contain;
   margin-bottom: 20px;
 }
@@ -46,6 +48,7 @@
   opacity: 0.7;
   text-transform: uppercase;
   margin-top: 20px;
+  text-align: center;
 }
 
 /* COLUMNA DERECHA: FORMULARIO BLANCO */
@@ -73,6 +76,7 @@
   font-weight: bold;
   color: #00a0df;
   margin: 0;
+  text-align: center;
 }
 
 .subtituloApp {
@@ -80,6 +84,7 @@
   color: #666;
   margin-top: 5px;
   margin-bottom: 40px;
+  text-align: center;
 }
 
 .grupoInput {
@@ -106,6 +111,7 @@
   box-sizing: border-box;
   outline: none;
   transition: border-color 0.2s;
+  background-color: #fff;
 }
 
 .input:focus {
@@ -172,4 +178,29 @@
 .ayudaTextoSecundario {
   font-size: 12px;
   color: #bbb;
+}
+
+/* ========================================== */
+/* MEDIA QUERY PARA DISPOSITIVOS MÓVILES      */
+/* ========================================== */
+@media (max-width: 768px) {
+  .contenedorLogin {
+    flex-direction: column; /* Pone el panel azul arriba y el formulario abajo */
+  }
+
+  .panelIzquierdo {
+    width: 100%;
+    padding: 30px 20px;
+    min-height: 250px;
+  }
+
+  .panelDerecho {
+    width: 100%;
+    padding: 30px 20px;
+    min-height: calc(100vh - 250px);
+  }
+
+  .logoImg {
+    max-width: 160px;
+  }
 }
