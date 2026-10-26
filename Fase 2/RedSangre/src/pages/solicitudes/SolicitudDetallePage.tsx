@@ -14,7 +14,7 @@ const BADGES_CORREO: Record<string, { texto: string; color: string }> = {
 
 export function SolicitudDetallePage() {
   const navigate = useNavigate();
-  const { id } = useParams(); // Atrapamos el ID o código de la URL
+  const { id } = useParams();
 
   const [solicitud, setSolicitud] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
@@ -24,6 +24,9 @@ export function SolicitudDetallePage() {
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [mensajeEstado, setMensajeEstado] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estado para el modal de aviso en PC
+  const [mostrarModalPc, setMostrarModalPc] = useState(false);
 
   useEffect(() => {
     async function cargarDetalleSolicitud() {
@@ -31,18 +34,18 @@ export function SolicitudDetallePage() {
       setCargando(true);
       setError(null);
 
-      // 1. Intentamos buscar primero por el campo de texto 'codigo_solicitud'
+      // 1. Buscamos por 'codigo_solicitud' incluyendo el teléfono del donante
       let { data, error: err } = await supabase!
         .from('solicitud')
-        .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo)')
+        .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo, telefono)')
         .eq('codigo_solicitud', id)
         .maybeSingle();
 
-      // 2. Si no lo encuentra por código, intentamos buscar por 'id' (por si acaso es numérico o texto compatible)
+      // 2. Si no lo encuentra por código, intentamos por 'id'
       if (!data && !err) {
         const resId = await supabase!
           .from('solicitud')
-          .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo)')
+          .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo, telefono)')
           .eq('id', id)
           .maybeSingle();
         data = resId.data;
@@ -110,10 +113,9 @@ export function SolicitudDetallePage() {
     setMensajeEstado(null);
 
     const cambios = nuevoEstado === 'cerrada'
-      ? { estado: nuevoEstado, fecha_cierre: new Date().toLocaleDateString('en-CA') } // Formato AAAA-MM-DD en hora local
+      ? { estado: nuevoEstado, fecha_cierre: new Date().toLocaleDateString('en-CA') }
       : { estado: nuevoEstado };
 
-    // El filtro neq evita reabrir una solicitud cerrada aunque la pantalla esté desactualizada
     const { data, error: errUpdate } = await supabase!
       .from('solicitud')
       .update(cambios)
@@ -135,6 +137,28 @@ export function SolicitudDetallePage() {
 
     setSolicitud({ ...solicitud, ...cambios });
     setMensajeEstado({ tipo: 'ok', texto: `Estado actualizado a ${ESTADOS_SOLICITUD[nuevoEstado].texto}.` });
+  };
+
+  // LÓGICA DE LLAMADA Y DETECCIÓN DE PC
+  const handleLlamar = () => {
+    const telefono = solicitud.donante?.telefono;
+    
+    if (!telefono) {
+      alert('El donante asignado no tiene un número de teléfono registrado.');
+      return;
+    }
+
+    // Detectar si es un dispositivo móvil (Android, iPhone, iPad, etc.)
+    const esMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (!esMovil) {
+      // Si está en PC, abrimos el modal de aviso
+      setMostrarModalPc(true);
+      return;
+    }
+
+    // Si es móvil, ejecuta el protocolo nativo para abrir las llamadas
+    window.location.href = `tel:${telefono}`;
   };
 
   if (cargando) {
@@ -174,7 +198,7 @@ export function SolicitudDetallePage() {
 
       <div className={styles.layoutColumnas}>
         
-        {/* TARJETA IZQUIERDA: ESTADO Y DATOS REALES */}
+        {/* TARJETA IZQUIERDA: ESTADO Y DATOS */}
         <div className={styles.tarjeta}>
           <h3 className={styles.tarjetaHeader}>Estado</h3>
           
@@ -219,7 +243,9 @@ export function SolicitudDetallePage() {
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>Donante asignado</span>
             <span className={styles.valorDato}>
-              {solicitud.donante ? `${solicitud.donante.nombre} ${solicitud.donante.apellido} (${solicitud.donante.codigo_donante})` : 'Sin asignar'}
+              {solicitud.donante 
+                ? `${solicitud.donante.nombre} ${solicitud.donante.apellido} (${solicitud.donante.codigo_donante}) - Tel: ${solicitud.donante.telefono || 'Sin teléfono'}` 
+                : 'Sin asignar'}
             </span>
           </div>
           
@@ -232,20 +258,6 @@ export function SolicitudDetallePage() {
             <span className={styles.etiquetaDato}>Fecha Agendada</span>
             <span className={styles.valorDato}>
               {solicitud.fecha_agendada ? new Date(solicitud.fecha_agendada).toLocaleDateString('es-CL') : 'Sin agendar'}
-            </span>
-          </div>
-
-          <div className={styles.filaDatos}>
-            <span className={styles.etiquetaDato}>Fecha de inicio</span>
-            <span className={styles.valorDato}>
-              {solicitud.created_at ? new Date(solicitud.created_at).toLocaleDateString('es-CL') : '-'}
-            </span>
-          </div>
-
-          <div className={styles.filaDatos}>
-            <span className={styles.etiquetaDato}>Fecha de cierre</span>
-            <span className={styles.valorDato}>
-              {solicitud.fecha_cierre ? new Date(solicitud.fecha_cierre).toLocaleDateString('es-CL') : 'Sin cerrar'}
             </span>
           </div>
         </div>
@@ -263,10 +275,16 @@ export function SolicitudDetallePage() {
           <div className={styles.bitacoraFila}>
             <span className={styles.bitacoraEtiqueta}>Teléfono</span>
             <div className={styles.bitacoraCelda}>
-              <Badge texto="Confirmado" color="verde" />
+              <Badge texto={solicitud.donante?.telefono ? "Disponible" : "Sin número"} color={solicitud.donante?.telefono ? "verde" : "gris"} />
             </div>
             <div className={styles.bitacoraCelda}>
-              <button type="button" className={styles.botonCorreo}>Llamada</button>
+              <button 
+                type="button" 
+                className={styles.botonCorreo}
+                onClick={handleLlamar}
+              >
+                Llamada
+              </button>
             </div>
           </div>
 
@@ -312,6 +330,57 @@ export function SolicitudDetallePage() {
         </div>
 
       </div>
+
+      {/* MODAL DE AVISO SI ESTÁN EN PC */}
+      {mostrarModalPc && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            padding: '30px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            textAlign: 'center',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <h3 style={{ color: '#c0392b', marginBottom: '15px' }}>🖥️ Acción no disponible en PC</h3>
+            <p style={{ color: '#555', marginBottom: '20px', fontSize: '15px' }}>
+              La función de llamada telefónica directa está diseñada para ser utilizada desde un teléfono celular o tablet por las enfermeras.
+            </p>
+            {solicitud.donante?.telefono && (
+              <p style={{ color: '#333', fontWeight: 'bold', marginBottom: '20px', backgroundColor: '#f5f7fa', padding: '10px', borderRadius: '6px' }}>
+                Teléfono del donante: {solicitud.donante.telefono}
+              </p>
+            )}
+            <button 
+              onClick={() => setMostrarModalPc(false)}
+              style={{
+                backgroundColor: '#00a0df',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '14px'
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

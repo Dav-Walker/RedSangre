@@ -2,6 +2,7 @@
   padding: 30px 40px;
   background-color: #ffffff;
   min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .headerSuperior {
@@ -32,6 +33,7 @@
   font-weight: bold;
   color: #000;
   margin: 0;
+  text-align: center;
 }
 
 .tituloPrincipal {
@@ -71,6 +73,8 @@
   padding: 15px 20px;
   border-bottom: 1px solid #eee;
   align-items: center;
+  flex-wrap: wrap; /* Permite que los elementos bajen si no caben */
+  gap: 8px;
 }
 
 .filaDatos:last-child {
@@ -81,11 +85,13 @@
   flex: 1;
   color: #666;
   font-weight: bold;
+  min-width: 120px;
 }
 
 .valorDato {
   flex: 1;
   color: #333;
+  min-width: 140px;
 }
 
 /* CAMBIO DE ESTADO (RF-32) */
@@ -95,6 +101,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+  min-width: 150px;
 }
 
 .selectEstado {
@@ -104,6 +111,7 @@
   font-size: 14px;
   background-color: white;
   cursor: pointer;
+  max-width: 100%;
 }
 
 .selectEstado:disabled {
@@ -173,4 +181,46 @@
 .mensajeError {
   font-size: 13px;
   color: #b3261e;
+}
+
+/* ========================================== */
+/* MEDIA QUERIES PARA DISPOSITIVOS MÓVILES    */
+/* ========================================== */
+@media (max-width: 900px) {
+  .contenedor {
+    padding: 15px 20px;
+  }
+
+  /* Las tarjetas se apilan una debajo de otra */
+  .layoutColumnas {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Ocultamos o ajustamos el título central si choca con el botón volver */
+  .tituloCentral {
+    display: none; 
+  }
+
+  .tituloPrincipal {
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+
+  /* Las filas de datos se acomodan verticalmente en pantallas muy chicas */
+  .filaDatos {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .etiquetaDato {
+    margin-bottom: 4px;
+  }
+
+  /* Ajustamos la cuadrícula de la bitácora para que no se apriete */
+  .bitacoraFila {
+    grid-template-columns: 0.8fr 1fr 1fr;
+    font-size: 13px;
+    padding: 10px 8px;
+  }
 }
