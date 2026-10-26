@@ -15,7 +15,7 @@
 }
 
 .logoImg {
-  height: 45px; /* Tamaño ideal para que no quede ni muy gigante ni muy pequeño */
+  height: 45px;
   object-fit: contain;
 }
 
@@ -23,46 +23,54 @@
   font-size: 15px;
   color: #00a0df;
   font-weight: bold;
-  margin-left: 55px; /* Este margen empuja el texto para que quede alineado bajo "INDISA" */
+  margin-left: 55px;
 }
+
 .userActions {
   display: flex;
   align-items: center;
   gap: 15px;
 }
 
+/* Insignia del nombre (Nombre arriba, apellido abajo) */
 .userBadge {
-  max-width: min(320px, 35vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   background-color: #00a0df;
   color: white;
-  padding: 12px 30px;
+  padding: 10px 24px;
   border-radius: 25px;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column; /* Apila el nombre y apellido en vertical */
+  justify-content: center;
+  line-height: 1.25;
 }
 
+/* Botón naranja con la misma presencia, altura y estilo "watón" */
 .logoutBtn {
   background-color: #f47c36;
   color: white;
-  padding: 12px 30px;
+  padding: 10px 28px; /* Ancho robusto a los lados */
   border-radius: 25px;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 14px;
   border: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   transition: background-color 0.3s;
 }
 
 .logoutBtn:hover {
-  background-color: #d66526; /* Naranja más oscuro al hacer hover */
+  background-color: #d66526;
 }
 
-/* FRANJA CELESTE DE NAVEGACIÓN */
+/* FRANJA CELESTE DE NAVEGACIÓN (Tus botones del dashboard intactos) */
 .navbar {
-  background-color: #00a0df; /* El celeste del mockup */
+  background-color: #00a0df;
   display: flex;
 }
 
@@ -75,7 +83,7 @@
 }
 
 .links li {
-  flex: 1; /* Hace que todos los botones midan lo mismo, como en tu imagen */
+  flex: 1;
   text-align: center;
 }
 
@@ -89,12 +97,10 @@
   transition: background-color 0.3s;
 }
 
-/* Efecto al pasar el mouse */
 .navLink:hover {
   background-color: #0088bd; 
 }
 
-/* Efecto para la pestaña en la que estamos parados (como el Dashboard en el mockup) */
 .activeLink {
   display: block;
   color: #ffffff;
@@ -102,5 +108,45 @@
   font-weight: bold;
   font-size: 18px;
   padding: 15px 0;
-  background-color: #3b74a8; /* Azul oscuro */
+  background-color: #3b74a8;
+}
+
+/* ========================================== */
+/* AJUSTE SOLO PARA CELULARES (ARRIBA)        */
+/* ========================================== */
+@media (max-width: 768px) {
+  .topHeader {
+    padding: 10px 15px;
+  }
+
+  .logoImg {
+    height: 32px; 
+  }
+
+  .logoRedSangre {
+    font-size: 12px;
+    margin-left: 38px;
+  }
+
+  .userActions {
+    gap: 8px;
+  }
+
+  /* Versión móvil compacta pero manteniendo el nombre en dos líneas y la misma altura */
+  .userBadge {
+    padding: 6px 14px;
+    font-size: 11px;
+    border-radius: 18px;
+  }
+
+  .logoutBtn {
+    padding: 6px 16px; 
+    font-size: 11px;
+    border-radius: 18px;
+  }
+
+  .navLink, .activeLink {
+    font-size: 13px;
+    padding: 12px 0;
+  }
 }
