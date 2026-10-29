@@ -200,7 +200,9 @@
 }
 
 .modalWsp {
-  background-color: white;
+  background-color: #ffffff;
+  color: #000000;
+  color-scheme: light;
   border-radius: 12px;
   padding: 28px 32px;
   width: 520px;
@@ -226,7 +228,7 @@
 .modalSubtitulo {
   margin: 0;
   font-size: 14px;
-  color: #555;
+  color: #444444;
 }
 
 .textareaWsp {
@@ -239,7 +241,9 @@
   font-family: inherit;
   resize: vertical;
   line-height: 1.5;
-  color: #333;
+  color: #000000;
+  background-color: #ffffff;
+  color-scheme: light;
 }
 
 .textareaWsp:focus {
