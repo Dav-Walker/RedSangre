@@ -48,13 +48,17 @@ export function SolicitudesListPage() {
 
       const lista = data ?? [];
 
-      // ORDENAR: Las abiertas / en proceso primero, y las cerradas al final
-      lista.sort((a, b) => {
-        const esCerradaA = obtenerEstadoSolicitud(a.estado) === 'cerrada';
-        const esCerradaB = obtenerEstadoSolicitud(b.estado) === 'cerrada';
+      const ORDEN_ESTADO: Record<string, number> = { abierta: 0, en_proceso: 1, cerrada: 2 };
+      const ORDEN_URGENCIA: Record<string, number> = { emergencia_vital: 0, alta: 1, media: 2, baja: 3 };
 
-        if (esCerradaA === esCerradaB) return 0;
-        return esCerradaA ? 1 : -1; // Si A está cerrada, va después (1)
+      lista.sort((a, b) => {
+        const estA = ORDEN_ESTADO[obtenerEstadoSolicitud(a.estado)] ?? 1;
+        const estB = ORDEN_ESTADO[obtenerEstadoSolicitud(b.estado)] ?? 1;
+        if (estA !== estB) return estA - estB;
+
+        const urgA = ORDEN_URGENCIA[a.urgencia ?? ''] ?? 4;
+        const urgB = ORDEN_URGENCIA[b.urgencia ?? ''] ?? 4;
+        return urgA - urgB;
       });
 
       setSolicitudes(lista);

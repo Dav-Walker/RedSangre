@@ -28,6 +28,10 @@ export function SolicitudDetallePage() {
   // Estado para el modal de aviso en PC
   const [mostrarModalPc, setMostrarModalPc] = useState(false);
 
+  // Estado para el modal de WhatsApp
+  const [mostrarModalWsp, setMostrarModalWsp] = useState(false);
+  const [mensajeWsp, setMensajeWsp] = useState('');
+
   useEffect(() => {
     async function cargarDetalleSolicitud() {
       if (!id) return;
@@ -137,6 +141,34 @@ export function SolicitudDetallePage() {
 
     setSolicitud({ ...solicitud, ...cambios });
     setMensajeEstado({ tipo: 'ok', texto: `Estado actualizado a ${ESTADOS_SOLICITUD[nuevoEstado].texto}.` });
+  };
+
+  // LÓGICA DE WHATSAPP
+  const handleAbrirModalWsp = () => {
+    const donante = solicitud?.donante;
+    if (!donante?.telefono) {
+      alert('El donante asignado no tiene un número de teléfono registrado.');
+      return;
+    }
+    const nombre = `${donante.nombre} ${donante.apellido}`;
+    const mensaje =
+      `Hola ${nombre}, le contactamos desde el Banco de Sangre de Clínica Indisa.\n\n` +
+      `Su donación voluntaria puede salvar una vida hoy. ` +
+      `Lo/La invitamos a acercarse a nuestro centro ubicado en Av. Santa María 1810, Providencia.\n\n` +
+      `La donación es gratuita, segura y no le tomará más de una hora. ` +
+      `¿Podría venir pronto?\n\n` +
+      `Quedamos a su disposición para cualquier consulta. ¡Muchas gracias por su generosidad!`;
+    setMensajeWsp(mensaje);
+    setMostrarModalWsp(true);
+  };
+
+  const handleEnviarWhatsApp = () => {
+    const telefonoRaw = solicitud?.donante?.telefono ?? '';
+    const limpio = telefonoRaw.replace(/[\s\-\+]/g, '');
+    const numero = limpio.startsWith('56') ? limpio : '56' + limpio;
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensajeWsp)}`;
+    window.open(url, '_blank');
+    setMostrarModalWsp(false);
   };
 
   // LÓGICA DE LLAMADA Y DETECCIÓN DE PC
@@ -320,16 +352,63 @@ export function SolicitudDetallePage() {
           <div className={styles.bitacoraFila}>
             <span className={styles.bitacoraEtiqueta}>WhatsApp</span>
             <div className={styles.bitacoraCelda}>
-              <Badge texto="Enviado" color="rojo" />
+              <Badge
+                texto={solicitud.donante?.telefono ? 'Disponible' : 'Sin número'}
+                color={solicitud.donante?.telefono ? 'verde' : 'gris'}
+              />
             </div>
             <div className={styles.bitacoraCelda}>
-              <button type="button" className={styles.botonCorreo}>Mensaje</button>
+              <button
+                type="button"
+                className={styles.botonCorreo}
+                onClick={handleAbrirModalWsp}
+                disabled={esCerrada || !solicitud.donante?.telefono}
+              >
+                Mensaje
+              </button>
             </div>
           </div>
 
         </div>
 
       </div>
+
+      {/* MODAL DE WHATSAPP */}
+      {mostrarModalWsp && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalWsp}>
+            <div className={styles.modalCabeceraWsp}>
+              <h2>Enviar WhatsApp</h2>
+            </div>
+            <p className={styles.modalSubtitulo}>
+              Para: <strong>{solicitud.donante?.nombre} {solicitud.donante?.apellido}</strong>
+              {' '}— {solicitud.donante?.telefono}
+            </p>
+            <textarea
+              className={styles.textareaWsp}
+              value={mensajeWsp}
+              onChange={(e) => setMensajeWsp(e.target.value)}
+              rows={9}
+            />
+            <div className={styles.botonesModal}>
+              <button
+                type="button"
+                className={styles.botonCancelarModal}
+                onClick={() => setMostrarModalWsp(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={styles.botonEnviarWsp}
+                onClick={handleEnviarWhatsApp}
+              >
+                Abrir WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE AVISO SI ESTÁN EN PC */}
       {mostrarModalPc && (

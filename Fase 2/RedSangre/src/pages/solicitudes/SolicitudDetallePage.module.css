@@ -184,6 +184,108 @@
 }
 
 /* ========================================== */
+/* MODAL DE WHATSAPP                          */
+/* ========================================== */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalWsp {
+  background-color: white;
+  border-radius: 12px;
+  padding: 28px 32px;
+  width: 520px;
+  max-width: 95%;
+  border: 2px solid #25d366;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modalCabeceraWsp {
+  border-bottom: 2px solid #25d366;
+  padding-bottom: 12px;
+}
+
+.modalCabeceraWsp h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #128c7e;
+}
+
+.modalSubtitulo {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.textareaWsp {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.5;
+  color: #333;
+}
+
+.textareaWsp:focus {
+  outline: none;
+  border-color: #25d366;
+}
+
+.botonesModal {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.botonCancelarModal {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1px solid #ccc;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonCancelarModal:hover {
+  background-color: #e0e0e0;
+}
+
+.botonEnviarWsp {
+  background-color: #25d366;
+  color: white;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonEnviarWsp:hover {
+  background-color: #1da851;
+}
+
+/* ========================================== */
 /* MEDIA QUERIES PARA DISPOSITIVOS MÓVILES    */
 /* ========================================== */
 @media (max-width: 900px) {
