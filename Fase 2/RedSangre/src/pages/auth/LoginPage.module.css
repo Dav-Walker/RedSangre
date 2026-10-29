@@ -112,6 +112,8 @@
   outline: none;
   transition: border-color 0.2s;
   background-color: #fff;
+  color: #000;
+  color-scheme: light;
 }
 
 .input:focus {
