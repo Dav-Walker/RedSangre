@@ -15,7 +15,9 @@ interface UsuarioModalProps {
   };
   estaEnLinea: boolean;
   textoEstado: string;
+  usuarioActualId: string;
   onCerrar: () => void;
+  onEliminar: (id: string) => void;
 }
 
 const ETIQUETAS_ROL: Record<UserRole, string> = {
@@ -31,12 +33,15 @@ function formatearFecha(fecha: string): string {
   });
 }
 
-export function UsuarioModal({ usuario, estaEnLinea, textoEstado, onCerrar }: UsuarioModalProps) {
+export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualId, onCerrar, onEliminar }: UsuarioModalProps) {
   const [nuevaContrasena, setNuevaContrasena] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
 
   const handleGuardar = async () => {
     setErrorForm(null);
@@ -74,6 +79,27 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, onCerrar }: Us
     if (e.target === e.currentTarget) onCerrar();
   };
 
+  const handleEliminar = async () => {
+    setEliminando(true);
+    setErrorEliminar(null);
+
+    const { data: { session } } = await supabase!.auth.getSession();
+    const { data, error } = await supabase!.functions.invoke('eliminar-usuario', {
+      body: { usuario_id: usuario.id },
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    });
+
+    setEliminando(false);
+
+    if (error || !data?.ok) {
+      setConfirmandoEliminar(false);
+      setErrorEliminar(data?.error ?? 'No se pudo eliminar el usuario. Intenta nuevamente.');
+    } else {
+      onEliminar(usuario.id);
+    }
+  };
+
+  const esPropioUsuario = usuario.id === usuarioActualId;
   const hayDatosCambio = nuevaContrasena.length > 0 || confirmar.length > 0;
 
   return (
@@ -160,16 +186,39 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, onCerrar }: Us
 
         {/* Pie */}
         <div className={styles.pie}>
-          <button className={styles.botonSecundario} onClick={onCerrar}>
-            Cerrar
-          </button>
-          <button
-            className={styles.botonPrimario}
-            onClick={handleGuardar}
-            disabled={!hayDatosCambio || guardando}
-          >
-            {guardando ? 'Guardando...' : 'Guardar cambios'}
-          </button>
+          <div className={styles.pieIzquierda}>
+            {!esPropioUsuario && !confirmandoEliminar && (
+              <>
+                <button className={styles.botonEliminar} onClick={() => { setConfirmandoEliminar(true); setErrorEliminar(null); }}>
+                  Eliminar usuario
+                </button>
+                {errorEliminar && <p className={styles.mensajeErrorPie}>{errorEliminar}</p>}
+              </>
+            )}
+            {!esPropioUsuario && confirmandoEliminar && (
+              <div className={styles.confirmacionEliminar}>
+                <span className={styles.textoConfirmacion}>¿Eliminar definitivamente?</span>
+                <button className={styles.botonEliminarConfirmar} onClick={handleEliminar} disabled={eliminando}>
+                  {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
+                </button>
+                <button className={styles.botonCancelarEliminar} onClick={() => setConfirmandoEliminar(false)}>
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
+          <div className={styles.pieDerecha}>
+            <button className={styles.botonSecundario} onClick={onCerrar}>
+              Cerrar
+            </button>
+            <button
+              className={styles.botonPrimario}
+              onClick={handleGuardar}
+              disabled={!hayDatosCambio || guardando}
+            >
+              {guardando ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
         </div>
 
       </div>

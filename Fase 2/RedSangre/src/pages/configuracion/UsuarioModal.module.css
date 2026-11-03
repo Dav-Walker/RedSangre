@@ -199,8 +199,94 @@
 .pie {
   padding: 0 24px 24px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
+}
+
+.pieIzquierda {
+  display: flex;
+  align-items: center;
+}
+
+.pieDerecha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.confirmacionEliminar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.textoConfirmacion {
+  font-size: 13px;
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.mensajeErrorPie {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 4px 0 0 0;
+}
+
+.botonEliminar {
+  background: none;
+  border: 1.5px solid #bb4442;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #bb4442;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.botonEliminar:hover {
+  background-color: #bb4442;
+  color: white;
+}
+
+.botonEliminarConfirmar {
+  background-color: #bb4442;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.botonEliminarConfirmar:hover:not(:disabled) {
+  background-color: #a03836;
+}
+
+.botonEliminarConfirmar:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.botonCancelarEliminar {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.botonCancelarEliminar:hover {
+  background-color: #f5f5f5;
 }
 
 .botonSecundario {

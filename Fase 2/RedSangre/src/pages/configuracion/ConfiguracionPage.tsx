@@ -164,7 +164,12 @@ export function ConfiguracionPage() {
           usuario={usuarioSeleccionado}
           estaEnLinea={estaEnLinea(usuarioSeleccionado.id)}
           textoEstado={textoEstado(usuarioSeleccionado)}
+          usuarioActualId={user?.id ?? ''}
           onCerrar={() => setUsuarioSeleccionado(null)}
+          onEliminar={(id) => {
+            setUsuarios((prev) => prev.filter((u) => u.id !== id));
+            setUsuarioSeleccionado(null);
+          }}
         />
       )}
 
