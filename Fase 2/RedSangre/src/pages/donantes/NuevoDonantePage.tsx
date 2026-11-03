@@ -49,7 +49,7 @@ export function NuevoDonantePage() {
     nombre: '',
     apellido: '',
     correo: '',
-    telefono: '', // <--- NUEVO CAMPO TELÉFONO
+    telefono: '',
     rut: '',
     sexo: '',
     region: '',
@@ -148,7 +148,7 @@ export function NuevoDonantePage() {
           nombre: form.nombre.trim(),
           apellido: form.apellido.trim(),
           correo: form.correo.trim() || null,
-          telefono: form.telefono.trim() || null, // <--- GUARDAMOS TELÉFONO (asegúrate de que exista la columna en tu BD o adáptalo si se llama distinto)
+          telefono: form.telefono.trim() || null,
           rut: form.rut.trim(),
           grupo_sanguineo: form.grupoSanguineo,
           fenotipo: fenotipoTexto || null,
@@ -253,7 +253,6 @@ export function NuevoDonantePage() {
             />
           </div>
 
-          {/* NUEVO CAMPO: TELÉFONO */}
           <div className={styles.grupoInput}>
             <label className={styles.label}>Número telefónico</label>
             <input
@@ -362,7 +361,7 @@ export function NuevoDonantePage() {
             </div>
 
             <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
-              <label className={styles.label}>Fenotipo</label>
+              <label className={styles.label}>Fenotipo <span className={styles.requerido}>*</span></label>
               <div
                 className={styles.selectContenedor}
                 onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setModoExtendido(false); setIsModalOpen(true); }}
