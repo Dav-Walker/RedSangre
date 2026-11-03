@@ -12,7 +12,6 @@ interface UsuarioFila {
   correo: string;
   rol: UserRole;
   activo: boolean;
-  ultimaConexion: string | null;
 }
 
 const ETIQUETAS_ROL: Record<UserRole, string> = {
@@ -28,11 +27,25 @@ function formatearUltimaConexion(fecha: string | null): string {
   return `Última conexión el ${dia} a las ${hora}`;
 }
 
+async function cargarUltimaConexion(usuarioId: string): Promise<string | null> {
+  const { data } = await supabase!
+    .from('auditoria')
+    .select('fecha')
+    .eq('usuario_id', usuarioId)
+    .eq('accion', 'LOGIN')
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.fecha ?? null;
+}
+
 export function ConfiguracionPage() {
-  const { usuariosEnLinea } = useAuth();
+  const { user } = useAuth();
   const [usuarios, setUsuarios] = useState<UsuarioFila[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usuariosEnLinea, setUsuariosEnLinea] = useState<string[]>([]);
+  const [ultimaConexion, setUltimaConexion] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     const cargarUsuarios = async () => {
@@ -48,31 +61,54 @@ export function ConfiguracionPage() {
       }
 
       // Una consulta por usuario: devuelve la última conexión exacta sin traer toda la bitácora.
-      const ultimas = await Promise.all(
-        data.map(async (u) => {
-          const { data: login } = await supabase!
-            .from('auditoria')
-            .select('fecha')
-            .eq('usuario_id', u.id)
-            .eq('accion', 'LOGIN')
-            .order('fecha', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return login?.fecha ?? null;
-        })
-      );
+      const ultimas = await Promise.all(data.map((u) => cargarUltimaConexion(u.id)));
 
-      setUsuarios(data.map((u, i) => ({ ...u, ultimaConexion: ultimas[i] })));
+      setUsuarios(data);
+      setUltimaConexion(Object.fromEntries(data.map((u, i) => [u.id, ultimas[i]])));
       setCargando(false);
     };
 
     cargarUsuarios();
   }, []);
 
+  // Un canal por usuario: el administrador puede leerlos todos. El propio administrador está en línea por definición.
+  // Al desconectarse alguien se vuelve a leer su última conexión, que pudo cambiar mientras la pantalla estaba abierta.
+  const idsOtros = usuarios.filter((u) => u.id !== user?.id).map((u) => u.id).join(',');
+
+  useEffect(() => {
+    if (!idsOtros) return;
+    const enLinea = new Set<string>();
+
+    const canales = idsOtros.split(',').map((id) => {
+      const canal = supabase!.channel(`presencia:${id}`, { config: { private: true } });
+      canal
+        .on('presence', { event: 'sync' }, async () => {
+          const conectado = Object.keys(canal.presenceState()).length > 0;
+          const estaba = enLinea.has(id);
+          if (conectado) enLinea.add(id);
+          else enLinea.delete(id);
+          setUsuariosEnLinea([...enLinea]);
+
+          if (estaba && !conectado) {
+            const fecha = await cargarUltimaConexion(id);
+            setUltimaConexion((prev) => ({ ...prev, [id]: fecha }));
+          }
+        })
+        .subscribe();
+      return canal;
+    });
+
+    return () => {
+      canales.forEach((canal) => supabase!.removeChannel(canal));
+    };
+  }, [idsOtros]);
+
+  const estaEnLinea = (id: string) => id === user?.id || usuariosEnLinea.includes(id);
+
   const textoEstado = (u: UsuarioFila) => {
     if (!u.activo) return 'Cuenta desactivada';
-    if (usuariosEnLinea.includes(u.id)) return 'Conectado ahora';
-    return formatearUltimaConexion(u.ultimaConexion);
+    if (estaEnLinea(u.id)) return 'Conectado ahora';
+    return formatearUltimaConexion(ultimaConexion[u.id] ?? null);
   };
 
   return (
@@ -107,7 +143,7 @@ export function ConfiguracionPage() {
                 <td className={styles.celdaCorreo}>{usuario.correo}</td>
                 <td>
                   <div className={styles.estadoContainer}>
-                    <div className={usuario.activo && usuariosEnLinea.includes(usuario.id) ? styles.puntoVerde : styles.puntoRojo} />
+                    <div className={usuario.activo && estaEnLinea(usuario.id) ? styles.puntoVerde : styles.puntoRojo} />
                     <span className={styles.textoEstado}>{textoEstado(usuario)}</span>
                   </div>
                 </td>

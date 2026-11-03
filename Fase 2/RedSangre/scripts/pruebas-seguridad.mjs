@@ -1,0 +1,116 @@
+// Pruebas de seguridad de la pestaña Configuración (solo administrador).
+// Uso, desde "Fase 2/RedSangre", con las credenciales en variables de entorno:
+//   ADMIN_EMAIL=... ADMIN_PASSWORD=... TECNO_EMAIL=... TECNO_PASSWORD=... \
+//   node --env-file=.env scripts/pruebas-seguridad.mjs
+// Las únicas escrituras son intentos que deben ser rechazados; si alguno prospera, el script lo revierte.
+import { createClient } from '@supabase/supabase-js';
+
+const { VITE_SUPABASE_URL: url, VITE_SUPABASE_PUBLISHABLE_KEY: key } = process.env;
+const { ADMIN_EMAIL, ADMIN_PASSWORD, TECNO_EMAIL, TECNO_PASSWORD } = process.env;
+if (!url || !key || !ADMIN_EMAIL || !ADMIN_PASSWORD || !TECNO_EMAIL || !TECNO_PASSWORD) {
+  console.error('Faltan variables de entorno (ver comentario al inicio del archivo).');
+  process.exit(2);
+}
+
+let fallos = 0;
+const verificar = (nombre, ok, detalle = '') => {
+  if (!ok) fallos++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${nombre}${detalle ? `  (${detalle})` : ''}`);
+};
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function iniciarSesion(email, password) {
+  const cliente = createClient(url, key);
+  const { data, error } = await cliente.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(`No se pudo iniciar sesión con ${email}: ${error.message}`);
+  await cliente.realtime.setAuth(data.session.access_token);
+  return { cliente, id: data.user.id };
+}
+
+// Se une al canal privado de un usuario; si anunciar es true, además se anuncia en él.
+async function unirseACanal(cliente, idDueno, anunciar) {
+  const canal = cliente.channel(`presencia:${idDueno}`, { config: { private: true, presence: { enabled: true } } });
+  await new Promise((resolve) => {
+    canal.subscribe((estado, err) => {
+      canal.estado = err ? `${estado}: ${err.message}` : estado;
+      if (estado === 'SUBSCRIBED') {
+        if (anunciar) canal.track({ prueba: true });
+        resolve();
+      }
+      if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT') resolve();
+    });
+  });
+  return canal;
+}
+
+const anon = createClient(url, key);
+const admin = await iniciarSesion(ADMIN_EMAIL, ADMIN_PASSWORD);
+const tecno = await iniciarSesion(TECNO_EMAIL, TECNO_PASSWORD);
+
+// Sin sesión
+{
+  const { data } = await anon.from('usuario').select('id');
+  verificar('Sin sesión no lee usuario', !data || data.length === 0);
+}
+
+// Tecnólogo: datos
+{
+  const { data } = await tecno.cliente.from('usuario').select('id');
+  verificar('Tecnólogo solo ve su propia fila de usuario', data?.length === 1 && data[0].id === tecno.id, `filas: ${data?.length}`);
+}
+{
+  const { data } = await tecno.cliente.from('auditoria').select('id').limit(5);
+  verificar('Tecnólogo no lee auditoria', !data || data.length === 0);
+}
+{
+  const { data: cfg } = await tecno.cliente.from('configuracion').select('clave, valor').limit(1).single();
+  const { data } = await tecno.cliente.from('configuracion').update({ valor: cfg.valor }).eq('clave', cfg.clave).select();
+  verificar('Tecnólogo no puede editar configuracion', !data || data.length === 0);
+}
+{
+  const { error } = await tecno.cliente.from('usuario').update({ rol: 'administrador' }).eq('id', tecno.id);
+  const { data: tras } = await admin.cliente.from('usuario').select('rol').eq('id', tecno.id).single();
+  if (tras?.rol !== 'tecnologo') await admin.cliente.from('usuario').update({ rol: 'tecnologo' }).eq('id', tecno.id);
+  verificar('Tecnólogo no puede subirse a administrador', Boolean(error) && tras?.rol === 'tecnologo', error?.code);
+}
+
+// Tecnólogo: sigue viendo quién creó cada registro
+{
+  const { data } = await tecno.cliente.from('v_solicitud_listado').select('creado_por, creado_por_nombre').not('creado_por', 'is', null).limit(20);
+  verificar('Tecnólogo ve el creador en solicitudes', data?.length > 0 && data.every((f) => f.creado_por_nombre), `filas: ${data?.length}`);
+}
+{
+  const { data } = await tecno.cliente.from('v_donacion_listado').select('registrado_por, registrado_por_nombre').not('registrado_por', 'is', null).limit(20);
+  verificar('Tecnólogo ve quién registró cada donación', data?.length > 0 && data.every((f) => f.registrado_por_nombre), `filas: ${data?.length}`);
+}
+
+// Administrador
+{
+  const { data } = await admin.cliente.from('usuario').select('id');
+  verificar('Administrador ve todos los usuarios', data?.length > 1, `filas: ${data?.length}`);
+}
+{
+  const { data } = await admin.cliente.from('auditoria').select('id').limit(1);
+  verificar('Administrador lee auditoria', data?.length === 1);
+}
+
+// Presence privado, un canal por usuario
+{
+  const propioTecno = await unirseACanal(tecno.cliente, tecno.id, true);
+  const propioAdmin = await unirseACanal(admin.cliente, admin.id, true);
+  const adminEnTecno = await unirseACanal(admin.cliente, tecno.id, false);
+  const tecnoEnAdmin = await unirseACanal(tecno.cliente, admin.id, false);
+  await esperar(4000);
+  const tecnoVisto = Object.keys(adminEnTecno.presenceState()).length;
+  verificar('Tecnólogo se anuncia en su propio canal', propioTecno.estado === 'SUBSCRIBED', propioTecno.estado);
+  verificar('Administrador ve al tecnólogo conectado', adminEnTecno.estado === 'SUBSCRIBED' && tecnoVisto > 0, `canal: ${adminEnTecno.estado}, presentes: ${tecnoVisto}`);
+  verificar('Tecnólogo no puede leer el canal del administrador', tecnoEnAdmin.estado !== 'SUBSCRIBED', tecnoEnAdmin.estado);
+  for (const [cliente, canal] of [[tecno, propioTecno], [admin, propioAdmin], [admin, adminEnTecno], [tecno, tecnoEnAdmin]]) {
+    await cliente.cliente.removeChannel(canal);
+  }
+}
+
+await admin.cliente.auth.signOut();
+await tecno.cliente.auth.signOut();
+console.log(fallos === 0 ? '\nTodas las pruebas pasaron.' : `\n${fallos} prueba(s) fallaron.`);
+process.exit(fallos === 0 ? 0 : 1);

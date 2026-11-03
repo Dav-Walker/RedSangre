@@ -7,7 +7,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
-  const [usuariosEnLinea, setUsuariosEnLinea] = useState<string[]>([]);
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -38,22 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Presence: cada sesión abierta se anuncia en el canal, la clave es el id del usuario.
+  // Presence: cada sesión se anuncia en su propio canal privado (presencia:<id>).
+  // Solo el dueño del canal y el administrador pueden leerlo (RLS en realtime.messages).
   useEffect(() => {
     if (!supabase || !userId) return;
 
-    const canal = supabase.channel('usuarios-en-linea', { config: { presence: { key: userId } } });
-    canal
-      .on('presence', { event: 'sync' }, () => {
-        setUsuariosEnLinea(Object.keys(canal.presenceState()));
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') canal.track({ desde: new Date().toISOString() });
-      });
+    const canal = supabase.channel(`presencia:${userId}`, { config: { private: true } });
+    canal.subscribe((status) => {
+      if (status === 'SUBSCRIBED') canal.track({ desde: new Date().toISOString() });
+    });
 
     return () => {
       supabase!.removeChannel(canal);
-      setUsuariosEnLinea([]);
     };
   }, [userId]);
 
@@ -95,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, usuariosEnLinea, loading, configured: isSupabaseConfigured, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, configured: isSupabaseConfigured, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

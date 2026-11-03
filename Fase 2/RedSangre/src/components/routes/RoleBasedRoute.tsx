@@ -13,7 +13,7 @@ export function RoleBasedRoute({ children, allowedRoles }: RoleBasedRouteProps) 
   if (loading) return <p role="status">Verificando sesión...</p>;
   if (!session || !user) return <Navigate to="/login" replace />;
 
-  if (!allowedRoles.includes(user.rol)) {
+  if (!user.activo || !allowedRoles.includes(user.rol)) {
     return <Navigate to="/dashboard" replace />;
   }
 
