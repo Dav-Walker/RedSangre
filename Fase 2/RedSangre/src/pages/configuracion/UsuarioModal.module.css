@@ -1,0 +1,242 @@
+/* Fondo oscuro detrás del modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Tarjeta del modal */
+.modal {
+  background: white;
+  border-radius: 12px;
+  width: 480px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  animation: slideIn 0.18s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-16px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+/* Cabecera azul */
+.cabecera {
+  background-color: #00a0df;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nombreUsuario {
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.rolBadge {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.botonCerrar {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0 0 16px;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.botonCerrar:hover {
+  opacity: 1;
+}
+
+/* Cuerpo */
+.cuerpo {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Sección de info */
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.seccionTitulo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.separador {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 4px 0;
+}
+
+/* Fila de dato */
+.fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.etiqueta {
+  color: #666;
+  flex-shrink: 0;
+}
+
+.valor {
+  color: #222;
+  font-weight: 500;
+  text-align: right;
+}
+
+/* Estado activo/inactivo */
+.estadoContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.puntoVerde {
+  width: 9px;
+  height: 9px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+  flex-shrink: 0;
+}
+
+.puntoRojo {
+  width: 9px;
+  height: 9px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Formulario de contraseña */
+.campoContrasena {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.labelInput {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.input {
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  padding: 10px 13px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: #00a0df;
+}
+
+.inputError {
+  border-color: #ef4444;
+}
+
+.mensajeError {
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.mensajeExito {
+  font-size: 12px;
+  color: #15803d;
+  font-weight: 500;
+}
+
+.notaSoloPropio {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+
+/* Pie con botones */
+.pie {
+  padding: 0 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.botonSecundario {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.botonSecundario:hover {
+  background-color: #f5f5f5;
+}
+
+.botonPrimario {
+  background-color: #bb4442;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.botonPrimario:hover:not(:disabled) {
+  background-color: #a03836;
+}
+
+.botonPrimario:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}

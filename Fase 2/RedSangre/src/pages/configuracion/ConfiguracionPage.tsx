@@ -3,6 +3,7 @@ import { Button } from '../../components/common/Button';
 import { useAuth } from '../../contexts/useAuth';
 import type { UserRole } from '../../contexts/auth-context';
 import { supabase } from '../../utils/supabase';
+import { UsuarioModal } from './UsuarioModal';
 import styles from './ConfiguracionPage.module.css';
 
 interface UsuarioFila {
@@ -12,6 +13,7 @@ interface UsuarioFila {
   correo: string;
   rol: UserRole;
   activo: boolean;
+  created_at: string;
 }
 
 const ETIQUETAS_ROL: Record<UserRole, string> = {
@@ -46,12 +48,13 @@ export function ConfiguracionPage() {
   const [error, setError] = useState<string | null>(null);
   const [usuariosEnLinea, setUsuariosEnLinea] = useState<string[]>([]);
   const [ultimaConexion, setUltimaConexion] = useState<Record<string, string | null>>({});
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<UsuarioFila | null>(null);
 
   useEffect(() => {
     const cargarUsuarios = async () => {
       const { data, error: err } = await supabase!
         .from('usuario')
-        .select('id, nombre, apellido, correo, rol, activo')
+        .select('id, nombre, apellido, correo, rol, activo, created_at')
         .order('nombre');
 
       if (err || !data) {
@@ -60,7 +63,6 @@ export function ConfiguracionPage() {
         return;
       }
 
-      // Una consulta por usuario: devuelve la última conexión exacta sin traer toda la bitácora.
       const ultimas = await Promise.all(data.map((u) => cargarUltimaConexion(u.id)));
 
       setUsuarios(data);
@@ -71,8 +73,6 @@ export function ConfiguracionPage() {
     cargarUsuarios();
   }, []);
 
-  // Un canal por usuario: el administrador puede leerlos todos. El propio administrador está en línea por definición.
-  // Al desconectarse alguien se vuelve a leer su última conexión, que pudo cambiar mientras la pantalla estaba abierta.
   const idsOtros = usuarios.filter((u) => u.id !== user?.id).map((u) => u.id).join(',');
 
   useEffect(() => {
@@ -138,7 +138,12 @@ export function ConfiguracionPage() {
               <tr><td colSpan={4}>Cargando usuarios...</td></tr>
             )}
             {usuarios.map((usuario) => (
-              <tr key={usuario.id} className={styles.fila}>
+              <tr
+                key={usuario.id}
+                className={styles.fila}
+                onClick={() => setUsuarioSeleccionado(usuario)}
+                style={{ cursor: 'pointer' }}
+              >
                 <td className={styles.celdaNombre}>{usuario.nombre} {usuario.apellido}</td>
                 <td className={styles.celdaCorreo}>{usuario.correo}</td>
                 <td>
@@ -153,6 +158,15 @@ export function ConfiguracionPage() {
           </tbody>
         </table>
       </div>
+
+      {usuarioSeleccionado && (
+        <UsuarioModal
+          usuario={usuarioSeleccionado}
+          estaEnLinea={estaEnLinea(usuarioSeleccionado.id)}
+          textoEstado={textoEstado(usuarioSeleccionado)}
+          onCerrar={() => setUsuarioSeleccionado(null)}
+        />
+      )}
 
     </div>
   );

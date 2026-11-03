@@ -13,6 +13,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
 
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
@@ -52,6 +53,7 @@ function LayoutPrincipal() {
           <Route path="/solicitudes/:id" element={<ProtectedRoute><SolicitudDetallePage /></ProtectedRoute>} />
           <Route path="/configuracion" element={<RoleBasedRoute allowedRoles={['administrador']}><ConfiguracionPage /></RoleBasedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          
         </Routes>
       </div>
     </>
