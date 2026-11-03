@@ -33,9 +33,12 @@ const ETIQUETAS_DISPONIBLES = [
   'Donante de plasma',
 ];
 
+const FENOTIPOS_COMPACTOS = ['C', 'E', 'K', 'c', 'e'];
+
 const FENOTIPOS_EXTENDIDOS = [
   'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb',
-  'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub'
+  'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub',
+  'M', 'Mia', 'N', 'P1', 'S', 'V', 'Xga', 'c', 'e', 'f', 'k', 's'
 ];
 
 export function NuevoDonantePage() {
@@ -58,6 +61,7 @@ export function NuevoDonantePage() {
   const comunasDisponibles = form.region ? (REGIONES_CHILE[form.region] ?? []) : [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modoExtendido, setModoExtendido] = useState(false);
   const [valoresFenotipos, setValoresFenotipos] = useState<Record<string, string>>({});
   const [valoresFenotiposBackup, setValoresFenotiposBackup] = useState<Record<string, string>>({});
   const [etiquetasSeleccionadas, setEtiquetasSeleccionadas] = useState<string[]>([]);
@@ -97,10 +101,13 @@ export function NuevoDonantePage() {
     .map(f => `${f}${valoresFenotipos[f] === 'POSITIVO' ? '+' : '-'}`)
     .join('/');
 
-  const filasAgrupadas: (string | undefined)[][] = [];
-  for (let i = 0; i < FENOTIPOS_EXTENDIDOS.length; i += 2) {
-    filasAgrupadas.push([FENOTIPOS_EXTENDIDOS[i], FENOTIPOS_EXTENDIDOS[i + 1]]);
-  }
+  const buildFilas = (lista: string[]): (string | undefined)[][] => {
+    const filas: (string | undefined)[][] = [];
+    for (let i = 0; i < lista.length; i += 2) {
+      filas.push([lista[i], lista[i + 1]]);
+    }
+    return filas;
+  };
 
   const handleGuardar = async () => {
     if (!supabase) {
@@ -358,7 +365,7 @@ export function NuevoDonantePage() {
               <label className={styles.label}>Fenotipo</label>
               <div
                 className={styles.selectContenedor}
-                onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setIsModalOpen(true); }}
+                onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setModoExtendido(false); setIsModalOpen(true); }}
               >
                 <input
                   type="text"
@@ -459,7 +466,7 @@ export function NuevoDonantePage() {
           <div className={styles.modalContenido}>
 
             <div className={styles.modalCabecera}>
-              <h2>Tipificación Extendida</h2>
+              <h2>{modoExtendido ? 'Tipificación Extendida' : 'Tipificación'}</h2>
             </div>
 
             <table className={styles.tablaCompacta}>
@@ -472,7 +479,7 @@ export function NuevoDonantePage() {
                 </tr>
               </thead>
               <tbody>
-                {filasAgrupadas.map((par, index) => (
+                {buildFilas(modoExtendido ? FENOTIPOS_EXTENDIDOS : FENOTIPOS_COMPACTOS).map((par, index) => (
                   <tr key={index}>
                     <td className={styles.nombreAntigeno}>{par[0]}</td>
                     <td>
@@ -481,7 +488,7 @@ export function NuevoDonantePage() {
                         value={valoresFenotipos[par[0]!] || ''}
                         onChange={(e) => handleCambioFenotipo(par[0]!, e.target.value)}
                       >
-                        <option value=""></option>
+                        <option value="">Sin seleccionar</option>
                         <option value="POSITIVO">POSITIVO (+)</option>
                         <option value="NEGATIVO">NEGATIVO (-)</option>
                       </select>
@@ -496,7 +503,7 @@ export function NuevoDonantePage() {
                             value={valoresFenotipos[par[1]] || ''}
                             onChange={(e) => handleCambioFenotipo(par[1]!, e.target.value)}
                           >
-                            <option value=""></option>
+                            <option value="">Sin seleccionar</option>
                             <option value="POSITIVO">POSITIVO (+)</option>
                             <option value="NEGATIVO">NEGATIVO (-)</option>
                           </select>
@@ -513,14 +520,31 @@ export function NuevoDonantePage() {
             <div className={styles.modalPie}>
               <button
                 className={styles.botonCancelarModal}
-                onClick={() => { setValoresFenotipos(valoresFenotiposBackup); setIsModalOpen(false); }}
+                onClick={() => { setValoresFenotipos(valoresFenotiposBackup); setModoExtendido(false); setIsModalOpen(false); }}
               >
                 Cancelar
               </button>
+
+              {modoExtendido ? (
+                <button
+                  className={styles.botonModoModal}
+                  onClick={() => setModoExtendido(false)}
+                >
+                  ← Atrás
+                </button>
+              ) : (
+                <button
+                  className={styles.botonModoModal}
+                  onClick={() => setModoExtendido(true)}
+                >
+                  Modo Extendido
+                </button>
+              )}
+
               <button
                 className={styles.botonGuardarModal}
                 disabled={!hayAlMenosUnoSeleccionado}
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => { setModoExtendido(false); setIsModalOpen(false); }}
               >
                 Guardar
               </button>

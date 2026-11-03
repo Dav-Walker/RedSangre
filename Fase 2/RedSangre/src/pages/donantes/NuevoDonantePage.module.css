@@ -326,6 +326,20 @@
   border-color: #00a0df;
   outline: none;
 }
+
+.selectCompacto option[value="POSITIVO"] {
+  color: #1b7a3a;
+  font-weight: bold;
+}
+
+.selectCompacto option[value="NEGATIVO"] {
+  color: #b3261e;
+  font-weight: bold;
+}
+
+.selectCompacto option[value=""] {
+  color: #999;
+}
 .modalPie {
   margin-top: 15px;
   display: flex;
@@ -347,6 +361,22 @@
 
 .botonCancelarModal:hover {
   background-color: #e0e0e0;
+}
+
+.botonModoModal {
+  background-color: #00a0df;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.botonModoModal:hover {
+  background-color: #0088bd;
 }
 
 .botonGuardarModal {
