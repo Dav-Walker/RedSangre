@@ -41,6 +41,14 @@ function hoyISO(): string {
 
 type ConsentState = { acepta_cookies: boolean; autoriza_contacto: boolean };
 
+const ETIQUETAS_GENERICAS = [
+  'Donación altruista',
+  'Grupo sanguíneo de interés',
+  'Donante derivado o referido',
+  'Donante corporativo',
+  'Donante de plasma',
+];
+
 export function DonanteFichaPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -53,6 +61,8 @@ export function DonanteFichaPage() {
   const [consentimientoEdit, setConsentimientoEdit] = useState<ConsentState | null>(null);
   const [donante, setDonante] = useState<DonanteDetalle | null>(null);
   const [donanteOriginal, setDonanteOriginal] = useState<DonanteDetalle | null>(null);
+  const [etiquetas, setEtiquetas] = useState<string[]>([]);
+  const [etiquetasEdit, setEtiquetasEdit] = useState<string[]>([]);
   const [isRegistrandoDonacion, setIsRegistrandoDonacion] = useState(false);
   const [fechaDonacion, setFechaDonacion] = useState(hoyISO());
   const [tipoDonacion, setTipoDonacion] = useState<'sangre_total' | 'plaquetas'>('sangre_total');
@@ -89,6 +99,13 @@ export function DonanteFichaPage() {
         .single();
 
       setConsentimiento(consent ?? { acepta_cookies: false, autoriza_contacto: false });
+
+      const { data: etiquetasData } = await supabase!
+        .from('etiqueta_donante')
+        .select('etiqueta')
+        .eq('donante_id', data.id);
+
+      setEtiquetas((etiquetasData ?? []).map((r: { etiqueta: string }) => r.etiqueta));
       setCargando(false);
     }
     cargarDonante();
@@ -97,6 +114,7 @@ export function DonanteFichaPage() {
   const handleCancelar = () => {
     setDonante(donanteOriginal);
     setConsentimientoEdit(null);
+    setEtiquetasEdit([]);
     setIsEditing(false);
     setError(null);
   };
@@ -157,9 +175,26 @@ export function DonanteFichaPage() {
       setConsentimiento(consentimientoEdit);
     }
 
+    // Sincronizar etiquetas genéricas: borrar las existentes y reinsertar las seleccionadas
+    await supabase!
+      .from('etiqueta_donante')
+      .delete()
+      .eq('donante_id', donante.id)
+      .in('etiqueta', ETIQUETAS_GENERICAS);
+
+    if (etiquetasEdit.length > 0) {
+      await supabase!
+        .from('etiqueta_donante')
+        .insert(etiquetasEdit.map(e => ({ donante_id: donante.id, etiqueta: e })));
+    }
+
+    const etiquetasNoGenericas = etiquetas.filter(e => !ETIQUETAS_GENERICAS.includes(e));
+    setEtiquetas([...etiquetasNoGenericas, ...etiquetasEdit]);
+
     setGuardando(false);
     setDonanteOriginal(donante);
     setConsentimientoEdit(null);
+    setEtiquetasEdit([]);
     setIsEditing(false);
   };
 
@@ -317,8 +352,32 @@ export function DonanteFichaPage() {
               ) : (
                 donante.frecuente_plaquetas && <Badge texto="Plaquetas" color="azul" />
               )}
-              {!donante.fenotipo_raro && !donante.frecuente_plaquetas && !isEditing && (
-                <span style={{ color: '#aaa' }}>-</span>
+              {isEditing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {ETIQUETAS_GENERICAS.map(e => (
+                    <label key={e} className={styles.checkboxEdit}>
+                      <input
+                        type="checkbox"
+                        checked={etiquetasEdit.includes(e)}
+                        onChange={() => setEtiquetasEdit(prev =>
+                          prev.includes(e) ? prev.filter(x => x !== e) : [...prev, e]
+                        )}
+                      />
+                      {e}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {etiquetas
+                    .filter(e => !['Fenotipo sanguíneo raro', 'Donante de plaquetas'].includes(e))
+                    .map(e => <Badge key={e} texto={e} color="azul" />)
+                  }
+                  {!donante.fenotipo_raro && !donante.frecuente_plaquetas &&
+                    etiquetas.filter(e => !['Fenotipo sanguíneo raro', 'Donante de plaquetas'].includes(e)).length === 0 && (
+                    <span style={{ color: '#aaa' }}>-</span>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -442,6 +501,7 @@ export function DonanteFichaPage() {
             <Button texto="Editar donante" onClick={() => {
               setIsEditing(true);
               setConsentimientoEdit(consentimiento ?? { acepta_cookies: false, autoriza_contacto: false });
+              setEtiquetasEdit(etiquetas.filter(e => ETIQUETAS_GENERICAS.includes(e)));
             }} />
           </div>
         )}
