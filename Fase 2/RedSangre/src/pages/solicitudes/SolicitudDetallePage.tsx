@@ -38,10 +38,10 @@ export function SolicitudDetallePage() {
       setCargando(true);
       setError(null);
 
-      // 1. Buscamos por 'codigo_solicitud' incluyendo el teléfono del donante
+      // 1. Buscamos por 'codigo_solicitud' solicitando explícitamente 'rut'
       let { data, error: err } = await supabase!
         .from('solicitud')
-        .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo, telefono)')
+        .select('*, donante:donante_asignado_id (id, rut, nombre, apellido, correo, telefono)')
         .eq('codigo_solicitud', id)
         .maybeSingle();
 
@@ -49,7 +49,7 @@ export function SolicitudDetallePage() {
       if (!data && !err) {
         const resId = await supabase!
           .from('solicitud')
-          .select('*, donante:donante_asignado_id (id, codigo_donante, nombre, apellido, correo, telefono)')
+          .select('*, donante:donante_asignado_id (id, rut, nombre, apellido, correo, telefono)')
           .eq('id', id)
           .maybeSingle();
         data = resId.data;
@@ -180,16 +180,13 @@ export function SolicitudDetallePage() {
       return;
     }
 
-    // Detectar si es un dispositivo móvil (Android, iPhone, iPad, etc.)
     const esMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     if (!esMovil) {
-      // Si está en PC, abrimos el modal de aviso
       setMostrarModalPc(true);
       return;
     }
 
-    // Si es móvil, ejecuta el protocolo nativo para abrir las llamadas
     window.location.href = `tel:${telefono}`;
   };
 
@@ -272,11 +269,12 @@ export function SolicitudDetallePage() {
             <span className={styles.valorDato}>{solicitud.fenotipo_requerido || '-'}</span>
           </div>
           
+          {/* Muestra únicamente RUT y Nombre completo */}
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>Donante asignado</span>
             <span className={styles.valorDato}>
               {solicitud.donante 
-                ? `${solicitud.donante.nombre} ${solicitud.donante.apellido} (${solicitud.donante.codigo_donante}) - Tel: ${solicitud.donante.telefono || 'Sin teléfono'}` 
+                ? `${solicitud.donante.rut || 'Sin RUT'} - ${solicitud.donante.nombre} ${solicitud.donante.apellido}` 
                 : 'Sin asignar'}
             </span>
           </div>
