@@ -7,6 +7,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [usuariosEnLinea, setUsuariosEnLinea] = useState<string[]>([]);
+  const userId = session?.user.id;
 
   useEffect(() => {
     if (!supabase) return;
@@ -36,6 +38,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Presence: cada sesión abierta se anuncia en el canal, la clave es el id del usuario.
+  useEffect(() => {
+    if (!supabase || !userId) return;
+
+    const canal = supabase.channel('usuarios-en-linea', { config: { presence: { key: userId } } });
+    canal
+      .on('presence', { event: 'sync' }, () => {
+        setUsuariosEnLinea(Object.keys(canal.presenceState()));
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') canal.track({ desde: new Date().toISOString() });
+      });
+
+    return () => {
+      supabase!.removeChannel(canal);
+      setUsuariosEnLinea([]);
+    };
+  }, [userId]);
+
   const signIn = async (email: string, password: string) => {
     if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
 
@@ -43,6 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return error.message;
 
     setSession(data.session);
+
+    // La auditoría no debe bloquear el inicio de sesión si falla.
+    await supabase.rpc('fn_registrar_login');
 
     if (data.user) {
       const { data: profile, error: profileError } = await supabase
@@ -71,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, configured: isSupabaseConfigured, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, usuariosEnLinea, loading, configured: isSupabaseConfigured, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

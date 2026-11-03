@@ -1,63 +1,91 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../../components/common/Button';
+import { useAuth } from '../../contexts/useAuth';
+import type { UserRole } from '../../contexts/auth-context';
+import { supabase } from '../../utils/supabase';
 import styles from './ConfiguracionPage.module.css';
 
-const USUARIOS_INICIALES = [
-  { 
-    id: 1, 
-    nombre: 'David Walker', 
-    correo: 'david.walker@indisa.cl', 
-    rol: 'Administrador', 
-    activo: true, 
-    tiempoActivo: 'Activo hace 12 min' 
-  },
-  { 
-    id: 2, 
-    nombre: 'Nicole Hernandez', 
-    correo: 'nicole.hernandez@indisa.cl', 
-    rol: 'Tecnólogo', 
-    activo: false, 
-    tiempoActivo: 'Última conexión el 10-05-2026 a las 16:00' 
-  },
-];
+interface UsuarioFila {
+  id: string;
+  nombre: string;
+  apellido: string;
+  correo: string;
+  rol: UserRole;
+  activo: boolean;
+  ultimaConexion: string | null;
+}
+
+const ETIQUETAS_ROL: Record<UserRole, string> = {
+  administrador: 'Administrador',
+  tecnologo: 'Tecnólogo',
+};
+
+function formatearUltimaConexion(fecha: string | null): string {
+  if (!fecha) return 'Sin conexiones registradas';
+  const d = new Date(fecha);
+  const dia = d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const hora = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `Última conexión el ${dia} a las ${hora}`;
+}
 
 export function ConfiguracionPage() {
-  // ESTADOS
-  const [usuarios, setUsuarios] = useState(USUARIOS_INICIALES);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { usuariosEnLinea } = useAuth();
+  const [usuarios, setUsuarios] = useState<UsuarioFila[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Campos del formulario del modal
-  const [nombre, setNombre] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [rol, setRol] = useState('Tecnólogo médico');
+  useEffect(() => {
+    const cargarUsuarios = async () => {
+      const { data, error: err } = await supabase!
+        .from('usuario')
+        .select('id, nombre, apellido, correo, rol, activo')
+        .order('nombre');
 
-  const handleCrearUsuario = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nombre || !correo) return;
+      if (err || !data) {
+        setError('No se pudieron cargar los usuarios.');
+        setCargando(false);
+        return;
+      }
 
-    const nuevoUser = {
-      id: Date.now(),
-      nombre,
-      correo,
-      rol,
-      activo: true,
-      tiempoActivo: 'Activo recién'
+      // Una consulta por usuario: devuelve la última conexión exacta sin traer toda la bitácora.
+      const ultimas = await Promise.all(
+        data.map(async (u) => {
+          const { data: login } = await supabase!
+            .from('auditoria')
+            .select('fecha')
+            .eq('usuario_id', u.id)
+            .eq('accion', 'LOGIN')
+            .order('fecha', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          return login?.fecha ?? null;
+        })
+      );
+
+      setUsuarios(data.map((u, i) => ({ ...u, ultimaConexion: ultimas[i] })));
+      setCargando(false);
     };
 
-    setUsuarios([...usuarios, nuevoUser]);
-    setIsModalOpen(false); // Cierra el modal
-    setNombre('');
-    setCorreo('');
+    cargarUsuarios();
+  }, []);
+
+  const textoEstado = (u: UsuarioFila) => {
+    if (!u.activo) return 'Cuenta desactivada';
+    if (usuariosEnLinea.includes(u.id)) return 'Conectado ahora';
+    return formatearUltimaConexion(u.ultimaConexion);
   };
 
   return (
     <div className={styles.contenedor}>
-      
+
       <div className={styles.cabeceraSeccion}>
-        <div style={{ width: '150px' }}></div>
+        <div className={styles.espaciador}></div>
         <h1 className={styles.tituloPrincipal}>Usuarios y roles</h1>
-        <Button texto="+ Nuevo usuario" onClick={() => setIsModalOpen(true)} />
+        <Button texto="+ Nuevo usuario" disabled />
       </div>
+      <p className={styles.nota}>La creación de usuarios desde esta pantalla aún no está disponible.</p>
+
+      {error && <p role="alert" className={styles.mensajeError}>{error}</p>}
 
       <div className={styles.tablaContenedor}>
         <table className={styles.tabla}>
@@ -70,105 +98,25 @@ export function ConfiguracionPage() {
             </tr>
           </thead>
           <tbody>
+            {cargando && (
+              <tr><td colSpan={4}>Cargando usuarios...</td></tr>
+            )}
             {usuarios.map((usuario) => (
               <tr key={usuario.id} className={styles.fila}>
-                <td style={{ fontWeight: 'bold' }}>{usuario.nombre}</td>
-                <td style={{ color: '#666' }}>{usuario.correo}</td>
+                <td className={styles.celdaNombre}>{usuario.nombre} {usuario.apellido}</td>
+                <td className={styles.celdaCorreo}>{usuario.correo}</td>
                 <td>
                   <div className={styles.estadoContainer}>
-                    <div className={usuario.activo ? styles.puntoVerde : styles.puntoRojo} />
-                    <span className={styles.textoEstado}>{usuario.tiempoActivo}</span>
+                    <div className={usuario.activo && usuariosEnLinea.includes(usuario.id) ? styles.puntoVerde : styles.puntoRojo} />
+                    <span className={styles.textoEstado}>{textoEstado(usuario)}</span>
                   </div>
                 </td>
-                <td style={{ fontWeight: '500' }}>{usuario.rol}</td>
+                <td className={styles.celdaRol}>{ETIQUETAS_ROL[usuario.rol]}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      {/* VENTANA EMERGENTE (MODAL) */}
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContenido}>
-            <h2 className={styles.modalTitulo}>Nuevo usuario</h2>
-            
-            <form onSubmit={handleCrearUsuario}>
-              <div className={styles.grupoInputModal}>
-                <label className={styles.labelModal}>Nombre completo</label>
-                <input 
-                  type="text" 
-                  className={styles.inputModal} 
-                  placeholder="Nombre Apellido"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className={styles.grupoInputModal}>
-                <label className={styles.labelModal}>Correo institucional</label>
-                <input 
-                  type="email" 
-                  className={styles.inputModal} 
-                  placeholder="nombre.apellido@indisa.cl"
-                  value={correo}
-                  onChange={(e) => setCorreo(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className={styles.grupoInputModal}>
-                <label className={styles.labelModal}>Rol</label>
-                <div className={styles.selectModalContainer}>
-                  <select 
-                    className={styles.selectModal}
-                    value={rol}
-                    onChange={(e) => setRol(e.target.value)}
-                  >
-                    <option value="Tecnólogo médico">Tecnólogo médico</option>
-                    <option value="Administrador">Administrador</option>
-                    <option value="Enfermero/a">Enfermero/a</option>
-                  </select>
-                  <div className={styles.selectIconModal}>▼</div>
-                </div>
-              </div>
-
-              <div className={styles.grupoInputModal}>
-                <label className={styles.labelModal}>Contraseña temporal</label>
-                <input 
-                  type="password" 
-                  className={styles.inputModal} 
-                  defaultValue="********" 
-                />
-              </div>
-
-              <div className={styles.checkboxContainerModal}>
-                <input type="checkbox" className={styles.checkboxModal} defaultChecked id="cambiarPass" />
-                <label htmlFor="cambiarPass" className={styles.checkboxLabelModal}>
-                  La contraseña debe ser cambiada en el primer inicio de sesión
-                </label>
-              </div>
-
-              <div className={styles.modalBotones}>
-                <button 
-                  type="button" 
-                  className={styles.botonCancelarModal}
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  className={styles.botonCrearModal}
-                >
-                  Crear usuario
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );

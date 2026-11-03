@@ -17,6 +17,7 @@ export interface AuthContextValue {
   loading: boolean;
   configured: boolean;
   user: UserProfile | null;
+  usuariosEnLinea: string[];
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<string | null>;
 }

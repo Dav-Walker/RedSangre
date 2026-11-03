@@ -76,146 +76,34 @@
   color: #666;
 }
 
-/* FONDO OSCURO TRANSLÚCIDO */
-.modalOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+/* Clases de la tabla y mensajes */
+.espaciador {
+  width: 150px;
 }
 
-/* LA CAJA BLANCA FLOTANTE */
-.modalContenido {
-  background-color: white;
-  padding: 35px 40px;
-  border-radius: 16px;
-  width: 500px;
-  max-width: 90%;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  text-align: left;
+.nota {
+  margin: -10px 0 20px;
+  text-align: right;
+  font-size: 13px;
+  color: #666;
 }
 
-.modalTitulo {
-  font-size: 26px;
-  font-weight: bold;
-  color: #000;
-  margin-bottom: 25px;
-  margin-top: 0;
-}
-
-.grupoInputModal {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 18px;
-}
-
-.labelModal {
-  font-weight: bold;
-  color: #888;
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-
-.inputModal {
-  padding: 12px 15px;
-  border: 1px solid #ddd;
+.mensajeError {
+  color: #b91c1c;
+  background-color: #fee2e2;
+  padding: 10px 15px;
   border-radius: 8px;
-  font-size: 15px;
-  color: #333;
-  background-color: #fff;
+  margin-bottom: 15px;
 }
 
-.selectModalContainer {
-  position: relative;
-  width: 100%;
-}
-
-.selectModal {
-  width: 100%;
-  padding: 12px 40px 12px 15px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 15px;
-  background-color: white;
-  appearance: none;
-  color: #333;
-  cursor: pointer;
-}
-
-.selectIconModal {
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: 100%;
-  padding: 0 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  color: #333;
-}
-
-.checkboxContainerModal {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 20px 0 25px 0;
-}
-
-.checkboxModal {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.checkboxLabelModal {
-  font-size: 14px;
-  color: #333;
-}
-
-/* BOTONES DEL MODAL */
-.modalBotones {
-  display: flex;
-  justify-content: space-between;
-  gap: 15px;
-}
-
-.botonCancelarModal {
-  background-color: white;
-  color: #555;
-  border: 1px solid #ccc;
-  padding: 12px 30px;
-  border-radius: 8px;
+.celdaNombre {
   font-weight: bold;
-  font-size: 15px;
-  cursor: pointer;
-  flex: 1;
-  transition: background-color 0.2s;
 }
 
-.botonCancelarModal:hover {
-  background-color: #f5f5f5;
+.celdaCorreo {
+  color: #666;
 }
 
-.botonCrearModal {
-  background-color: #bb4442; /* El rojo ocre de tu diseño */
-  color: white;
-  border: none;
-  padding: 12px 30px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 15px;
-  cursor: pointer;
-  flex: 1;
-  transition: background-color 0.2s;
-}
-
-.botonCrearModal:hover {
-  background-color: #9a3533;
+.celdaRol {
+  font-weight: 500;
 }
