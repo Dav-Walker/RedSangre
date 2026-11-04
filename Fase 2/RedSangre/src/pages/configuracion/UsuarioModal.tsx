@@ -17,7 +17,7 @@ interface UsuarioModalProps {
   textoEstado: string;
   usuarioActualId: string;
   onCerrar: () => void;
-  onEliminar: (id: string) => void;
+  onCambioEstado: (id: string, activo: boolean) => void;
 }
 
 const ETIQUETAS_ROL: Record<UserRole, string> = {
@@ -33,15 +33,15 @@ function formatearFecha(fecha: string): string {
   });
 }
 
-export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualId, onCerrar, onEliminar }: UsuarioModalProps) {
+export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualId, onCerrar, onCambioEstado }: UsuarioModalProps) {
   const [nuevaContrasena, setNuevaContrasena] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
-  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
-  const [eliminando, setEliminando] = useState(false);
-  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  const [confirmandoCambio, setConfirmandoCambio] = useState(false);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
   const handleGuardar = async () => {
     setErrorForm(null);
@@ -79,23 +79,23 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     if (e.target === e.currentTarget) onCerrar();
   };
 
-  const handleEliminar = async () => {
-    setEliminando(true);
-    setErrorEliminar(null);
+  const handleCambiarEstado = async () => {
+    setCambiandoEstado(true);
+    setErrorEstado(null);
 
-    const { data: { session } } = await supabase!.auth.getSession();
-    const { data, error } = await supabase!.functions.invoke('eliminar-usuario', {
-      body: { usuario_id: usuario.id },
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
+    const nuevoEstado = !usuario.activo;
+    const { error } = await supabase!
+      .from('usuario')
+      .update({ activo: nuevoEstado })
+      .eq('id', usuario.id);
 
-    setEliminando(false);
+    setCambiandoEstado(false);
+    setConfirmandoCambio(false);
 
-    if (error || !data?.ok) {
-      setConfirmandoEliminar(false);
-      setErrorEliminar(data?.error ?? 'No se pudo eliminar el usuario. Intenta nuevamente.');
+    if (error) {
+      setErrorEstado(error.message || 'No se pudo cambiar el estado del usuario. Intenta nuevamente.');
     } else {
-      onEliminar(usuario.id);
+      onCambioEstado(usuario.id, nuevoEstado);
     }
   };
 
@@ -187,21 +187,28 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
         {/* Pie */}
         <div className={styles.pie}>
           <div className={styles.pieIzquierda}>
-            {!esPropioUsuario && !confirmandoEliminar && (
+            {!esPropioUsuario && !confirmandoCambio && (
               <>
-                <button className={styles.botonEliminar} onClick={() => { setConfirmandoEliminar(true); setErrorEliminar(null); }}>
-                  Eliminar usuario
+                <button
+                  className={usuario.activo ? styles.botonEliminar : styles.botonReactivar}
+                  onClick={() => { setConfirmandoCambio(true); setErrorEstado(null); }}
+                >
+                  {usuario.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
                 </button>
-                {errorEliminar && <p className={styles.mensajeErrorPie}>{errorEliminar}</p>}
+                {errorEstado && <p className={styles.mensajeErrorPie}>{errorEstado}</p>}
               </>
             )}
-            {!esPropioUsuario && confirmandoEliminar && (
+            {!esPropioUsuario && confirmandoCambio && (
               <div className={styles.confirmacionEliminar}>
-                <span className={styles.textoConfirmacion}>¿Eliminar definitivamente?</span>
-                <button className={styles.botonEliminarConfirmar} onClick={handleEliminar} disabled={eliminando}>
-                  {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
+                <span className={styles.textoConfirmacion}>
+                  {usuario.activo
+                    ? '¿Desactivar? Perderá el acceso de inmediato.'
+                    : '¿Reactivar? Podrá ingresar nuevamente.'}
+                </span>
+                <button className={styles.botonEliminarConfirmar} onClick={handleCambiarEstado} disabled={cambiandoEstado}>
+                  {cambiandoEstado ? 'Guardando...' : usuario.activo ? 'Sí, desactivar' : 'Sí, reactivar'}
                 </button>
-                <button className={styles.botonCancelarEliminar} onClick={() => setConfirmandoEliminar(false)}>
+                <button className={styles.botonCancelarEliminar} onClick={() => setConfirmandoCambio(false)}>
                   Cancelar
                 </button>
               </div>

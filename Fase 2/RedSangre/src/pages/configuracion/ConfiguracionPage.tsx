@@ -166,9 +166,9 @@ export function ConfiguracionPage() {
           textoEstado={textoEstado(usuarioSeleccionado)}
           usuarioActualId={user?.id ?? ''}
           onCerrar={() => setUsuarioSeleccionado(null)}
-          onEliminar={(id) => {
-            setUsuarios((prev) => prev.filter((u) => u.id !== id));
-            setUsuarioSeleccionado(null);
+          onCambioEstado={(id, activo) => {
+            setUsuarios((prev) => prev.map((u) => (u.id === id ? { ...u, activo } : u)));
+            setUsuarioSeleccionado((prev) => (prev ? { ...prev, activo } : prev));
           }}
         />
       )}
