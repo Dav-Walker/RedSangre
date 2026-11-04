@@ -113,6 +113,10 @@ const tecno = await iniciarSesion(TECNO_EMAIL, TECNO_PASSWORD);
   verificar('Correo inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'sin-formato' })) === 422);
   verificar('Contraseña corta es rechazada (422)', (await intento(admin.cliente, { ...valido, contrasena: '123' })) === 422);
   verificar('Contraseña sin número ni símbolo es rechazada (422)', (await intento(admin.cliente, { ...valido, contrasena: 'sololetras' })) === 422);
+  verificar('Dominio no permitido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'prueba@mailinator.com' })) === 422);
+  verificar('Correo con formato estricto inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'a..b@indisa.cl' })) === 422);
+  verificar('Correo duplicado es rechazado (409)', (await intento(admin.cliente, { ...valido, correo: ADMIN_EMAIL })) === 409);
+  verificar('Correo duplicado en mayúsculas es rechazado (409)', (await intento(admin.cliente, { ...valido, correo: ADMIN_EMAIL.toUpperCase() })) === 409);
   verificar('Nombre vacío es rechazado (400)', (await intento(admin.cliente, { ...valido, nombre: '  ' })) === 400);
 
   const { data } = await admin.cliente.from('usuario').select('id').eq('correo', valido.correo);

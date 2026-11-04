@@ -5,6 +5,7 @@ import type { UserRole } from '../../contexts/auth-context';
 import { supabase } from '../../utils/supabase';
 import { validarContrasena } from '../../utils/politicaContrasena';
 import { leerMensajeError } from '../../utils/mensajeErrorFuncion';
+import { correoCanonico, validarCorreo } from '../../utils/validacionCorreo';
 import styles from './NuevoUsuarioModal.module.css';
 
 export interface UsuarioCreado {
@@ -18,6 +19,7 @@ export interface UsuarioCreado {
 }
 
 interface NuevoUsuarioModalProps {
+  usuariosExistentes: { correo: string; activo: boolean }[];
   onCerrar: () => void;
   onCreado: (usuario: UsuarioCreado) => void;
 }
@@ -25,23 +27,28 @@ interface NuevoUsuarioModalProps {
 type Campo = 'nombre' | 'apellido' | 'correo' | 'contrasena' | 'confirmar';
 type Errores = Partial<Record<Campo, string>>;
 
-const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 // Comentarios - Crear usuario
 // Revisa los campos y devuelve un mensaje por cada uno que no cumple. Los mismos criterios los repite la Edge Function.
-function validar(nombre: string, apellido: string, correo: string, contrasena: string, confirmar: string): Errores {
+function validar(
+  nombre: string,
+  apellido: string,
+  correo: string,
+  contrasena: string,
+  confirmar: string,
+  errorDuplicado: (correo: string) => string | null,
+): Errores {
   const errores: Errores = {};
   if (!nombre.trim()) errores.nombre = 'Ingresa el nombre.';
   if (!apellido.trim()) errores.apellido = 'Ingresa el apellido.';
-  if (!correo.trim()) errores.correo = 'Ingresa el correo.';
-  else if (!FORMATO_CORREO.test(correo.trim())) errores.correo = 'El correo no tiene un formato válido.';
+  const errorCorreo = validarCorreo(correo) ?? errorDuplicado(correo);
+  if (errorCorreo) errores.correo = errorCorreo;
   const errorContrasena = validarContrasena(contrasena);
   if (errorContrasena) errores.contrasena = errorContrasena;
   if (confirmar !== contrasena) errores.confirmar = 'Las contraseñas no coinciden.';
   return errores;
 }
 
-export function NuevoUsuarioModal({ onCerrar, onCreado }: NuevoUsuarioModalProps) {
+export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: NuevoUsuarioModalProps) {
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [correo, setCorreo] = useState('');
@@ -51,6 +58,22 @@ export function NuevoUsuarioModal({ onCerrar, onCreado }: NuevoUsuarioModalProps
   const [errores, setErrores] = useState<Errores>({});
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
+
+  // Comentarios - Validar correo duplicado y correo real (RF-07)
+  // Avisa antes de enviar si el correo ya existe (activo o desactivado) en la lista cargada. El servidor vuelve a comprobarlo.
+  const errorDuplicado = (valor: string): string | null => {
+    const existente = usuariosExistentes.find((u) => correoCanonico(u.correo) === correoCanonico(valor));
+    if (!existente) return null;
+    return existente.activo
+      ? 'Ya existe un usuario con ese correo.'
+      : 'Ya existe un usuario con ese correo y está desactivado. Reactívalo desde la lista.';
+  };
+
+  const revisarCorreo = () => {
+    if (!correo.trim()) return;
+    const mensaje = validarCorreo(correo) ?? errorDuplicado(correo);
+    if (mensaje) setErrores((previos) => ({ ...previos, correo: mensaje }));
+  };
 
   const hayDatos = [nombre, apellido, correo, contrasena, confirmar].some((valor) => valor.length > 0);
 
@@ -81,7 +104,7 @@ export function NuevoUsuarioModal({ onCerrar, onCreado }: NuevoUsuarioModalProps
     e.preventDefault();
     if (creando) return;
 
-    const erroresForm = validar(nombre, apellido, correo, contrasena, confirmar);
+    const erroresForm = validar(nombre, apellido, correo, contrasena, confirmar, errorDuplicado);
     setErrores(erroresForm);
     setErrorServidor(null);
     if (Object.keys(erroresForm).length > 0) return;
@@ -155,7 +178,8 @@ export function NuevoUsuarioModal({ onCerrar, onCreado }: NuevoUsuarioModalProps
               className={claseInput('correo')}
               value={correo}
               onChange={(e) => cambiarCampo('correo', e.target.value)}
-              placeholder="nombre@indisa.cl"
+              onBlur={revisarCorreo}
+              placeholder="nombre@indisa.cl, @duocuc.cl o @gmail.com"
               autoComplete="off"
             />
             {errores.correo && <p className={styles.mensajeCampo}>{errores.correo}</p>}

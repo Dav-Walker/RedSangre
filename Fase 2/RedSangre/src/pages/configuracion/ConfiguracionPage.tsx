@@ -174,6 +174,7 @@ export function ConfiguracionPage() {
 
       {creandoUsuario && (
         <NuevoUsuarioModal
+          usuariosExistentes={usuarios}
           onCerrar={() => setCreandoUsuario(false)}
           onCreado={handleUsuarioCreado}
         />
