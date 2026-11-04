@@ -239,7 +239,7 @@ export function DonanteFichaPage() {
         fecha_donacion: fechaDonacion,
         tipo: tipoDonacion,
         hubo_reaccion: huboReaccion,
-        detalle_reaccion: huboReaccion && detalleReaccion.trim() ? detalleReaccion.trim() : null,
+        detalle_reaccion: detalleReaccion.trim() || null,
         registrado_por: user?.id ?? null,
       });
 
@@ -548,7 +548,7 @@ export function DonanteFichaPage() {
               <div className={styles.toggleGrupo}>
                 <button
                   className={!huboReaccion ? styles.toggleActivo : styles.toggleInactivo}
-                  onClick={() => { setHuboReaccion(false); setDetalleReaccion(''); }}
+                  onClick={() => setHuboReaccion(false)}
                 >
                   No
                 </button>
@@ -562,17 +562,21 @@ export function DonanteFichaPage() {
             </div>
 
             {huboReaccion && (
-              <div className={styles.filaPanelDonacion}>
-                <span className={styles.labelDonacion}>Detalle de la reacción</span>
-                <textarea
-                  className={styles.textareaReaccion}
-                  placeholder="Describe brevemente lo ocurrido..."
-                  rows={3}
-                  value={detalleReaccion}
-                  onChange={e => setDetalleReaccion(e.target.value)}
-                />
-              </div>
+              <p className={styles.avisoReaccionAdversa}>
+                ⚠ Esto bloqueará a este donante para futuras donaciones.
+              </p>
             )}
+
+            <div className={styles.filaPanelDonacion}>
+              <span className={styles.labelDonacion}>Observaciones</span>
+              <textarea
+                className={styles.textareaReaccion}
+                placeholder="Describe brevemente lo ocurrido..."
+                rows={3}
+                value={detalleReaccion}
+                onChange={e => setDetalleReaccion(e.target.value)}
+              />
+            </div>
 
             <div className={styles.botonesPanel}>
               <button className={styles.botonCancelar} onClick={resetPanelDonacion} disabled={registrandoDonacion}>

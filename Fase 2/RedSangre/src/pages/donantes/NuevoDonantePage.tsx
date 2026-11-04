@@ -417,7 +417,7 @@ export function NuevoDonantePage() {
                 onChange={e => setReaccionAdversaPrevia(e.target.checked)}
                 style={{ width: '16px', height: '16px', cursor: 'pointer' }}
               />
-              El donante tiene reacción adversa
+              El donante tiene reacción adversa (esto bloqueará al donante para futuras donaciones)
             </label>
           </div>
 
