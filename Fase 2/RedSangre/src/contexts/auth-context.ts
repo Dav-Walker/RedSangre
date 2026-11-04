@@ -10,6 +10,7 @@ export interface UserProfile {
   correo: string;
   rol: UserRole;
   activo: boolean;
+  debe_cambiar_password: boolean;
 }
 
 export interface AuthContextValue {
@@ -19,6 +20,7 @@ export interface AuthContextValue {
   user: UserProfile | null;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<string | null>;
+  completarCambioContrasena: (nuevaContrasena: string) => Promise<string | null>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

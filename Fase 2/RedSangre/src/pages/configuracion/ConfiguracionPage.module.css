@@ -96,6 +96,14 @@
   margin-bottom: 15px;
 }
 
+.mensajeExito {
+  color: #15803d;
+  background-color: #dcfce7;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
 .celdaNombre {
   font-weight: bold;
 }

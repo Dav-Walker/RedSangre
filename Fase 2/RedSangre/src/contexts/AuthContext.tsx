@@ -96,6 +96,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  // Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión
+  // Cambia la contraseña de la sesión actual y marca en el perfil que ya no debe cambiarla. Devuelve un error o null.
+  const completarCambioContrasena = async (nuevaContrasena: string) => {
+    if (!supabase || !user) return 'No hay una sesión válida.';
+
+    const { error } = await supabase.auth.updateUser({ password: nuevaContrasena });
+    if (error) {
+      return error.code === 'same_password'
+        ? 'La nueva contraseña debe ser distinta de la actual.'
+        : error.message;
+    }
+
+    const { error: errorPerfil } = await supabase
+      .from('usuario')
+      .update({ debe_cambiar_password: false })
+      .eq('id', user.id);
+    if (errorPerfil) return 'La contraseña se cambió, pero no se pudo registrar. Cierra sesión e ingresa con la nueva contraseña.';
+
+    setUser({ ...user, debe_cambiar_password: false });
+    return null;
+  };
+
   const signOut = async () => {
     if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
 
@@ -108,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, configured: isSupabaseConfigured, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, configured: isSupabaseConfigured, signIn, signOut, completarCambioContrasena }}>
       {children}
     </AuthContext.Provider>
   );

@@ -9,6 +9,7 @@ import { SolicitudDetallePage } from './pages/solicitudes/SolicitudDetallePage';
 import { NuevaSolicitudPage } from './pages/solicitudes/NuevaSolicitudPage';
 import { ConfiguracionPage } from './pages/configuracion/ConfiguracionPage';
 import { LoginPage } from './pages/auth/LoginPage';
+import { CambiarContrasenaPage } from './pages/auth/CambiarContrasenaPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
@@ -29,13 +30,17 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
 function LayoutPrincipal() {
   const location = useLocation();
-  const { session, loading } = useAuth();
+  const { session, user, loading } = useAuth();
   const isAuthPage = location.pathname === '/login';
 
   if (loading) return <p role="status">Verificando sesión...</p>;
 
   if (isAuthPage && session) return <Navigate to="/dashboard" replace />;
   if (!isAuthPage && !session) return <Navigate to="/login" replace />;
+
+  // Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión
+  // Mientras el perfil tenga debe_cambiar_password, solo se muestra la pantalla de cambio, sin menú ni otras rutas.
+  if (user?.debe_cambiar_password) return <CambiarContrasenaPage />;
 
   return (
     <>

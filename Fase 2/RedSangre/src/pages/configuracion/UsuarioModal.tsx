@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { UserRole } from '../../contexts/auth-context';
 import { supabase } from '../../utils/supabase';
+import { validarContrasena } from '../../utils/politicaContrasena';
+import { leerMensajeError } from '../../utils/mensajeErrorFuncion';
 import styles from './UsuarioModal.module.css';
 
 interface UsuarioModalProps {
@@ -47,8 +49,9 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setErrorForm(null);
     setExito(false);
 
-    if (nuevaContrasena.length < 6) {
-      setErrorForm('La contraseña debe tener al menos 6 caracteres.');
+    const errorPolitica = validarContrasena(nuevaContrasena);
+    if (errorPolitica) {
+      setErrorForm(errorPolitica);
       return;
     }
     if (nuevaContrasena !== confirmar) {
@@ -67,7 +70,7 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setGuardando(false);
 
     if (error || !data?.ok) {
-      setErrorForm(data?.error ?? 'No se pudo actualizar la contraseña. Intenta nuevamente.');
+      setErrorForm(await leerMensajeError(error, 'No se pudo actualizar la contraseña. Intenta nuevamente.'));
     } else {
       setExito(true);
       setNuevaContrasena('');
@@ -156,10 +159,10 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
               <input
                 id="nueva-contrasena"
                 type="password"
-                className={`${styles.input} ${errorForm && nuevaContrasena.length < 6 ? styles.inputError : ''}`}
+                className={`${styles.input} ${errorForm && validarContrasena(nuevaContrasena) ? styles.inputError : ''}`}
                 value={nuevaContrasena}
                 onChange={(e) => { setNuevaContrasena(e.target.value); setErrorForm(null); setExito(false); }}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8, con número y símbolo (ej. un punto)"
                 autoComplete="new-password"
               />
             </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/useAuth';
 import type { UserRole } from '../../contexts/auth-context';
 import { supabase } from '../../utils/supabase';
 import { UsuarioModal } from './UsuarioModal';
+import { NuevoUsuarioModal, type UsuarioCreado } from './NuevoUsuarioModal';
 import styles from './ConfiguracionPage.module.css';
 
 interface UsuarioFila {
@@ -49,6 +50,8 @@ export function ConfiguracionPage() {
   const [usuariosEnLinea, setUsuariosEnLinea] = useState<string[]>([]);
   const [ultimaConexion, setUltimaConexion] = useState<Record<string, string | null>>({});
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<UsuarioFila | null>(null);
+  const [creandoUsuario, setCreandoUsuario] = useState(false);
+  const [avisoCreado, setAvisoCreado] = useState<string | null>(null);
 
   useEffect(() => {
     const cargarUsuarios = async () => {
@@ -103,6 +106,15 @@ export function ConfiguracionPage() {
     };
   }, [idsOtros]);
 
+  // Comentarios - Crear usuario desde Configuración
+  // Agrega el usuario recién creado a la lista (ordenada por nombre), cierra el modal y avisa del resultado.
+  const handleUsuarioCreado = (nuevo: UsuarioCreado) => {
+    setUsuarios((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+    setUltimaConexion((prev) => ({ ...prev, [nuevo.id]: null }));
+    setCreandoUsuario(false);
+    setAvisoCreado(`Usuario ${nuevo.nombre} ${nuevo.apellido} creado correctamente.`);
+  };
+
   const estaEnLinea = (id: string) => id === user?.id || usuariosEnLinea.includes(id);
 
   const textoEstado = (u: UsuarioFila) => {
@@ -117,9 +129,10 @@ export function ConfiguracionPage() {
       <div className={styles.cabeceraSeccion}>
         <div className={styles.espaciador}></div>
         <h1 className={styles.tituloPrincipal}>Usuarios y roles</h1>
-        <Button texto="+ Nuevo usuario" disabled />
+        <Button texto="+ Nuevo usuario" onClick={() => { setAvisoCreado(null); setCreandoUsuario(true); }} />
       </div>
-      <p className={styles.nota}>La creación de usuarios desde esta pantalla aún no está disponible.</p>
+
+      {avisoCreado && <p role="status" className={styles.mensajeExito}>{avisoCreado}</p>}
 
       {error && <p role="alert" className={styles.mensajeError}>{error}</p>}
 
@@ -158,6 +171,13 @@ export function ConfiguracionPage() {
           </tbody>
         </table>
       </div>
+
+      {creandoUsuario && (
+        <NuevoUsuarioModal
+          onCerrar={() => setCreandoUsuario(false)}
+          onCreado={handleUsuarioCreado}
+        />
+      )}
 
       {usuarioSeleccionado && (
         <UsuarioModal

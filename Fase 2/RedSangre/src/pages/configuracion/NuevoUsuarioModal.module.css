@@ -1,0 +1,178 @@
+/* Comentarios - Crear usuario desde Configuración */
+/* Estilos del modal "Nuevo usuario". Fijan fondo y color en los controles por el modo oscuro del sistema. */
+
+/* Fondo oscuro detrás del modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Tarjeta del modal */
+.modal {
+  background: white;
+  border-radius: 12px;
+  width: 480px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+/* Cabecera azul */
+.cabecera {
+  background-color: #00a0df;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.titulo {
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.botonCerrar {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0 0 16px;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.botonCerrar:hover {
+  opacity: 1;
+}
+
+/* Formulario */
+.cuerpo {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filaDoble {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.input,
+.select {
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  padding: 10px 13px;
+  font-size: 14px;
+  background-color: #fff;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: #999;
+}
+
+.input:focus,
+.select:focus {
+  border-color: #00a0df;
+}
+
+.inputError {
+  border-color: #ef4444;
+}
+
+.mensajeCampo {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 0;
+}
+
+.mensajeError {
+  font-size: 13px;
+  color: #b91c1c;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+/* Pie con botones */
+.pie {
+  padding: 0 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.botonSecundario {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.botonSecundario:hover:not(:disabled) {
+  background-color: #f5f5f5;
+}
+
+.botonPrimario {
+  background-color: #bb4442;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.botonPrimario:hover:not(:disabled) {
+  background-color: #a03836;
+}
+
+.botonPrimario:disabled,
+.botonSecundario:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.botonSecundario:disabled {
+  background: none;
+  color: #aaa;
+}

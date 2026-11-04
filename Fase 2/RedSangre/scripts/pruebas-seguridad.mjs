@@ -94,6 +94,31 @@ const tecno = await iniciarSesion(TECNO_EMAIL, TECNO_PASSWORD);
   verificar('Administrador lee auditoria', data?.length === 1);
 }
 
+// Crear usuario (Edge Function crear-usuario): solo intentos que deben ser rechazados, no crean cuentas.
+// Requiere la función desplegada. Las pruebas de creación exitosa y de correo duplicado se hacen a mano.
+{
+  const intento = async (cliente, cuerpo) => {
+    const { data: { session } } = await cliente.auth.getSession();
+    const { error } = await cliente.functions.invoke('crear-usuario', {
+      body: cuerpo,
+      headers: { Authorization: `Bearer ${session?.access_token ?? key}` },
+    });
+    return error?.context?.status;
+  };
+  const valido = { nombre: 'Prueba', apellido: 'Seguridad', correo: 'prueba.seguridad@indisa.cl', rol: 'tecnologo', contrasena: 'Clave123.' };
+
+  verificar('Crear usuario sin sesión es rechazado (401)', (await intento(anon, valido)) === 401);
+  verificar('Tecnólogo no puede crear usuarios (403)', (await intento(tecno.cliente, valido)) === 403);
+  verificar('Rol inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, rol: 'superadmin' })) === 422);
+  verificar('Correo inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'sin-formato' })) === 422);
+  verificar('Contraseña corta es rechazada (422)', (await intento(admin.cliente, { ...valido, contrasena: '123' })) === 422);
+  verificar('Contraseña sin número ni símbolo es rechazada (422)', (await intento(admin.cliente, { ...valido, contrasena: 'sololetras' })) === 422);
+  verificar('Nombre vacío es rechazado (400)', (await intento(admin.cliente, { ...valido, nombre: '  ' })) === 400);
+
+  const { data } = await admin.cliente.from('usuario').select('id').eq('correo', valido.correo);
+  verificar('Ningún intento rechazado creó el usuario', data?.length === 0, `filas: ${data?.length}`);
+}
+
 // Presence privado, un canal por usuario
 {
   const propioTecno = await unirseACanal(tecno.cliente, tecno.id, true);

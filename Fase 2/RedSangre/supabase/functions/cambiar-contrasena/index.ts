@@ -5,6 +5,17 @@ const cabeceras = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Comentarios - Seguridad de contraseñas
+// Misma política que crear-usuario y el frontend: mínimo 8 caracteres con letra, número y un carácter especial (el punto cuenta).
+const MENSAJE_POLITICA = 'La contraseña debe tener al menos 8 caracteres, una letra, un número y un carácter especial (por ejemplo, un punto).';
+
+function cumplePoliticaContrasena(contrasena: string): boolean {
+  return contrasena.length >= 8
+    && /[a-zA-Z]/.test(contrasena)
+    && /\d/.test(contrasena)
+    && /[^a-zA-Z0-9]/.test(contrasena);
+}
+
 function responder(cuerpo: unknown, status = 200) {
   return new Response(JSON.stringify(cuerpo), {
     status,
@@ -45,7 +56,7 @@ Deno.serve(async (req) => {
   }
 
   if (!usuarioId || !nuevaContrasena) return responder({ error: 'Faltan parámetros' }, 400);
-  if (nuevaContrasena.length < 6) return responder({ error: 'La contraseña debe tener al menos 6 caracteres' }, 422);
+  if (!cumplePoliticaContrasena(nuevaContrasena)) return responder({ error: MENSAJE_POLITICA }, 422);
 
   // 3. Cambiar la contraseña usando el cliente admin (service role)
   const supabaseAdmin = createClient(

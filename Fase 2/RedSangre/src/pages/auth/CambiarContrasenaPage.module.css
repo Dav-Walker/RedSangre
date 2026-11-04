@@ -1,0 +1,133 @@
+/* Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión */
+/* Estilos de la pantalla de cambio de contraseña. Fijan fondo y color en los controles por el modo oscuro del sistema. */
+
+.contenedor {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.tarjeta {
+  background: white;
+  border-radius: 12px;
+  border-top: 6px solid #00a0df;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  width: 440px;
+  max-width: 100%;
+  padding: 32px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 22px;
+  color: #111;
+}
+
+.texto {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.input {
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  padding: 10px 13px;
+  font-size: 14px;
+  background-color: #fff;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: #999;
+}
+
+.input:focus {
+  border-color: #00a0df;
+}
+
+.inputError {
+  border-color: #ef4444;
+}
+
+.mensajeError {
+  font-size: 13px;
+  color: #b91c1c;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.botonSecundario {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.botonSecundario:hover:not(:disabled) {
+  background-color: #f5f5f5;
+}
+
+.botonPrimario {
+  background-color: #bb4442;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.botonPrimario:hover:not(:disabled) {
+  background-color: #a03836;
+}
+
+.botonPrimario:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.botonSecundario:disabled {
+  color: #aaa;
+  cursor: not-allowed;
+}
