@@ -1,9 +1,9 @@
 // Comentarios - Crear usuario desde Configuración
-// Modal con el formulario de nuevo usuario. Valida los datos y llama a la Edge Function crear-usuario.
+// Modal con el formulario de nuevo usuario. Valida los datos y llama a la Edge Function crear-usuario,
+// que envía un correo de activación: la persona define su propia contraseña desde el enlace.
 import { useState } from 'react';
 import type { UserRole } from '../../contexts/auth-context';
 import { supabase } from '../../utils/supabase';
-import { validarContrasena } from '../../utils/politicaContrasena';
 import { leerMensajeError } from '../../utils/mensajeErrorFuncion';
 import { correoCanonico, validarCorreo } from '../../utils/validacionCorreo';
 import styles from './NuevoUsuarioModal.module.css';
@@ -15,16 +15,17 @@ export interface UsuarioCreado {
   correo: string;
   rol: UserRole;
   activo: boolean;
+  debe_cambiar_password: boolean;
   created_at: string;
 }
 
 interface NuevoUsuarioModalProps {
   usuariosExistentes: { correo: string; activo: boolean }[];
   onCerrar: () => void;
-  onCreado: (usuario: UsuarioCreado) => void;
+  onCreado: (usuario: UsuarioCreado, correoEnviado: boolean) => void;
 }
 
-type Campo = 'nombre' | 'apellido' | 'correo' | 'contrasena' | 'confirmar';
+type Campo = 'nombre' | 'apellido' | 'correo';
 type Errores = Partial<Record<Campo, string>>;
 
 // Comentarios - Crear usuario
@@ -33,8 +34,6 @@ function validar(
   nombre: string,
   apellido: string,
   correo: string,
-  contrasena: string,
-  confirmar: string,
   errorDuplicado: (correo: string) => string | null,
 ): Errores {
   const errores: Errores = {};
@@ -42,9 +41,6 @@ function validar(
   if (!apellido.trim()) errores.apellido = 'Ingresa el apellido.';
   const errorCorreo = validarCorreo(correo) ?? errorDuplicado(correo);
   if (errorCorreo) errores.correo = errorCorreo;
-  const errorContrasena = validarContrasena(contrasena);
-  if (errorContrasena) errores.contrasena = errorContrasena;
-  if (confirmar !== contrasena) errores.confirmar = 'Las contraseñas no coinciden.';
   return errores;
 }
 
@@ -53,8 +49,6 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
   const [apellido, setApellido] = useState('');
   const [correo, setCorreo] = useState('');
   const [rol, setRol] = useState<UserRole>('tecnologo');
-  const [contrasena, setContrasena] = useState('');
-  const [confirmar, setConfirmar] = useState('');
   const [errores, setErrores] = useState<Errores>({});
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
@@ -75,7 +69,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
     if (mensaje) setErrores((previos) => ({ ...previos, correo: mensaje }));
   };
 
-  const hayDatos = [nombre, apellido, correo, contrasena, confirmar].some((valor) => valor.length > 0);
+  const hayDatos = [nombre, apellido, correo].some((valor) => valor.length > 0);
 
   // Comentarios - Crear usuario
   // Edita un campo y quita el error de ese campo y el del servidor.
@@ -84,8 +78,6 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
       nombre: setNombre,
       apellido: setApellido,
       correo: setCorreo,
-      contrasena: setContrasena,
-      confirmar: setConfirmar,
     };
     setters[campo](valor);
     setErrores((previos) => ({ ...previos, [campo]: undefined }));
@@ -104,7 +96,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
     e.preventDefault();
     if (creando) return;
 
-    const erroresForm = validar(nombre, apellido, correo, contrasena, confirmar, errorDuplicado);
+    const erroresForm = validar(nombre, apellido, correo, errorDuplicado);
     setErrores(erroresForm);
     setErrorServidor(null);
     if (Object.keys(erroresForm).length > 0) return;
@@ -118,7 +110,6 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
         apellido: apellido.trim(),
         correo: correo.trim().toLowerCase(),
         rol,
-        contrasena,
       },
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
@@ -130,7 +121,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
     }
 
     setCreando(false);
-    onCreado(data.usuario as UsuarioCreado);
+    onCreado(data.usuario as UsuarioCreado, data.correo_enviado !== false);
   };
 
   const claseInput = (campo: Campo) => `${styles.input} ${errores[campo] ? styles.inputError : ''}`;
@@ -198,33 +189,10 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
             </select>
           </div>
 
-          <div className={styles.campo}>
-            <label className={styles.label} htmlFor="nuevo-contrasena">Contraseña temporal</label>
-            <input
-              id="nuevo-contrasena"
-              type="password"
-              className={claseInput('contrasena')}
-              value={contrasena}
-              onChange={(e) => cambiarCampo('contrasena', e.target.value)}
-              placeholder="Mínimo 8, con número y símbolo (ej. un punto)"
-              autoComplete="new-password"
-            />
-            {errores.contrasena && <p className={styles.mensajeCampo}>{errores.contrasena}</p>}
-          </div>
-
-          <div className={styles.campo}>
-            <label className={styles.label} htmlFor="nuevo-confirmar">Confirmar contraseña</label>
-            <input
-              id="nuevo-confirmar"
-              type="password"
-              className={claseInput('confirmar')}
-              value={confirmar}
-              onChange={(e) => cambiarCampo('confirmar', e.target.value)}
-              placeholder="Repite la contraseña"
-              autoComplete="new-password"
-            />
-            {errores.confirmar && <p className={styles.mensajeCampo}>{errores.confirmar}</p>}
-          </div>
+          <p className={styles.nota}>
+            Se enviará un correo de activación a esta dirección. La persona define su propia contraseña desde el enlace,
+            y la cuenta queda pendiente hasta que lo haga.
+          </p>
 
           {errorServidor && <p className={styles.mensajeError} role="alert">{errorServidor}</p>}
         </div>
@@ -234,7 +202,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
             Cancelar
           </button>
           <button type="submit" className={styles.botonPrimario} disabled={creando}>
-            {creando ? 'Creando...' : 'Crear usuario'}
+            {creando ? 'Creando y enviando correo...' : 'Crear y enviar activación'}
           </button>
         </div>
 

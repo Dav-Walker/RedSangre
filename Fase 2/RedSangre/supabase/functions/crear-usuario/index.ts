@@ -1,6 +1,8 @@
 // Comentarios - Crear usuario desde Configuración
-// Edge Function que crea una cuenta nueva (Auth + perfil). Solo la puede usar un administrador activo.
+// Edge Function que crea una cuenta nueva (Auth + perfil) sin contraseña y envía un correo de activación.
+// La persona define su propia contraseña desde el enlace. Solo la puede usar un administrador activo.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { enviarCorreoActivacion, generarEnlace } from '../_shared/activacion.ts';
 
 const cabeceras = {
   'Access-Control-Allow-Origin': '*',
@@ -33,18 +35,6 @@ function correoCanonico(correo: string): string {
   const [local, dominio] = correo.split('@');
   if (dominio !== 'gmail.com') return `${local}@${dominio}`;
   return `${local.split('+')[0].replace(/\./g, '')}@${dominio}`;
-}
-
-// Comentarios - Seguridad de contraseñas
-// Política de contraseña: mínimo 8 caracteres con letra, número y un carácter especial (el punto cuenta).
-// Es la misma que valida el frontend; se repite aquí porque el formulario no es de confianza.
-const MENSAJE_POLITICA = 'La contraseña debe tener al menos 8 caracteres, una letra, un número y un carácter especial (por ejemplo, un punto).';
-
-function cumplePoliticaContrasena(contrasena: string): boolean {
-  return contrasena.length >= 8
-    && /[a-zA-Z]/.test(contrasena)
-    && /\d/.test(contrasena)
-    && /[^a-zA-Z0-9]/.test(contrasena);
 }
 
 function responder(cuerpo: unknown, status = 200) {
@@ -100,26 +90,21 @@ Deno.serve(async (req) => {
   const apellido = typeof cuerpo.apellido === 'string' ? cuerpo.apellido.trim() : '';
   const correo = typeof cuerpo.correo === 'string' ? cuerpo.correo.trim().toLowerCase() : '';
   const rol = typeof cuerpo.rol === 'string' ? cuerpo.rol : '';
-  const contrasena = typeof cuerpo.contrasena === 'string' ? cuerpo.contrasena : '';
 
-  if (!nombre || !apellido || !correo || !rol || !contrasena) {
+  if (!nombre || !apellido || !correo || !rol) {
     return responder({ error: 'Faltan parámetros' }, 400);
   }
   const errorCorreo = validarCorreo(correo);
   if (errorCorreo) return responder({ error: errorCorreo }, 422);
   if (!ROLES_VALIDOS.includes(rol)) return responder({ error: 'El rol no es válido' }, 422);
-  if (!cumplePoliticaContrasena(contrasena)) return responder({ error: MENSAJE_POLITICA }, 422);
 
-  // Comentarios - Crear usuario
-  // 3. Crea la cuenta con el cliente admin (service role). El rol va solo en app_metadata,
-  //    que el propio usuario no puede editar. El trigger de la base genera el perfil y la auditoría.
+  // Comentarios - Validar correo duplicado y correo real (RF-07)
+  // Busca duplicados entre todos los usuarios del mismo dominio, activos o desactivados, con la forma canónica.
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Comentarios - Validar correo duplicado y correo real (RF-07)
-  // Busca duplicados entre todos los usuarios del mismo dominio, activos o desactivados, con la forma canónica.
   const dominioCorreo = correo.split('@')[1];
   const { data: delDominio, error: errBusqueda } = await supabaseAdmin
     .from('usuario')
@@ -137,50 +122,59 @@ Deno.serve(async (req) => {
     return responder({ error: `Ya existe un usuario con ese correo${equivalente}.${desactivado}` }, 409);
   }
 
-  const { data: creado, error: errCrear } = await supabaseAdmin.auth.admin.createUser({
-    email: correo,
-    password: contrasena,
-    email_confirm: true,
-    app_metadata: { rol, debe_cambiar_password: true, creado_por: usuarioActual.id },
-    user_metadata: { nombre, apellido },
-  });
-
-  if (errCrear || !creado.user) {
-    if (errCrear?.code === 'email_exists') return responder({ error: 'Ya existe un usuario con ese correo' }, 409);
-    console.error('Error al crear usuario:', errCrear?.message);
+  // Comentarios - Crear usuario
+  // 3. Crea la cuenta sin contraseña y sin confirmar, y obtiene el enlace de activación.
+  //    El trigger de la base genera el perfil.
+  const enlace = await generarEnlace(supabaseAdmin, correo, 'invite', { nombre, apellido });
+  if ('error' in enlace) {
+    console.error('Error al crear usuario:', enlace.error);
+    if (/already|registered|exists/i.test(enlace.error)) {
+      return responder({ error: 'Ya existe un usuario con ese correo.' }, 409);
+    }
     return responder({ error: 'No se pudo crear el usuario' }, 500);
   }
 
   // Comentarios - Crear usuario
   // 4. Confirma que el trigger creó el perfil. Si no, deshace la cuenta para no dejar usuarios huérfanos en Auth.
-  const columnasUsuario = 'id, nombre, apellido, correo, rol, activo, created_at';
+  const columnasUsuario = 'id, nombre, apellido, correo, rol, activo, debe_cambiar_password, created_at';
   const { data: perfilCreado, error: errUsuario } = await supabaseAdmin
     .from('usuario')
     .select(columnasUsuario)
-    .eq('id', creado.user.id)
+    .eq('id', enlace.usuarioId)
     .maybeSingle();
 
   if (errUsuario || !perfilCreado) {
-    console.error('El perfil no se creó para', creado.user.id, errUsuario?.message);
-    await deshacerCreacion(supabaseAdmin, creado.user.id);
+    console.error('El perfil no se creó para', enlace.usuarioId, errUsuario?.message);
+    await deshacerCreacion(supabaseAdmin, enlace.usuarioId);
     return responder({ error: 'No se pudo crear el perfil del usuario' }, 500);
   }
 
   // Comentarios - Crear usuario
-  // 5. Auth guarda app_metadata después de insertar la cuenta, así que el trigger no alcanza a ver el rol
-  //    y deja el perfil como tecnólogo. Se fija aquí el rol pedido y se obliga a cambiar la contraseña.
+  // 5. El trigger deja el perfil como tecnólogo (Auth no entrega el rol al insertar). Se fija aquí el rol pedido
+  //    y se marca que la persona aún debe definir su contraseña.
   const { data: usuarioNuevo, error: errRol } = await supabaseAdmin
     .from('usuario')
     .update({ rol, debe_cambiar_password: true })
-    .eq('id', creado.user.id)
+    .eq('id', enlace.usuarioId)
     .select(columnasUsuario)
     .single();
 
   if (errRol || !usuarioNuevo) {
-    console.error('No se pudo asignar el rol a', creado.user.id, errRol?.message);
-    await deshacerCreacion(supabaseAdmin, creado.user.id);
+    console.error('No se pudo asignar el rol a', enlace.usuarioId, errRol?.message);
+    await deshacerCreacion(supabaseAdmin, enlace.usuarioId);
     return responder({ error: 'No se pudo asignar el rol del usuario' }, 500);
   }
 
-  return responder({ ok: true, usuario: usuarioNuevo }, 201);
+  // Comentarios - Crear usuario
+  // 6. Envía el correo de activación. Si el envío falla, la cuenta queda creada y pendiente: el administrador
+  //    puede reenviarlo desde Configuración.
+  let correoEnviado = true;
+  try {
+    await enviarCorreoActivacion(correo, nombre, enlace.enlace);
+  } catch (errorEnvio) {
+    console.error('No se pudo enviar el correo de activación:', errorEnvio);
+    correoEnviado = false;
+  }
+
+  return responder({ ok: true, usuario: usuarioNuevo, correo_enviado: correoEnviado }, 201);
 });

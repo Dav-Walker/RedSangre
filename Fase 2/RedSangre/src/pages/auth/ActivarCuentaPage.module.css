@@ -1,0 +1,70 @@
+/* Comentarios - Activación de cuenta por correo */
+/* Estilos de la pantalla de activación. Misma apariencia que la pantalla de cambio de contraseña. */
+
+.contenedor {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.tarjeta {
+  background: white;
+  border-radius: 12px;
+  border-top: 6px solid #00a0df;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  width: 440px;
+  max-width: 100%;
+  padding: 32px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 22px;
+  color: #111;
+}
+
+.texto {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.mensajeError {
+  font-size: 13px;
+  color: #b91c1c;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.boton {
+  background-color: #bb4442;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.boton:hover:not(:disabled) {
+  background-color: #a03836;
+}
+
+.boton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}

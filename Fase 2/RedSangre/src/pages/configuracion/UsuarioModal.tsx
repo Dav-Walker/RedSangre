@@ -13,6 +13,7 @@ interface UsuarioModalProps {
     correo: string;
     rol: UserRole;
     activo: boolean;
+    debe_cambiar_password: boolean;
     created_at: string;
   };
   estaEnLinea: boolean;
@@ -44,6 +45,8 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
   const [confirmandoCambio, setConfirmandoCambio] = useState(false);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
+  const [reenviando, setReenviando] = useState(false);
+  const [avisoReenvio, setAvisoReenvio] = useState<{ texto: string; esError: boolean } | null>(null);
 
   const handleGuardar = async () => {
     setErrorForm(null);
@@ -102,6 +105,27 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     }
   };
 
+  // Comentarios - Activación de cuenta por correo
+  // Pide a la Edge Function reenviar-activacion que envíe un enlace nuevo al correo del usuario pendiente.
+  const handleReenviar = async () => {
+    setReenviando(true);
+    setAvisoReenvio(null);
+
+    const { data: { session } } = await supabase!.auth.getSession();
+    const { data, error } = await supabase!.functions.invoke('reenviar-activacion', {
+      body: { usuario_id: usuario.id },
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    });
+
+    setReenviando(false);
+
+    if (error || !data?.ok) {
+      setAvisoReenvio({ texto: await leerMensajeError(error, 'No se pudo reenviar el correo. Intenta nuevamente.'), esError: true });
+    } else {
+      setAvisoReenvio({ texto: `Correo de activación enviado a ${usuario.correo}.`, esError: false });
+    }
+  };
+
   const esPropioUsuario = usuario.id === usuarioActualId;
   const hayDatosCambio = nuevaContrasena.length > 0 || confirmar.length > 0;
 
@@ -147,7 +171,27 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
             </div>
           </section>
 
+          {/* Activación pendiente */}
+          {usuario.debe_cambiar_password && usuario.activo && (
+            <section className={styles.seccion}>
+              <p className={styles.seccionTitulo}>Activación de la cuenta</p>
+              <hr className={styles.separador} />
+              <p className={styles.textoAyuda}>
+                Esta persona aún no define su contraseña. Si perdió el correo o el enlace venció, puedes enviarle uno nuevo.
+              </p>
+              <div>
+                <button className={styles.botonSecundario} onClick={handleReenviar} disabled={reenviando}>
+                  {reenviando ? 'Enviando...' : 'Reenviar correo de activación'}
+                </button>
+              </div>
+              {avisoReenvio && (
+                <p className={avisoReenvio.esError ? styles.mensajeError : styles.mensajeExito}>{avisoReenvio.texto}</p>
+              )}
+            </section>
+          )}
+
           {/* Cambio de contraseña */}
+          {!usuario.debe_cambiar_password && (
           <section className={styles.seccion}>
             <p className={styles.seccionTitulo}>Cambiar contraseña</p>
             <hr className={styles.separador} />
@@ -185,6 +229,7 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
             {errorForm && <p className={styles.mensajeError}>{errorForm}</p>}
             {exito && <p className={styles.mensajeExito}>Contraseña actualizada correctamente.</p>}
           </section>
+          )}
         </div>
 
         {/* Pie */}
@@ -224,7 +269,7 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
             <button
               className={styles.botonPrimario}
               onClick={handleGuardar}
-              disabled={!hayDatosCambio || guardando}
+              disabled={!hayDatosCambio || guardando || usuario.debe_cambiar_password}
             >
               {guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>

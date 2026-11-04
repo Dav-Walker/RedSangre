@@ -105,19 +105,30 @@ const tecno = await iniciarSesion(TECNO_EMAIL, TECNO_PASSWORD);
     });
     return error?.context?.status;
   };
-  const valido = { nombre: 'Prueba', apellido: 'Seguridad', correo: 'prueba.seguridad@indisa.cl', rol: 'tecnologo', contrasena: 'Clave123.' };
+  const valido = { nombre: 'Prueba', apellido: 'Seguridad', correo: 'prueba.seguridad@indisa.cl', rol: 'tecnologo' };
 
   verificar('Crear usuario sin sesión es rechazado (401)', (await intento(anon, valido)) === 401);
   verificar('Tecnólogo no puede crear usuarios (403)', (await intento(tecno.cliente, valido)) === 403);
   verificar('Rol inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, rol: 'superadmin' })) === 422);
   verificar('Correo inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'sin-formato' })) === 422);
-  verificar('Contraseña corta es rechazada (422)', (await intento(admin.cliente, { ...valido, contrasena: '123' })) === 422);
-  verificar('Contraseña sin número ni símbolo es rechazada (422)', (await intento(admin.cliente, { ...valido, contrasena: 'sololetras' })) === 422);
   verificar('Dominio no permitido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'prueba@mailinator.com' })) === 422);
   verificar('Correo con formato estricto inválido es rechazado (422)', (await intento(admin.cliente, { ...valido, correo: 'a..b@indisa.cl' })) === 422);
   verificar('Correo duplicado es rechazado (409)', (await intento(admin.cliente, { ...valido, correo: ADMIN_EMAIL })) === 409);
   verificar('Correo duplicado en mayúsculas es rechazado (409)', (await intento(admin.cliente, { ...valido, correo: ADMIN_EMAIL.toUpperCase() })) === 409);
   verificar('Nombre vacío es rechazado (400)', (await intento(admin.cliente, { ...valido, nombre: '  ' })) === 400);
+
+  // Reenviar activación: solo intentos rechazados; un reenvío válido envía un correo real y se prueba a mano.
+  const reenviar = async (cliente, idUsuario) => {
+    const { data: { session } } = await cliente.auth.getSession();
+    const { error } = await cliente.functions.invoke('reenviar-activacion', {
+      body: { usuario_id: idUsuario },
+      headers: { Authorization: `Bearer ${session?.access_token ?? key}` },
+    });
+    return error?.context?.status;
+  };
+  verificar('Reenviar activación sin sesión es rechazado (401)', (await reenviar(anon, tecno.id)) === 401);
+  verificar('Tecnólogo no puede reenviar activaciones (403)', (await reenviar(tecno.cliente, tecno.id)) === 403);
+  verificar('Reenviar a un usuario que ya activó su cuenta es rechazado (409)', (await reenviar(admin.cliente, admin.id)) === 409);
 
   const { data } = await admin.cliente.from('usuario').select('id').eq('correo', valido.correo);
   verificar('Ningún intento rechazado creó el usuario', data?.length === 0, `filas: ${data?.length}`);

@@ -10,6 +10,7 @@ import { NuevaSolicitudPage } from './pages/solicitudes/NuevaSolicitudPage';
 import { ConfiguracionPage } from './pages/configuracion/ConfiguracionPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CambiarContrasenaPage } from './pages/auth/CambiarContrasenaPage';
+import { ActivarCuentaPage } from './pages/auth/ActivarCuentaPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
@@ -31,11 +32,14 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 function LayoutPrincipal() {
   const location = useLocation();
   const { session, user, loading } = useAuth();
-  const isAuthPage = location.pathname === '/login';
+  // Comentarios - Activación de cuenta por correo
+  // /login y /activar son públicas: no llevan menú y se pueden abrir sin sesión.
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/activar';
+  const esLogin = location.pathname === '/login';
 
   if (loading) return <p role="status">Verificando sesión...</p>;
 
-  if (isAuthPage && session) return <Navigate to="/dashboard" replace />;
+  if (esLogin && session) return <Navigate to="/dashboard" replace />;
   if (!isAuthPage && !session) return <Navigate to="/login" replace />;
 
   // Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión
@@ -48,6 +52,7 @@ function LayoutPrincipal() {
       <div style={{ padding: isAuthPage ? '0px' : '30px' }}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/activar" element={session ? <Navigate to="/dashboard" replace /> : <ActivarCuentaPage />} />
           <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/donantes" element={<ProtectedRoute><DonantesListPage /></ProtectedRoute>} />

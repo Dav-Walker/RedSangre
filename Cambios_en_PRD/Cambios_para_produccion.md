@@ -29,11 +29,12 @@ Estado de cada punto: `[ ]` pendiente · `[x]` hecho.
 **Authentication → URL Configuration**
 - [ ] **Site URL** → `https://<URL_PUBLICA>`. Hoy el archivo `config.toml` local dice `http://127.0.0.1:3000` y la app corre en `localhost:5173`; ninguno sirve en producción.
 - [ ] **Redirect URLs** → agregar `https://<URL_PUBLICA>/**`. Dejar `http://localhost:5173/**` solo si se sigue desarrollando contra el mismo proyecto; si no, quitarlo.
+- *Nota:* el enlace del correo de activación **no** pasa por la redirección de Supabase: apunta directo a `<APP_URL>/activar` y la aplicación valida el token. Por eso lo que cambia el destino de ese enlace es el secreto `APP_URL` (punto 2), no estas dos URLs. Se configuran igual por buenas prácticas y por la recuperación de contraseña.
 
 **Authentication → Providers → Email**
 - [ ] **Allow new users to sign up: DESACTIVAR.** Los usuarios los crea solo el administrador con la Edge Function. Con el registro abierto, cualquiera con la URL y la clave pública podría crearse una cuenta. (El `config.toml` local lo tiene en `true`; hay que verificar el valor real del proyecto en el panel.)
-- [ ] **Confirm email: ACTIVAR** (necesario para la activación de cuentas por correo, tarea C).
-- [ ] **Email OTP Expiration** → 1800 segundos (30 min), según ERS 3.3.2. Revisar también la duración del enlace de activación.
+- [ ] **Confirm email: ACTIVAR.** Las cuentas nuevas se crean sin confirmar y sin contraseña; la persona activa su cuenta con el enlace del correo.
+- [ ] **Email OTP Expiration.** El ERS 3.3.2 pide 1800 s (30 min) para la recuperación de contraseña, pero ese mismo valor rige para los enlaces de activación de cuentas nuevas. Un plazo tan corto obliga a reenviar el correo si la persona no lo abre a tiempo. Decidir un valor único (por ejemplo, 24 h = 86400 s para activaciones) o aceptar el reenvío desde Configuración.
 - [ ] **Longitud mínima y requisitos de contraseña** → mínimo 8, con letras, números y símbolos, igual que la política de la aplicación (`politicaContrasena.ts` y las funciones). Es la protección del servidor para el cambio de contraseña del primer inicio de sesión, que se hace desde el navegador.
 
 **Authentication → Attack Protection**
@@ -53,10 +54,10 @@ Estado de cada punto: `[ ]` pendiente · `[x]` hecho.
 
 ## 2. Edge Functions — Jose y Código
 
-Funciones actuales: `crear-usuario`, `cambiar-contrasena`, `enviar-correo-contacto`.
+Funciones actuales: `crear-usuario`, `reenviar-activacion`, `cambiar-contrasena`, `enviar-correo-contacto`. El código compartido de activación está en `supabase/functions/_shared/activacion.ts`.
 
-- [ ] **Secreto `APP_URL`** con `https://<URL_PUBLICA>` (lo usará `crear-usuario` para el enlace de activación, tarea C). *Jose:* `npx supabase secrets set APP_URL=https://<URL_PUBLICA>`.
-- [ ] **CORS: restringir el origen.** Las tres funciones responden `Access-Control-Allow-Origin: '*'`. En producción debe ser solo `https://<URL_PUBLICA>`. *Código:* leer el origen permitido de un secreto (por ejemplo `APP_URL`) y redesplegar las tres funciones.
+- [ ] **Secreto `APP_URL`** con `https://<URL_PUBLICA>`. Lo usan `crear-usuario` y `reenviar-activacion` para armar el enlace del correo de activación. Si no existe, el enlace apunta a `http://localhost:5173`. *Jose:* `npx supabase secrets set APP_URL=https://<URL_PUBLICA>`. **No hace falta redesplegar** las funciones al cambiarlo.
+- [ ] **CORS: restringir el origen.** Las cuatro funciones responden `Access-Control-Allow-Origin: '*'`. En producción debe ser solo `https://<URL_PUBLICA>`. *Código:* leer el origen permitido de un secreto (por ejemplo `APP_URL`) y redesplegar las cuatro funciones.
 - [ ] **Secretos de correo:** `GMAIL_USER` y `GMAIL_APP_PASSWORD` (los usa `enviar-correo-contacto`).
   - Decidir si producción seguirá enviando desde `redsangre.notificaciones@gmail.com` o desde una cuenta institucional.
   - Gmail SMTP tiene límite diario de envíos y puede mandar a spam.
@@ -104,14 +105,15 @@ Funciones actuales: `crear-usuario`, `cambiar-contrasena`, `enviar-correo-contac
 - [ ] **Dominios permitidos.** Hoy se aceptan `gmail.com`, `duocuc.cl` e `indisa.cl` (decisión para el prototipo). En producción institucional conviene dejar solo `indisa.cl`. Se cambia en **dos lugares que deben coincidir**: `src/utils/validacionCorreo.ts` y la función `supabase/functions/crear-usuario/index.ts`. Después, redesplegar `crear-usuario`.
 - [ ] **Restricción en la base (opcional).** El script trae comentada `ck_usuario_correo_dominio` (`correo LIKE '%@indisa.cl'`). Si se quiere reforzar en la base, la ejecuta Jose revisando antes que los usuarios existentes la cumplan.
 - [ ] **Doble autenticación (próximo sprint).** Implementar el flujo TOTP en el frontend y luego poner `configuracion.exigir_mfa_admin = 'true'` (lo ejecuta Jose). Si se activa antes de tener el flujo, el administrador queda sin acceso a las acciones de administración.
-- [ ] **Invitación en lugar de contraseña temporal.** Evaluar junto con la doble autenticación (el administrador deja de conocer la contraseña).
+- [x] **Invitación en lugar de contraseña temporal.** Implementado: el administrador ya no define ni conoce la contraseña; la persona la crea desde el enlace del correo.
 
 ---
 
 ## 5. Base de datos y datos — Jose
 
 - [ ] **Usuarios de prueba.** Eliminar o desactivar los que no deben existir en producción (por ejemplo `jose.4dbs@gmail.com`, `tecnico@indisa.cl`). Revisar `debe_cambiar_password` de las cuentas del equipo.
-- [ ] **Usuarios pendientes creados durante el desarrollo.** Sus enlaces de activación apuntan a `localhost`. Reenviar la activación (botón "Reenviar correo", tarea C) o borrarlos y crearlos de nuevo.
+- [ ] **Usuarios pendientes creados durante el desarrollo** (los que aparecen como "Pendiente de activación"). Sus enlaces apuntan a `localhost`. Después de poner `APP_URL`, usar "Reenviar correo de activación" en cada uno, o borrarlos y crearlos de nuevo.
+- [ ] **`debe_cambiar_password` de las cuentas existentes.** En el flujo nuevo, `true` significa "aún no define su contraseña" y la lista lo muestra como "Pendiente de activación". Las cuentas antiguas que sigan con `true` (por ejemplo `dav.walker@duocuc.cl`) aparecerán como pendientes aunque ya tengan contraseña; ponerlas en `false` con SQL (lo ejecuta Jose).
 - [ ] **Datos simulados.** Decidir si se conservan para la demostración o se limpian. El script `redsangre_ingesta_datos_simulados.sql` no se ejecuta en producción si se usarán datos reales.
 - [ ] **Parámetros de negocio** (tabla `configuracion`): `sede_latitud` y `sede_longitud` con las coordenadas reales de la clínica, meses entre donaciones, validación de RUT.
 - [ ] **Respaldos.** El plan gratuito no garantiza respaldos automáticos. Programar un `supabase db dump` periódico (por ejemplo con GitHub Actions) y documentarlo.
@@ -135,8 +137,8 @@ Funciones actuales: `crear-usuario`, `cambiar-contrasena`, `enviar-correo-contac
 2. Recargar la página en `/donantes`, `/solicitudes` y `/configuracion`: no da 404.
 3. Iniciar sesión como administrador y como tecnólogo; el tecnólogo no ve Configuración.
 4. Cerrar sesión, e intentar abrir una ruta protegida: redirige al login.
-5. Crear un usuario de prueba: llega el correo, el enlace lleva a la URL pública y la cuenta se activa.
-6. Entrar con la contraseña temporal: pide crear una contraseña nueva que cumpla la política.
+5. Crear un usuario de prueba: llega el correo de activación, el enlace abre `https://<URL_PUBLICA>/activar` (no `localhost`) y el botón activa la cuenta.
+6. Después de activar, la aplicación pide crear la contraseña (que cumpla la política) y recién entonces da acceso. Probar también "Reenviar correo de activación" desde Configuración.
 7. Desactivar el usuario de prueba y comprobar que no puede entrar.
 8. Intentar crear un usuario con un correo duplicado y con un dominio no permitido: se rechaza.
 9. Enviar un correo de contacto a un donante de prueba: llega y queda registrado en la bitácora.

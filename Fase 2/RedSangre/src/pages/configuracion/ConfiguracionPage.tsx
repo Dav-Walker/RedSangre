@@ -14,6 +14,7 @@ interface UsuarioFila {
   correo: string;
   rol: UserRole;
   activo: boolean;
+  debe_cambiar_password: boolean;
   created_at: string;
 }
 
@@ -57,7 +58,7 @@ export function ConfiguracionPage() {
     const cargarUsuarios = async () => {
       const { data, error: err } = await supabase!
         .from('usuario')
-        .select('id, nombre, apellido, correo, rol, activo, created_at')
+        .select('id, nombre, apellido, correo, rol, activo, debe_cambiar_password, created_at')
         .order('nombre');
 
       if (err || !data) {
@@ -108,17 +109,22 @@ export function ConfiguracionPage() {
 
   // Comentarios - Crear usuario desde Configuración
   // Agrega el usuario recién creado a la lista (ordenada por nombre), cierra el modal y avisa del resultado.
-  const handleUsuarioCreado = (nuevo: UsuarioCreado) => {
+  const handleUsuarioCreado = (nuevo: UsuarioCreado, correoEnviado: boolean) => {
     setUsuarios((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
     setUltimaConexion((prev) => ({ ...prev, [nuevo.id]: null }));
     setCreandoUsuario(false);
-    setAvisoCreado(`Usuario ${nuevo.nombre} ${nuevo.apellido} creado correctamente.`);
+    setAvisoCreado(
+      correoEnviado
+        ? `Usuario ${nuevo.nombre} ${nuevo.apellido} creado. Se envió el correo de activación a ${nuevo.correo}.`
+        : `Usuario ${nuevo.nombre} ${nuevo.apellido} creado, pero no se pudo enviar el correo de activación. Ábrelo desde la lista y usa "Reenviar correo de activación".`,
+    );
   };
 
   const estaEnLinea = (id: string) => id === user?.id || usuariosEnLinea.includes(id);
 
   const textoEstado = (u: UsuarioFila) => {
     if (!u.activo) return 'Cuenta desactivada';
+    if (u.debe_cambiar_password) return 'Pendiente de activación';
     if (estaEnLinea(u.id)) return 'Conectado ahora';
     return formatearUltimaConexion(ultimaConexion[u.id] ?? null);
   };

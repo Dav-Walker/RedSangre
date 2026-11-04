@@ -1,5 +1,6 @@
 // Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión
-// Pantalla que reemplaza a toda la aplicación mientras el usuario tenga una contraseña temporal.
+// Pantalla que reemplaza a toda la aplicación mientras el usuario no haya definido su contraseña personal
+// (cuenta recién activada por correo).
 import { useState } from 'react';
 import { useAuth } from '../../contexts/useAuth';
 import { validarContrasena } from '../../utils/politicaContrasena';
@@ -34,7 +35,7 @@ export function CambiarContrasenaPage() {
       <form className={styles.tarjeta} onSubmit={handleGuardar} noValidate>
         <h1 className={styles.titulo}>Crea tu contraseña</h1>
         <p className={styles.texto}>
-          {user?.nombre}, ingresaste con una contraseña temporal. Para continuar debes definir una contraseña personal.
+          {user?.nombre}, tu cuenta quedó activada. Para continuar debes definir tu contraseña personal.
         </p>
 
         <div className={styles.campo}>
