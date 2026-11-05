@@ -63,13 +63,29 @@ export function NuevaSolicitudPage() {
         p_fenotipo_requerido: fenotipoSearch.trim() || null,
         p_limite: 20,
       })
-      .then(({ data, error: err }) => {
-        setCargandoCandidatos(false);
+      .then(async ({ data, error: err }) => {
         if (err) {
+          setCargandoCandidatos(false);
           setError('Error al buscar candidatos: ' + err.message);
           return;
         }
-        setCandidatos((data as CandidatoRow[]) ?? []);
+        const lista = (data as CandidatoRow[]) ?? [];
+
+        const { data: bloqueados, error: errBloq } = lista.length
+          ? await supabase!
+              .from('donante')
+              .select('id')
+              .in('id', lista.map(c => c.donante_id))
+              .eq('reaccion_adversa_previa', true)
+          : { data: [], error: null };
+
+        setCargandoCandidatos(false);
+        if (errBloq) {
+          setError('Error al verificar candidatos: ' + errBloq.message);
+          return;
+        }
+        const idsBloqueados = new Set((bloqueados ?? []).map((d: { id: string }) => d.id));
+        setCandidatos(lista.filter(c => !idsBloqueados.has(c.donante_id)));
       });
   }, [grupoSanguineo, fenotipoSearch]);
 

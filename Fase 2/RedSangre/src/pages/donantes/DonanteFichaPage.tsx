@@ -22,6 +22,7 @@ interface DonanteDetalle {
   fecha_ultima_donacion: string | null;
   ubicacion: string | null;
   observaciones: string | null;
+  reaccion_adversa_previa?: boolean;
 }
 
 function calcularUltimaDonacion(fecha: string | null): string {
@@ -207,7 +208,7 @@ export function DonanteFichaPage() {
   };
 
   const handleRegistrarDonacion = async () => {
-    if (!donante) return;
+    if (!donante || donante.reaccion_adversa_previa) return;
     setError(null);
 
     // ==========================================
@@ -309,6 +310,12 @@ export function DonanteFichaPage() {
       )}
 
       {error && <div className={styles.mensajeError}>{error}</div>}
+
+      {donante.reaccion_adversa_previa && (
+        <div className={styles.mensajeError}>
+          ⚠ Este donante tuvo una reacción adversa: está bloqueado y no puede donar, ser contactado ni editarse.
+        </div>
+      )}
 
       <div className={styles.layoutColumnas}>
 
@@ -494,15 +501,19 @@ export function DonanteFichaPage() {
           <div className={styles.botonesPie}>
             <button
               className={styles.botonDonacion}
+              disabled={!!donante.reaccion_adversa_previa}
+              style={donante.reaccion_adversa_previa ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
               onClick={() => setIsRegistrandoDonacion(true)}
             >
               + Registrar donación
             </button>
-            <Button texto="Editar donante" onClick={() => {
-              setIsEditing(true);
-              setConsentimientoEdit(consentimiento ?? { acepta_cookies: false, autoriza_contacto: false });
-              setEtiquetasEdit(etiquetas.filter(e => ETIQUETAS_GENERICAS.includes(e)));
-            }} />
+            {!donante.reaccion_adversa_previa && (
+              <Button texto="Editar donante" onClick={() => {
+                setIsEditing(true);
+                setConsentimientoEdit(consentimiento ?? { acepta_cookies: false, autoriza_contacto: false });
+                setEtiquetasEdit(etiquetas.filter(e => ETIQUETAS_GENERICAS.includes(e)));
+              }} />
+            )}
           </div>
         )}
       </div>
