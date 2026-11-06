@@ -1,15 +1,12 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6';
+import { cabeceras, conCors } from '../_shared/cors.ts';
 
-const cabeceras = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 function responder(cuerpo: unknown, status = 200) {
   return new Response(JSON.stringify(cuerpo), {
     status,
-    headers: { ...cabeceras, 'Content-Type': 'application/json' },
+    headers: { ...cabeceras(), 'Content-Type': 'application/json' },
   });
 }
 
@@ -37,8 +34,8 @@ function textoCorreo(nombre: string, codigoSolicitud: string, grupo: string, urg
   ].join('\n');
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras });
+Deno.serve(conCors(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras() });
   if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405);
 
   let solicitudId: string | undefined;
@@ -102,4 +99,4 @@ Deno.serve(async (req) => {
   if (errRegistro) return responder({ error: 'Correo enviado, pero no se registró en la bitácora' }, 500);
 
   return responder({ ok: true });
-});
+}));

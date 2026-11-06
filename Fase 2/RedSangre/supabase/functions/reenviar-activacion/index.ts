@@ -3,21 +3,18 @@
 // Solo la puede usar un administrador activo.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { enviarCorreoActivacion, generarEnlace } from '../_shared/activacion.ts';
+import { cabeceras, conCors } from '../_shared/cors.ts';
 
-const cabeceras = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 function responder(cuerpo: unknown, status = 200) {
   return new Response(JSON.stringify(cuerpo), {
     status,
-    headers: { ...cabeceras, 'Content-Type': 'application/json' },
+    headers: { ...cabeceras(), 'Content-Type': 'application/json' },
   });
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras });
+Deno.serve(conCors(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras() });
   if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405);
 
   // Comentarios - Activación de cuenta por correo
@@ -88,4 +85,4 @@ Deno.serve(async (req) => {
   }
 
   return responder({ ok: true });
-});
+}));

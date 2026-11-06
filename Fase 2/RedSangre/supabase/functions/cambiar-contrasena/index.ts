@@ -1,9 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { cabeceras, conCors } from '../_shared/cors.ts';
 
-const cabeceras = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Comentarios - Seguridad de contraseñas
 // Misma política que crear-usuario y el frontend: mínimo 8 caracteres con letra, número y un carácter especial (el punto cuenta).
@@ -19,12 +16,12 @@ function cumplePoliticaContrasena(contrasena: string): boolean {
 function responder(cuerpo: unknown, status = 200) {
   return new Response(JSON.stringify(cuerpo), {
     status,
-    headers: { ...cabeceras, 'Content-Type': 'application/json' },
+    headers: { ...cabeceras(), 'Content-Type': 'application/json' },
   });
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras });
+Deno.serve(conCors(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras() });
   if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405);
 
   // 1. Verificar que quien llama es un administrador autenticado
@@ -74,4 +71,4 @@ Deno.serve(async (req) => {
   }
 
   return responder({ ok: true });
-});
+}));
