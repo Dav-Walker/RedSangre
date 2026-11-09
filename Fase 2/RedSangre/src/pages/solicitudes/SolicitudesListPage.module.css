@@ -162,3 +162,11 @@
   color: #333;
   font-weight: bold;
 }
+
+/* Comentarios - Listado de solicitudes */
+/* Cantidad de resultados al final de la fila de filtros, igual que en Donantes. */
+.contador {
+  margin-left: auto;
+  font-size: 14px;
+  color: #666;
+}

@@ -3,6 +3,8 @@
 // Supabase directamente. Las escrituras devuelven un mensaje de error o null si todo salió bien.
 import { supabase } from '../utils/supabase';
 import { leerMensajeError } from '../utils/mensajeErrorFuncion';
+import { valorFiltro } from '../utils/filtrosPostgrest';
+import { fechaLocal } from '../utils/fechas';
 import type { Donante, EstadoSolicitudBase, GrupoSanguineo, ResultadoContacto, Solicitud, Urgencia } from '../tipos/dominio';
 
 // Comentarios - Listado de solicitudes
@@ -12,17 +14,54 @@ export type SolicitudFila = Solicitud & {
 };
 
 // Comentarios - Listado de solicitudes
-// Ordena en la base: primero por estado y luego por urgencia, en el orden de sus enums
-// (abierta, en proceso, cerrada / alta, media, baja), y dentro de eso las más recientes primero.
-export async function listarSolicitudes(): Promise<{ solicitudes: SolicitudFila[]; error: string | null }> {
-  const { data, error } = await supabase
+// Filtros de una consulta del listado y su resultado. La fecha va como 'AAAA-MM-DD' (día local de creación).
+export interface FiltrosSolicitudes {
+  pagina: number;
+  porPagina: number;
+  busqueda: string;
+  grupo: GrupoSanguineo | '';
+  estado: EstadoSolicitudBase | '';
+  fecha: string;
+}
+
+export interface ResultadoSolicitudes {
+  solicitudes: SolicitudFila[];
+  total: number;
+  error: string | null;
+}
+
+// Comentarios - Listado de solicitudes
+// Consulta una página de solicitudes con los filtros indicados. Ordena en la base: primero por estado y luego
+// por urgencia, en el orden de sus enums (abierta, en proceso, cerrada / alta, media, baja), y dentro de eso
+// las más recientes primero. El buscador cubre código y fenotipo; el grupo tiene su propio filtro porque la
+// base no permite buscar texto dentro de un enum.
+export async function listarSolicitudes(f: FiltrosSolicitudes): Promise<ResultadoSolicitudes> {
+  let query = supabase
     .from('solicitud')
-    .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)')
+    .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)', { count: 'exact' })
     .order('estado')
     .order('urgencia')
     .order('created_at', { ascending: false });
-  if (error) return { solicitudes: [], error: 'Error al cargar las solicitudes: ' + error.message };
-  return { solicitudes: data ?? [], error: null };
+
+  if (f.busqueda) {
+    // Comentarios - Búsqueda segura en filtros .or()
+    // El texto va entre comillas para que comas o paréntesis escritos por el usuario no rompan el filtro.
+    const patron = valorFiltro(`%${f.busqueda}%`);
+    query = query.or(`codigo_solicitud.ilike.${patron},fenotipo_requerido.ilike.${patron}`);
+  }
+  if (f.grupo) query = query.eq('grupo_sanguineo_requerido', f.grupo);
+  if (f.estado) query = query.eq('estado', f.estado);
+  if (f.fecha) {
+    // El día elegido se toma en hora local: desde las 00:00 de ese día hasta las 00:00 del siguiente.
+    const desde = fechaLocal(f.fecha);
+    const hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 1);
+    query = query.gte('created_at', desde.toISOString()).lt('created_at', hasta.toISOString());
+  }
+
+  const inicio = (f.pagina - 1) * f.porPagina;
+  const { data, error, count } = await query.range(inicio, inicio + f.porPagina - 1);
+  if (error) return { solicitudes: [], total: 0, error: 'Error al cargar las solicitudes: ' + error.message };
+  return { solicitudes: data ?? [], total: count ?? 0, error: null };
 }
 
 // Comentarios - Búsqueda de candidatos
@@ -46,7 +85,10 @@ export interface Candidato {
 }
 
 // Comentarios - Búsqueda de candidatos
-// Candidatos compatibles ya priorizados por la base. La función excluye a los donantes bloqueados por reacción adversa.
+// Candidatos compatibles ya priorizados por la base (como máximo 100, el tope de la función).
+// La función excluye a los donantes bloqueados por reacción adversa.
+export const MAXIMO_CANDIDATOS = 100;
+
 export async function buscarCandidatos(
   grupo: GrupoSanguineo,
   fenotipo: string,
@@ -54,7 +96,7 @@ export async function buscarCandidatos(
   const { data, error } = await supabase.rpc('fn_buscar_donantes_compatibles', {
     p_grupo_requerido: grupo,
     p_fenotipo_requerido: fenotipo.trim() || undefined,
-    p_limite: 20,
+    p_limite: MAXIMO_CANDIDATOS,
   });
   if (error) return { candidatos: [], error: 'Error al buscar candidatos: ' + error.message };
   return { candidatos: (data ?? []) as Candidato[], error: null };

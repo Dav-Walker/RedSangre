@@ -16,7 +16,7 @@ export interface FiltrosDonantes {
   pagina: number;
   porPagina: number;
   grupo: GrupoSanguineo | '';
-  fenotipo: string;
+  antigenos: string[];
   etiqueta: string;
   busqueda: string;
 }
@@ -28,6 +28,17 @@ export interface ResultadoDonantes {
 }
 
 const ERROR_LISTADO = 'No se pudieron cargar los donantes.';
+
+// Comentarios - Búsqueda por fenotipo
+// Condición para que el fenotipo del donante ("C+, E-, K+") incluya un antígeno exacto: como fenotipo
+// completo, al inicio, al final o en medio de la lista. Se usa "like", que distingue mayúsculas,
+// porque K (Kell) y k (Cellano) son antígenos distintos. Los fenotipos con otro formato no coinciden.
+function condicionAntigeno(antigeno: string): string {
+  return `or(fenotipo.eq.${valorFiltro(antigeno)},`
+    + `fenotipo.like.${valorFiltro(`${antigeno}, %`)},`
+    + `fenotipo.like.${valorFiltro(`%, ${antigeno}`)},`
+    + `fenotipo.like.${valorFiltro(`%, ${antigeno}, %`)})`;
+}
 
 // Comentarios - Búsqueda de donantes
 // Consulta una página de donantes con los filtros indicados. "Fenotipo raro" y "Plaquetas" son columnas
@@ -50,13 +61,18 @@ export async function consultarDonantes(f: FiltrosDonantes): Promise<ResultadoDo
     .order('codigo_donante', { ascending: false });
 
   if (f.grupo) query = query.eq('grupo_sanguineo', f.grupo);
-  if (f.fenotipo) query = query.ilike('fenotipo', `%${f.fenotipo}%`);
+
+  // Comentarios - Búsqueda de donantes
+  // La búsqueda por texto y el fenotipo se combinan en un solo filtro: todas las condiciones deben cumplirse.
+  const condiciones: string[] = [];
   if (f.busqueda) {
     // Comentarios - Búsqueda segura en filtros .or()
     // El texto va entre comillas para que comas o paréntesis escritos por el usuario no rompan el filtro.
     const patron = valorFiltro(`%${f.busqueda}%`);
-    query = query.or(`nombre.ilike.${patron},apellido.ilike.${patron},rut.ilike.${patron}`);
+    condiciones.push(`or(nombre.ilike.${patron},apellido.ilike.${patron},rut.ilike.${patron})`);
   }
+  f.antigenos.forEach((antigeno) => condiciones.push(condicionAntigeno(antigeno)));
+  if (condiciones.length > 0) query = query.or(`and(${condiciones.join(',')})`);
   if (f.etiqueta === ETIQUETA_FENOTIPO_RARO) query = query.eq('fenotipo_raro', true);
   else if (f.etiqueta === ETIQUETA_PLAQUETAS) query = query.eq('frecuente_plaquetas', true);
   else if (idsConEtiqueta !== null) query = query.in('id', idsConEtiqueta);

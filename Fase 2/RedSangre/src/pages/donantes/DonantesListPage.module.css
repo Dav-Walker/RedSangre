@@ -29,14 +29,6 @@ select {
   border: 1px solid #ccc !important;
 }
 
-/* Mismo criterio para los botones de paginación */
-button.botonPaginacion,
-.paginacion button {
-  background-color: #ffffff !important;
-  color: #333333 !important;
-  border: 1px solid #ccc !important;
-}
-
 .inputBuscador {
   width: 100%;
   padding: 12px 40px 12px 15px;
@@ -129,11 +121,6 @@ button.botonPaginacion,
   cursor: pointer;
 }
 
-.inputFenotipo {
-  min-width: 220px;
-  cursor: text;
-}
-
 .botonLimpiar {
   padding: 8px 14px;
   border-radius: 8px;
@@ -177,55 +164,4 @@ button.botonPaginacion,
 
 .celdaObservaciones.sinDato {
   color: #aaa;
-}
-
-/* Paginación bajo la tabla. */
-.paginacion {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.porPagina {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #666;
-}
-
-.selectPorPagina {
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.textoPagina {
-  font-size: 14px;
-  color: #666;
-}
-
-.textoPagina strong {
-  color: #333;
-}
-
-.botonesPagina {
-  display: flex;
-  gap: 6px;
-}
-
-.botonPaginacion {
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.botonPaginacion:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
 }

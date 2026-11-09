@@ -1,60 +1,71 @@
 // Comentarios - Listado de solicitudes
 // Tabla de solicitudes con búsqueda y filtros por grupo, estado y fecha de creación.
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
+import { Paginacion } from '../../components/common/Paginacion';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
-import { listarSolicitudes, type SolicitudFila } from '../../servicios/solicitudes';
+import { listarSolicitudes, type FiltrosSolicitudes, type ResultadoSolicitudes } from '../../servicios/solicitudes';
+import type { EstadoSolicitudBase, GrupoSanguineo } from '../../tipos/dominio';
 import styles from './SolicitudesListPage.module.css';
+
+// Comentarios - Listado de solicitudes
+// Pausa tras la última tecla antes de consultar, y cantidades por página (las mismas que en Donantes).
+const ESPERA_BUSQUEDA_MS = 350;
+const OPCIONES_POR_PAGINA = [10, 25, 50, 100];
 
 export function SolicitudesListPage() {
   const navigate = useNavigate();
 
-  const [solicitudes, setSolicitudes] = useState<SolicitudFila[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState('');
-  const [grupoFiltro, setGrupoFiltro] = useState('');
-  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
+  const [grupoFiltro, setGrupoFiltro] = useState<GrupoSanguineo | ''>('');
+  const [estadoFiltro, setEstadoFiltro] = useState<EstadoSolicitudBase | ''>('');
   const [fechaFiltro, setFechaFiltro] = useState('');
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [porPagina, setPorPagina] = useState(10);
   const fechaRef = useRef<HTMLInputElement>(null);
 
   // Comentarios - Listado de solicitudes
-  // Carga las solicitudes ya ordenadas por la base (estado y urgencia). Los filtros se aplican en pantalla.
+  // Igual que en Donantes: la base filtra, ordena y devuelve solo la página visible con el total.
+  // Cada combinación de filtros tiene una clave; si el resultado guardado es de otra clave, sigue cargando.
+  const filtros: FiltrosSolicitudes = {
+    pagina: paginaActual, porPagina, busqueda: busquedaAplicada,
+    grupo: grupoFiltro, estado: estadoFiltro, fecha: fechaFiltro,
+  };
+  const claveConsulta = JSON.stringify(filtros);
+  const [resultado, setResultado] = useState<ResultadoSolicitudes & { clave: string } | null>(null);
+  const cargando = resultado?.clave !== claveConsulta;
+  const solicitudes = resultado?.solicitudes ?? [];
+  const totalSolicitudes = resultado?.total ?? 0;
+  const error = resultado?.error ?? null;
+  const totalPaginas = Math.max(1, Math.ceil(totalSolicitudes / porPagina));
+
+  useEffect(() => {
+    const temporizador = window.setTimeout(() => setBusquedaAplicada(textoBusqueda.trim()), ESPERA_BUSQUEDA_MS);
+    return () => window.clearTimeout(temporizador);
+  }, [textoBusqueda]);
+
+  // Comentarios - Listado de solicitudes
+  // Consulta cuando cambia la clave. "vigente" descarta la respuesta si los filtros cambiaron mientras tanto.
   useEffect(() => {
     let vigente = true;
-    void listarSolicitudes().then(({ solicitudes: lista, error: err }) => {
-      if (!vigente) return;
-      setSolicitudes(lista);
-      setError(err);
-      setCargando(false);
+    void listarSolicitudes(JSON.parse(claveConsulta) as FiltrosSolicitudes).then((r) => {
+      if (vigente) setResultado({ ...r, clave: claveConsulta });
     });
     return () => { vigente = false; };
-  }, []);
+  }, [claveConsulta]);
 
-  const solicitudesFiltradas = useMemo(() => {
-    const busqueda = textoBusqueda.trim().toLowerCase();
-    return solicitudes.filter((sol) => {
-      if (busqueda) {
-        const coincide =
-          String(sol.codigo_solicitud ?? '').toLowerCase().includes(busqueda) ||
-          String(sol.grupo_sanguineo_requerido ?? '').toLowerCase().includes(busqueda) ||
-          String(sol.fenotipo_requerido ?? '').toLowerCase().includes(busqueda);
-        if (!coincide) return false;
-      }
-      if (grupoFiltro && sol.grupo_sanguineo_requerido !== grupoFiltro) return false;
-      if (estadoFiltro && sol.estado !== estadoFiltro) return false;
-      if (fechaFiltro) {
-        if (!sol.created_at) return false;
-        const f = new Date(sol.created_at);
-        const fechaLocal = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
-        if (fechaLocal !== fechaFiltro) return false;
-      }
-      return true;
-    });
-  }, [solicitudes, textoBusqueda, grupoFiltro, estadoFiltro, fechaFiltro]);
+  const handleLimpiarFiltros = () => {
+    setTextoBusqueda('');
+    setBusquedaAplicada('');
+    setGrupoFiltro('');
+    setEstadoFiltro('');
+    setFechaFiltro('');
+    setPaginaActual(1);
+  };
 
   return (
     <div className={styles.contenedor}>
@@ -63,10 +74,10 @@ export function SolicitudesListPage() {
         <div className={styles.buscadorContenedor}>
           <input
             type="text"
-            placeholder="Buscar por código, grupo o fenotipo..."
+            placeholder="Buscar por código o fenotipo..."
             className={styles.inputBuscador}
             value={textoBusqueda}
-            onChange={(e) => setTextoBusqueda(e.target.value)}
+            onChange={(e) => { setTextoBusqueda(e.target.value); setPaginaActual(1); }}
           />
           <svg
             className={styles.iconoLupa}
@@ -83,7 +94,7 @@ export function SolicitudesListPage() {
         <select
           className={styles.controlFiltro}
           value={grupoFiltro}
-          onChange={(e) => setGrupoFiltro(e.target.value)}
+          onChange={(e) => { setGrupoFiltro(e.target.value as GrupoSanguineo | ''); setPaginaActual(1); }}
         >
           <option value="">Todos los grupos</option>
           {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
@@ -92,7 +103,7 @@ export function SolicitudesListPage() {
         <select
           className={styles.controlFiltro}
           value={estadoFiltro}
-          onChange={(e) => setEstadoFiltro(e.target.value)}
+          onChange={(e) => { setEstadoFiltro(e.target.value as EstadoSolicitudBase | ''); setPaginaActual(1); }}
         >
           <option value="">Todos los estados</option>
           {Object.entries(ESTADOS_SOLICITUD).map(([valor, { texto }]) => (
@@ -114,7 +125,7 @@ export function SolicitudesListPage() {
             type="date"
             className={styles.fechaOculta}
             value={fechaFiltro}
-            onChange={(e) => setFechaFiltro(e.target.value)}
+            onChange={(e) => { setFechaFiltro(e.target.value); setPaginaActual(1); }}
             tabIndex={-1}
           />
         </div>
@@ -123,11 +134,15 @@ export function SolicitudesListPage() {
           <button
             type="button"
             className={styles.botonLimpiar}
-            onClick={() => { setTextoBusqueda(''); setGrupoFiltro(''); setEstadoFiltro(''); setFechaFiltro(''); }}
+            onClick={handleLimpiarFiltros}
           >
             ✕ Limpiar filtros
           </button>
         )}
+
+        <span className={styles.contador}>
+          {cargando ? 'Cargando...' : `${totalSolicitudes} solicitud${totalSolicitudes !== 1 ? 'es' : ''} encontrada${totalSolicitudes !== 1 ? 's' : ''}`}
+        </span>
       </div>
 
       {error && <div className={styles.mensajeError} role="alert">{error}</div>}
@@ -152,14 +167,14 @@ export function SolicitudesListPage() {
                   Cargando solicitudes desde la base de datos...
                 </td>
               </tr>
-            ) : solicitudesFiltradas.length === 0 ? (
+            ) : solicitudes.length === 0 ? (
               <tr>
                 <td colSpan={7} className={styles.celdaMensaje}>
                   No se encontraron solicitudes registradas.
                 </td>
               </tr>
             ) : (
-              solicitudesFiltradas.map((sol) => {
+              solicitudes.map((sol) => {
                 const idMostrado = sol.codigo_solicitud ?? sol.id;
                 const estado = ESTADOS_SOLICITUD[obtenerEstadoSolicitud(sol.estado)];
 
@@ -185,6 +200,17 @@ export function SolicitudesListPage() {
           </tbody>
         </table>
       </div>
+
+      {!cargando && !error && (
+        <Paginacion
+          pagina={paginaActual}
+          totalPaginas={totalPaginas}
+          porPagina={porPagina}
+          opciones={OPCIONES_POR_PAGINA}
+          onCambiarPagina={setPaginaActual}
+          onCambiarPorPagina={(cantidad) => { setPorPagina(cantidad); setPaginaActual(1); }}
+        />
+      )}
     </div>
   );
 }

@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge, type ColorBadge } from '../../components/common/Badge';
+import { Paginacion } from '../../components/common/Paginacion';
+import { CampoFenotipo } from '../../components/donantes/CampoFenotipo';
 import styles from './DonantesListPage.module.css';
 import { textoMesesDesde } from '../../utils/fechas';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
 import { ETIQUETAS_DONANTE } from '../../utils/etiquetas';
+import { antigenosElegidos, type ValoresFenotipo } from '../../utils/fenotipo';
 import { consultarDonantes, type FiltrosDonantes, type ResultadoDonantes } from '../../servicios/donantes';
 import type { GrupoSanguineo } from '../../tipos/dominio';
 
@@ -20,22 +23,23 @@ export function DonantesListPage() {
   const navigate = useNavigate();
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState<GrupoSanguineo | ''>('');
-  const [filtroFenotipo, setFiltroFenotipo] = useState('');
+  // Comentarios - Búsqueda por fenotipo
+  // Antígenos elegidos en el popup de tipificación. Se aplican al guardar el popup, sin esperar al teclado.
+  const [filtroFenotipo, setFiltroFenotipo] = useState<ValoresFenotipo>({});
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
   // Comentarios - Búsqueda de donantes
-  // Textos que realmente se consultan. Se copian desde los campos tras una pausa al escribir,
+  // Texto que realmente se consulta. Se copia desde el buscador tras una pausa al escribir,
   // o de inmediato con Enter o la lupa, para no consultar la base en cada tecla.
   const [busquedaAplicada, setBusquedaAplicada] = useState('');
-  const [fenotipoAplicado, setFenotipoAplicado] = useState('');
 
   // Comentarios - Búsqueda de donantes
   // Cada combinación de filtros tiene una clave. El resultado guarda la clave con que se pidió:
   // si no coincide con la actual, la consulta sigue en curso (cargando).
   const filtros: FiltrosDonantes = {
     pagina: paginaActual, porPagina, grupo: filtroGrupo,
-    fenotipo: fenotipoAplicado, etiqueta: filtroEtiqueta, busqueda: busquedaAplicada,
+    antigenos: antigenosElegidos(filtroFenotipo), etiqueta: filtroEtiqueta, busqueda: busquedaAplicada,
   };
   const claveConsulta = JSON.stringify(filtros);
   const [resultado, setResultado] = useState<ResultadoDonantes & { clave: string } | null>(null);
@@ -47,12 +51,9 @@ export function DonantesListPage() {
   const totalPaginas = Math.max(1, Math.ceil(totalDonantes / porPagina));
 
   useEffect(() => {
-    const temporizador = window.setTimeout(() => {
-      setBusquedaAplicada(textoBusqueda.trim());
-      setFenotipoAplicado(filtroFenotipo.trim());
-    }, ESPERA_BUSQUEDA_MS);
+    const temporizador = window.setTimeout(() => setBusquedaAplicada(textoBusqueda.trim()), ESPERA_BUSQUEDA_MS);
     return () => window.clearTimeout(temporizador);
-  }, [textoBusqueda, filtroFenotipo]);
+  }, [textoBusqueda]);
 
   // Comentarios - Búsqueda de donantes
   // Consulta cuando cambia la clave. "vigente" descarta la respuesta si los filtros cambiaron mientras tanto.
@@ -69,16 +70,14 @@ export function DonantesListPage() {
   const handleBuscar = () => {
     setPaginaActual(1);
     setBusquedaAplicada(textoBusqueda.trim());
-    setFenotipoAplicado(filtroFenotipo.trim());
   };
 
   const handleLimpiarFiltros = () => {
     setTextoBusqueda('');
     setFiltroGrupo('');
-    setFiltroFenotipo('');
+    setFiltroFenotipo({});
     setFiltroEtiqueta('');
     setBusquedaAplicada('');
-    setFenotipoAplicado('');
     setPaginaActual(1);
   };
 
@@ -117,13 +116,9 @@ export function DonantesListPage() {
           {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
 
-        <input
-          type="text"
-          placeholder="Buscar fenotipo (ej: dCe/dce)"
-          value={filtroFenotipo}
-          onChange={(e) => { setFiltroFenotipo(e.target.value); setPaginaActual(1); }}
-          onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
-          className={`${styles.controlFiltro} ${styles.inputFenotipo}`}
+        <CampoFenotipo
+          valores={filtroFenotipo}
+          onCambiar={(valores) => { setFiltroFenotipo(valores); setPaginaActual(1); }}
         />
 
         <select
@@ -135,7 +130,7 @@ export function DonantesListPage() {
           {ETIQUETAS_DONANTE.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
 
-        {(filtroGrupo || filtroFenotipo || filtroEtiqueta || textoBusqueda) && (
+        {(filtroGrupo || filtros.antigenos.length > 0 || filtroEtiqueta || textoBusqueda) && (
           <button
             onClick={handleLimpiarFiltros}
             className={styles.botonLimpiar}
@@ -210,46 +205,14 @@ export function DonantesListPage() {
 
       {/* PAGINACIÓN */}
       {!cargando && !error && (
-        <div className={styles.paginacion}>
-          <div className={styles.porPagina}>
-            <span>Mostrar</span>
-            <select
-              value={porPagina}
-              onChange={(e) => { setPorPagina(Number(e.target.value)); setPaginaActual(1); }}
-              className={styles.selectPorPagina}
-            >
-              {OPCIONES_POR_PAGINA.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <span>por página</span>
-          </div>
-
-          <span className={styles.textoPagina}>
-            Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong>
-          </span>
-
-          <div className={styles.botonesPagina}>
-            <button
-              onClick={() => setPaginaActual(1)}
-              disabled={paginaActual === 1}
-              className={styles.botonPaginacion}
-            >«</button>
-            <button
-              onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
-              disabled={paginaActual === 1}
-              className={styles.botonPaginacion}
-            >‹ Anterior</button>
-            <button
-              onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
-              disabled={paginaActual === totalPaginas}
-              className={styles.botonPaginacion}
-            >Siguiente ›</button>
-            <button
-              onClick={() => setPaginaActual(totalPaginas)}
-              disabled={paginaActual === totalPaginas}
-              className={styles.botonPaginacion}
-            >»</button>
-          </div>
-        </div>
+        <Paginacion
+          pagina={paginaActual}
+          totalPaginas={totalPaginas}
+          porPagina={porPagina}
+          opciones={OPCIONES_POR_PAGINA}
+          onCambiarPagina={setPaginaActual}
+          onCambiarPorPagina={(cantidad) => { setPorPagina(cantidad); setPaginaActual(1); }}
+        />
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import { obtenerEstadoSolicitud } from './estadosSolicitud';
 import { calcularFenotipos, construirTendencia } from './graficosDashboard';
 import { traducirErrorAuth } from './mensajesAuth';
 import { esEtiquetaDeColumna } from './etiquetas';
+import { antigenosElegidos, textoFenotipo } from './fenotipo';
 
 describe('validarCorreo', () => {
   it('acepta correos de los dominios permitidos', () => {
@@ -130,5 +131,17 @@ describe('etiquetas de donante', () => {
     expect(esEtiquetaDeColumna('Fenotipo sanguíneo raro')).toBe(true);
     expect(esEtiquetaDeColumna('Donante de plaquetas')).toBe(true);
     expect(esEtiquetaDeColumna('Donación altruista')).toBe(false);
+  });
+});
+
+describe('fenotipo', () => {
+  it('arma el texto con cada antígeno separado por coma, en el orden del modo extendido', () => {
+    const valores = { K: 'POSITIVO', C: 'NEGATIVO', e: '', Fya: 'POSITIVO' };
+    expect(antigenosElegidos(valores)).toEqual(['C-', 'Fya+', 'K+']);
+    expect(textoFenotipo(valores)).toBe('C-, Fya+, K+');
+  });
+
+  it('devuelve texto vacío si no se eligió ningún antígeno', () => {
+    expect(textoFenotipo({ C: '', K: '' })).toBe('');
   });
 });

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hoyISO } from '../../utils/fechas';
 import type { GrupoSanguineo } from '../../tipos/dominio';
-import { Modal } from '../../components/common/Modal';
+import { ModalFenotipo } from '../../components/donantes/ModalFenotipo';
+import { textoFenotipo, type ValoresFenotipo } from '../../utils/fenotipo';
 import { ETIQUETA_FENOTIPO_RARO, ETIQUETA_PLAQUETAS, ETIQUETAS_DONANTE } from '../../utils/etiquetas';
 import { registrarDonante } from '../../servicios/donantes';
 import styles from './NuevoDonantePage.module.css';
@@ -28,14 +29,6 @@ const REGIONES_CHILE: Record<string, string[]> = {
   "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir", "Cabo de Hornos"]
 };
 
-const FENOTIPOS_COMPACTOS = ['C', 'E', 'K', 'c', 'e'];
-
-const FENOTIPOS_EXTENDIDOS = [
-  'C', 'Cw', 'Diego', 'E', 'Fya', 'Fyb', 'I', 'JKa', 'JKb',
-  'JSa', 'JSb', 'K', 'Kpa', 'Kpb', 'Lea', 'Leb', 'Lua', 'Lub',
-  'M', 'Mia', 'N', 'P1', 'S', 'V', 'Xga', 'c', 'e', 'f', 'k', 's'
-];
-
 export function NuevoDonantePage() {
   const navigate = useNavigate();
 
@@ -56,9 +49,7 @@ export function NuevoDonantePage() {
   const comunasDisponibles = form.region ? (REGIONES_CHILE[form.region] ?? []) : [];
 
   const [modalFenotipoAbierto, setModalFenotipoAbierto] = useState(false);
-  const [modoExtendido, setModoExtendido] = useState(false);
-  const [valoresFenotipos, setValoresFenotipos] = useState<Record<string, string>>({});
-  const [valoresFenotiposBackup, setValoresFenotiposBackup] = useState<Record<string, string>>({});
+  const [valoresFenotipos, setValoresFenotipos] = useState<ValoresFenotipo>({});
   const [etiquetasSeleccionadas, setEtiquetasSeleccionadas] = useState<string[]>([]);
   const [reaccionAdversaPrevia, setReaccionAdversaPrevia] = useState(false);
   const [consentCookies, setConsentCookies] = useState(false);
@@ -83,34 +74,11 @@ export function NuevoDonantePage() {
     );
   };
 
-  // Comentarios - Modal de tipificación
-  // Cancelar (botón, Escape o clic fuera) restaura los valores que había al abrir el modal.
-  const cancelarTipificacion = () => {
-    setValoresFenotipos(valoresFenotiposBackup);
-    setModoExtendido(false);
-    setModalFenotipoAbierto(false);
-  };
-
-  const handleCambioFenotipo = (fenotipo: string, valor: string) => {
-    setValoresFenotipos(prev => ({ ...prev, [fenotipo]: valor }));
-  };
-
-  const hayAlMenosUnoSeleccionado = FENOTIPOS_EXTENDIDOS.some(
-    f => valoresFenotipos[f] && valoresFenotipos[f] !== ''
-  );
-
-  const fenotipoTexto = FENOTIPOS_EXTENDIDOS
-    .filter(f => valoresFenotipos[f] && valoresFenotipos[f] !== '')
-    .map(f => `${f}${valoresFenotipos[f] === 'POSITIVO' ? '+' : '-'}`)
-    .join('/');
-
-  const buildFilas = (lista: string[]): (string | undefined)[][] => {
-    const filas: (string | undefined)[][] = [];
-    for (let i = 0; i < lista.length; i += 2) {
-      filas.push([lista[i], lista[i + 1]]);
-    }
-    return filas;
-  };
+  // Comentarios - Tipificación de fenotipo
+  // Texto que se guarda, por ejemplo "C+, E-, K+": cada antígeno separado por coma para que la base
+  // pueda compararlo antígeno por antígeno al buscar candidatos.
+  const fenotipoTexto = textoFenotipo(valoresFenotipos);
+  const hayAlMenosUnoSeleccionado = fenotipoTexto !== '';
 
   const handleGuardar = async () => {
     // Comentarios - Registro atómico de donante
@@ -343,7 +311,7 @@ export function NuevoDonantePage() {
               <label className={styles.label}>Fenotipo <span className={styles.requerido}>*</span></label>
               <div
                 className={styles.selectContenedor}
-                onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setModoExtendido(false); setModalFenotipoAbierto(true); }}
+                onClick={() => setModalFenotipoAbierto(true)}
               >
                 <input
                   type="text"
@@ -454,94 +422,12 @@ export function NuevoDonantePage() {
       </div>
 
       {modalFenotipoAbierto && (
-        <Modal className={styles.modalContenido} idTitulo="titulo-tipificacion" onCerrar={cancelarTipificacion}>
-
-            <div className={styles.modalCabecera}>
-              <h2 id="titulo-tipificacion">{modoExtendido ? 'Tipificación Extendida' : 'Tipificación'}</h2>
-            </div>
-
-            <table className={styles.tablaCompacta}>
-              <thead>
-                <tr>
-                  <th>Antígeno</th>
-                  <th>Resultado</th>
-                  <th>Antígeno</th>
-                  <th>Resultado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {buildFilas(modoExtendido ? FENOTIPOS_EXTENDIDOS : FENOTIPOS_COMPACTOS).map((par, index) => (
-                  <tr key={index}>
-                    <td className={styles.nombreAntigeno}>{par[0]}</td>
-                    <td>
-                      <select
-                        className={styles.selectCompacto}
-                        value={valoresFenotipos[par[0]!] || ''}
-                        onChange={(e) => handleCambioFenotipo(par[0]!, e.target.value)}
-                      >
-                        <option value="">Sin seleccionar</option>
-                        <option value="POSITIVO">POSITIVO (+)</option>
-                        <option value="NEGATIVO">NEGATIVO (-)</option>
-                      </select>
-                    </td>
-
-                    {par[1] ? (
-                      <>
-                        <td className={styles.nombreAntigeno}>{par[1]}</td>
-                        <td>
-                          <select
-                            className={styles.selectCompacto}
-                            value={valoresFenotipos[par[1]] || ''}
-                            onChange={(e) => handleCambioFenotipo(par[1]!, e.target.value)}
-                          >
-                            <option value="">Sin seleccionar</option>
-                            <option value="POSITIVO">POSITIVO (+)</option>
-                            <option value="NEGATIVO">NEGATIVO (-)</option>
-                          </select>
-                        </td>
-                      </>
-                    ) : (
-                      <><td></td><td></td></>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className={styles.modalPie}>
-              <button
-                className={styles.botonCancelarModal}
-                onClick={cancelarTipificacion}
-              >
-                Cancelar
-              </button>
-
-              {modoExtendido ? (
-                <button
-                  className={styles.botonModoModal}
-                  onClick={() => setModoExtendido(false)}
-                >
-                  ← Atrás
-                </button>
-              ) : (
-                <button
-                  className={styles.botonModoModal}
-                  onClick={() => setModoExtendido(true)}
-                >
-                  Modo Extendido
-                </button>
-              )}
-
-              <button
-                className={styles.botonGuardarModal}
-                disabled={!hayAlMenosUnoSeleccionado}
-                onClick={() => { setModoExtendido(false); setModalFenotipoAbierto(false); }}
-              >
-                Guardar
-              </button>
-            </div>
-
-        </Modal>
+        <ModalFenotipo
+          valoresIniciales={valoresFenotipos}
+          exigirSeleccion
+          onCancelar={() => setModalFenotipoAbierto(false)}
+          onGuardar={(valores) => { setValoresFenotipos(valores); setModalFenotipoAbierto(false); }}
+        />
       )}
 
     </div>

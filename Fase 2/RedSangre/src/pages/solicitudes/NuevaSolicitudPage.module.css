@@ -46,7 +46,7 @@
   background-color: #f4f7fa;
   padding: 30px;
   border-radius: 12px;
-  width: 600px; /* Ancho fijo para que se vea como en tu diseño */
+  width: 1000px; /* Ancho para el formulario y la tabla de candidatos de 7 columnas */
   max-width: 100%;
 }
 
@@ -111,80 +111,32 @@
   margin-bottom: 10px;
 }
 
-.tarjetaCandidato {
-  display: flex;
-  align-items: center;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 10px;
-  transition: all 0.2s;
-}
-
-/* Efecto cuando seleccionas un candidato */
-.tarjetaCandidato.seleccionado {
-  border: 2px solid var(--color-marca-azul);
-  background-color: #f0f9ff;
-}
-
-.tarjetaCandidato.disponible {
-  cursor: pointer;
-}
-
-.tarjetaCandidato.disponible:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.tarjetaCandidato.noDisponible {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.numeroRanking {
-  font-size: 28px;
-  font-weight: bold;
-  color: #888;
-  width: 40px;
-  text-align: center;
-  margin-right: 15px;
-}
-
-.infoCandidato {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
+/* Nombre del candidato en la tabla; el código va debajo, más pequeño. */
 .nombreCandidato {
   font-weight: bold;
   color: #333;
-  font-size: 16px;
-}
-
-.detallesCandidato {
-  color: #666;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* ETIQUETAS DE DISPONIBILIDAD */
 .badgeDisponible {
   background-color: #e6f4ea;
   color: #1e8e3e;
-  padding: 8px 16px;
+  padding: 4px 12px;
   border-radius: 8px;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .badgeNoDisponible {
   background-color: #fef0d9;
   color: #b46b16;
-  padding: 8px 16px;
+  padding: 4px 12px;
   border-radius: 8px;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .botonGuardar {
@@ -211,23 +163,6 @@
   cursor: not-allowed;
 }
 
-.inputBusqueda {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 12px 15px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 15px;
-  background-color: white;
-  color: #333;
-  font-family: inherit;
-}
-
-.inputBusqueda:focus {
-  outline: none;
-  border-color: var(--color-marca-azul);
-}
-
 .mensajeError {
   background-color: #fff0f0;
   border: 1px solid #e74c3c;
@@ -241,17 +176,78 @@
   box-sizing: border-box;
 }
 
-.mensajeCargando {
-  color: #888;
-  font-size: 14px;
-  padding: 20px 0;
-  text-align: center;
+
+/* Comentarios - Tabla de candidatos */
+/* Misma tabla que Solicitudes y Donantes: cabecera azul, filas con borde y resaltado al pasar el mouse. */
+.tablaContenedor {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.mensajeVacio {
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tabla th {
+  background-color: var(--color-marca-azul);
+  color: white;
+  padding: 12px 15px;
+}
+
+.tabla td {
+  padding: 12px 15px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.fila {
+  transition: background-color 0.2s;
+}
+
+/* Solo se puede elegir a los candidatos aptos; los demás se ven atenuados. */
+.filaApta {
+  cursor: pointer;
+}
+
+.filaApta:hover {
+  background-color: #f0f9ff;
+}
+
+.filaNoApta {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.filaSeleccionada,
+.filaSeleccionada:hover {
+  background-color: #e0f2fe;
+  box-shadow: inset 4px 0 0 var(--color-marca-azul);
+}
+
+.celdaPrioridad {
+  font-weight: bold;
+  color: var(--color-marca-azul);
+}
+
+.codigoCandidato {
+  display: block;
+  font-size: 12px;
   color: #999;
-  font-size: 14px;
-  padding: 20px 0;
+}
+
+.celdaMensaje {
   text-align: center;
-  font-style: italic;
+  padding: 30px;
+  color: #666;
+}
+
+.avisoTope {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #888;
 }

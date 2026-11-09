@@ -1,0 +1,57 @@
+/* Comentarios - Paginación de tablas */
+/* Fondo y texto fijos en el select y los botones para que el modo oscuro del sistema no los cambie. */
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.porPagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.selectPorPagina {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.textoPagina {
+  font-size: 14px;
+  color: #666;
+}
+
+.textoPagina strong {
+  color: #333;
+}
+
+.botonesPagina {
+  display: flex;
+  gap: 6px;
+}
+
+.botonPaginacion {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  font-size: 14px;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.botonPaginacion:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
