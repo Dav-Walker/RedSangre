@@ -1,2 +1,4 @@
 # Archivos sensibles del proyecto
 *.sql
+# Esquema de la base (sin datos ni secretos): se versiona para saber qué RLS y funciones hay en producción
+!Fase 2/RedSangre/supabase/esquema.sql
