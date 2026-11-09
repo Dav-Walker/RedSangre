@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { cabeceras, conCors } from '../_shared/cors.ts';
+import { MENSAJE_SIN_DOS_PASOS, tieneDosPasos } from '../_shared/dosPasos.ts';
 
 
 // Comentarios - Seguridad de contraseñas
@@ -33,6 +34,9 @@ Deno.serve(conCors(async (req) => {
 
   const { data: { user: usuarioActual }, error: errAuth } = await supabaseUsuario.auth.getUser();
   if (errAuth || !usuarioActual) return responder({ error: 'No autenticado' }, 401);
+  // Comentarios - Segundo factor TOTP (RF-36)
+  // Un administrador sin el código TOTP (sesión aal1) no puede cambiar contraseñas
+  if (!tieneDosPasos(req)) return responder({ error: MENSAJE_SIN_DOS_PASOS }, 403);
 
   const { data: perfil, error: errPerfil } = await supabaseUsuario
     .from('usuario')
