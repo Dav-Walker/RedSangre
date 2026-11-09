@@ -18,6 +18,9 @@ export interface AuthContextValue {
   loading: boolean;
   configured: boolean;
   user: UserProfile | null;
+  // Comentarios - Límite de sesión de 1 hora
+  // Indica que la última sesión se cerró por cumplir 1 hora, para avisarlo en la pantalla de login
+  sesionExpirada: boolean;
   // Comentarios - Captcha en inicio de sesión
   // captchaToken es el token de Cloudflare Turnstile; Supabase Auth lo valida cuando el captcha está activo
   signIn: (email: string, password: string, captchaToken?: string) => Promise<string | null>;

@@ -12,7 +12,7 @@ const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim();
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, configured } = useAuth();
+  const { signIn, configured, sesionExpirada } = useAuth();
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -75,6 +75,14 @@ export function LoginPage() {
           
           <h1 className={styles.tituloApp}>RedSangre</h1>
           <div className={styles.subtituloApp}>Iniciar sesión</div>
+
+          {/* Comentarios - Límite de sesión de 1 hora */}
+          {/* Avisa que la sesión anterior se cerró por tiempo; se oculta si aparece otro error */}
+          {sesionExpirada && !errorMessage && (
+            <div className={styles.mensajeAviso} role="status">
+              Tu sesión expiró después de 1 hora. Vuelve a iniciar sesión.
+            </div>
+          )}
 
           <form onSubmit={handleLogin} style={{ width: '100%' }}>
             

@@ -138,6 +138,22 @@
   text-align: center;
 }
 
+/* Comentarios - Límite de sesión de 1 hora */
+/* Aviso informativo (no es un error) de que la sesión anterior se cerró por tiempo */
+.mensajeAviso {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  margin-top: -20px;
+  margin-bottom: 20px;
+  border: 1px solid #00a0df;
+  border-radius: 8px;
+  background-color: #e6f6fc;
+  color: #005f85;
+  font-size: 13px;
+  text-align: center;
+}
+
 /* Comentarios - Captcha en inicio de sesión */
 /* Contenedor del widget de Turnstile: ocupa el ancho del formulario y deja aire antes del botón */
 .captcha {
