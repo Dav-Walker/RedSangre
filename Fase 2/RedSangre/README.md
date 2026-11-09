@@ -1,29 +1,93 @@
 # RedSangre
 
-## Supabase authentication
+Sistema web de gestión de donantes y solicitudes de sangre para el Banco de Sangre de Clínica Indisa.
+Prototipo académico (Portafolio de Título, Duoc UC) que trabaja solo con datos simulados.
 
-The login page uses Supabase email/password authentication. Copy `.env.example` to
-`.env` and set the project URL and publishable key from your Supabase project settings:
+## Tecnologías
 
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+- React 19, TypeScript y Vite.
+- Supabase: PostgreSQL con RLS, Auth (contraseña, captcha Turnstile y segundo factor TOTP) y Edge Functions (Deno).
+- Correo por Gmail SMTP con nodemailer, desde las Edge Functions.
+- Vitest para las pruebas unitarias.
+
+## Puesta en marcha
+
+1. Copia `.env.example` a `.env` y completa los valores de tu proyecto de Supabase:
+
+   ```env
+   VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=tu-clave-publicable
+   VITE_TURNSTILE_SITE_KEY=tu-site-key-de-turnstile
+   ```
+
+   En el navegador solo va la clave publicable (o la anon key antigua). Nunca pongas la service role
+   ni otra clave secreta en una variable `VITE_`. El archivo `.env` está en `.gitignore`.
+   Después de cambiar el `.env`, reinicia el servidor de desarrollo.
+
+2. Instala las dependencias y levanta la aplicación (usar Git Bash; PowerShell bloquea `npm`):
+
+   ```sh
+   npm install
+   npm run dev
+   ```
+
+## Scripts
+
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo en `http://localhost:5173`. |
+| `npm run build` | Revisa los tipos y genera `dist/` para el hosting. |
+| `npm run typecheck` | Revisa los tipos sin generar archivos. |
+| `npm run lint` | ESLint. |
+| `npm test` | Pruebas unitarias de `src/utils` (no tocan la base). |
+| `npm run test:seguridad` | Pruebas de permisos contra Supabase (`scripts/pruebas-seguridad.mjs`). Necesita en el entorno `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `TECNO_EMAIL` y `TECNO_PASSWORD`. |
+| `npm run tipos` | Regenera `src/tipos/database.types.ts` desde el esquema de Supabase (requiere `npx supabase login`). |
+
+## Estructura
+
+```
+src/
+  pages/         Una carpeta por módulo: auth, dashboard, donantes, solicitudes, configuracion.
+  servicios/     Consultas y escrituras a Supabase. Las páginas no llaman a Supabase directamente.
+  components/    Componentes compartidos: Badge, Button, Modal, Navbar y rutas por rol.
+  contexts/      Sesión, perfil del usuario y segundo factor.
+  utils/         Funciones puras (fechas, validaciones, etiquetas, gráficos) y el cliente de Supabase.
+  tipos/         Tipos generados del esquema de la base y alias del dominio.
+supabase/
+  functions/     Edge Functions: crear-usuario, reenviar-activacion, cambiar-contrasena y enviar-correo-contacto.
+    _shared/     Código común: CORS, respuestas, verificación de administrador, correo y validaciones.
+  config.toml    Configuración local del CLI de Supabase.
+scripts/         Pruebas de seguridad.
+public/          Archivos estáticos, incluido el .htaccess del hosting (HTTPS y rutas de la SPA).
 ```
 
-Only use a Supabase publishable key (or legacy anon key) in this browser app. Never
-put a service-role or secret key in a `VITE_` variable. The `.env` file is ignored
-by Git. Restart the Vite dev server after changing environment variables.
+Las reglas de correo y de contraseña viven una sola vez en `supabase/functions/_shared/validaciones.ts`;
+el frontend las importa desde `src/utils`, así el formulario y el servidor aplican exactamente lo mismo.
 
-Users must already exist in Supabase Auth with email/password enabled. Authenticated
-users can access the app routes; signing out returns to the login page.
+## Base de datos
 
-## Development
+El script de la base y los datos simulados están fuera del repositorio. Varias reglas de negocio viven en
+triggers y funciones de la base (por ejemplo RS002, contacto sin consentimiento, y RS005, solicitud cerrada),
+así que conviene revisar el script antes de cambiar una regla en el frontend.
+
+## Edge Functions
+
+Secretos que usan (se configuran en Supabase → Edge Functions → Secrets):
+
+| Secreto | Uso |
+|---|---|
+| `APP_URL` | URL pública de la aplicación (`https://redsangre.cl`). Arma los enlaces de activación y el origen permitido por CORS. Es obligatorio. |
+| `GMAIL_USER` y `GMAIL_APP_PASSWORD` | Cuenta y contraseña de aplicación de Gmail para enviar correos. |
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los entrega Supabase automáticamente.
+
+Para probarlas en local, crea `supabase/functions/.env` con `APP_URL=http://localhost:5173` y los secretos de
+Gmail, y ejecuta `npx supabase functions serve`. Para publicar un cambio:
 
 ```sh
-npm install
-npm run dev
+npx supabase functions deploy <nombre>
 ```
 
-Run `npm run build` to type-check and build the app, or `npm run lint` to run ESLint.
+## Despliegue del frontend
 
-This app uses React, TypeScript, Vite, and `@vitejs/plugin-react`.
+`npm run build` genera `dist/`. Su contenido (que incluye `public/.htaccess`) se sube a `public_html` del hosting.
