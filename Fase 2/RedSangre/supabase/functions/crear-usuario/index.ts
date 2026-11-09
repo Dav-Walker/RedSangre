@@ -96,11 +96,12 @@ Deno.serve(conCors(async (req) => {
   }
 
   // Comentarios - Crear usuario
-  // 5. El trigger deja el perfil como tecnólogo (Auth no entrega el rol al insertar). Se fija aquí el rol pedido
-  //    y se marca que la persona aún debe definir su contraseña.
+  // 5. El trigger deja el perfil como tecnólogo e inactivo (Auth no entrega el rol al insertar). Se fija aquí el rol
+  //    pedido, se activa la cuenta y se marca que la persona aún debe definir su contraseña.
+  //    Solo esta función activa cuentas nuevas: un registro hecho por fuera nace sin permisos.
   const { data: usuarioNuevo, error: errRol } = await supabaseAdmin
     .from('usuario')
-    .update({ rol, debe_cambiar_password: true })
+    .update({ rol, activo: true, debe_cambiar_password: true })
     .eq('id', enlace.usuarioId)
     .select(columnasUsuario)
     .single();
