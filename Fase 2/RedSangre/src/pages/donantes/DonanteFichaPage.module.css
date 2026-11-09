@@ -21,7 +21,7 @@
 }
 
 .botonVolver:hover {
-  color: #00a0df;
+  color: var(--color-marca-azul);
 }
 
 .tituloPagina {
@@ -50,7 +50,7 @@
 }
 
 .tarjetaHeader {
-  background-color: #00a0df;
+  background-color: var(--color-marca-azul);
   color: white;
   padding: 15px 20px;
   margin: 0;
@@ -170,7 +170,7 @@
   padding: 28px 32px;
   width: 500px;
   max-width: 95%;
-  border: 2px solid #00a0df;
+  border: 2px solid var(--color-marca-azul);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
@@ -178,7 +178,7 @@
 }
 
 .modalCabecera {
-  border-bottom: 2px solid #00a0df;
+  border-bottom: 2px solid var(--color-marca-azul);
   padding-bottom: 12px;
   margin-bottom: 4px;
 }
@@ -186,7 +186,7 @@
 .modalCabecera h2 {
   margin: 0;
   font-size: 18px;
-  color: #00a0df;
+  color: var(--color-marca-azul);
 }
 
 .filaPanelDonacion {
@@ -197,7 +197,7 @@
 
 .labelDonacion {
   font-weight: bold;
-  color: #00a0df;
+  color: var(--color-marca-azul);
   white-space: nowrap;
   min-width: 200px;
 }
@@ -221,7 +221,7 @@
 }
 
 .toggleActivo {
-  background-color: #00a0df;
+  background-color: var(--color-marca-azul);
   color: white;
   border: none;
   padding: 7px 18px;
@@ -231,7 +231,7 @@
 }
 
 .toggleActivoRojo {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   color: white;
   border: none;
   padding: 7px 18px;
@@ -257,7 +257,7 @@
   margin: 4px 0 0 0;
   font-size: 13px;
   font-weight: bold;
-  color: #bb4442;
+  color: var(--color-marca-rojo);
 }
 
 .textareaReaccion {
@@ -280,7 +280,7 @@
 }
 
 .botonDonacion {
-  background-color: #00a0df;
+  background-color: var(--color-marca-azul);
   color: white;
   border: none;
   padding: 12px 20px;
@@ -291,12 +291,19 @@
   transition: background-color 0.2s;
 }
 
-.botonDonacion:hover {
-  background-color: #0088c0;
+.botonDonacion:hover:not(:disabled) {
+  background-color: var(--color-marca-azul-oscuro);
+}
+
+/* Comentarios - Estilos de la ficha de donante */
+/* Un donante bloqueado por reacción adversa no puede registrar donaciones: el botón se ve apagado. */
+.botonDonacion:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .botonConfirmarDonacion {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -308,10 +315,49 @@
 }
 
 .botonConfirmarDonacion:hover:not(:disabled) {
-  background-color: #9a3533;
+  background-color: var(--color-marca-rojo-oscuro);
 }
 
 .botonConfirmarDonacion:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
+}
+
+/* Comentarios - Estilos de la ficha de donante */
+/* Mensajes de carga y de error que reemplazan a la ficha completa. */
+.mensajePagina {
+  text-align: center;
+  padding: 40px;
+}
+
+.textoError {
+  color: #c0392b;
+}
+
+/* Nombre y apellido editables, en grande, sobre las tarjetas. */
+.filaNombreEdit {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.inputNombre {
+  font-size: 24px;
+  font-weight: bold;
+  flex: 1;
+}
+
+.listaEtiquetasEdit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sinDato {
+  color: #aaa;
+}
+
+.textareaObservaciones {
+  min-height: 80px;
+  resize: vertical;
 }

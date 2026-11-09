@@ -1,3 +1,5 @@
+// Comentarios - Rutas de la aplicación
+// Define las rutas y el orden de las pantallas de acceso: login, código TOTP, cambio de contraseña y sistema.
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
@@ -8,6 +10,7 @@ import { VerificacionDosPasosPage } from './pages/auth/VerificacionDosPasosPage'
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
+import styles from './App.module.css';
 
 // Comentarios - Carga diferida de páginas
 // Las páginas internas se descargan recién al visitarlas: el login no carga Recharts ni los formularios.
@@ -49,7 +52,7 @@ function LayoutPrincipal() {
   return (
     <>
       {!esPaginaPublica && <Navbar />}
-      <div style={{ padding: esPaginaPublica ? '0px' : '30px' }}>
+      <div className={esPaginaPublica ? undefined : styles.contenidoInterno}>
         <Suspense fallback={<p role="status">Cargando...</p>}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

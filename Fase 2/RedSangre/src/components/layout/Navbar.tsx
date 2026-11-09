@@ -1,3 +1,5 @@
+// Comentarios - Barra de navegación
+// Cabecera con el logo, el usuario conectado, el botón de cerrar sesión y el menú de módulos.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import styles from './Navbar.module.css';
@@ -47,7 +49,7 @@ export function Navbar() {
         <div className={styles.userActions}>
           <div className={styles.userBadge}>
             {nombreVisible}
-            {user && <span style={{ marginLeft: '8px', fontSize: '0.85em', opacity: 0.7 }}>({user.rol})</span>}
+            {user && <span className={styles.rolUsuario}>({user.rol})</span>}
           </div>
           {errorCierre && <span role="alert">{errorCierre}</span>}
           <button className={styles.logoutBtn} onClick={handleCerrarSesion}>

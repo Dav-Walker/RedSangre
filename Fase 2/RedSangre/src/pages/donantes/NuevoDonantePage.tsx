@@ -1,3 +1,5 @@
+// Comentarios - Registro de donante
+// Formulario de alta de donante con tipificación de fenotipo, etiquetas y consentimientos.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hoyISO } from '../../utils/fechas';
@@ -192,7 +194,7 @@ export function NuevoDonantePage() {
 
       <div className={styles.layoutPrincipal}>
 
-        <div className={styles.panelIzquierdo} style={{ textAlign: 'left' }}>
+        <div className={styles.panelIzquierdo}>
 
           <div className={styles.grupoInput}>
             <label className={styles.label}>Nombre <span className={styles.requerido}>*</span></label>
@@ -243,7 +245,7 @@ export function NuevoDonantePage() {
           </div>
 
           <div className={styles.filaFormulario}>
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+            <div className={styles.grupoInput}>
               <label className={styles.label}>RUT <span className={styles.requerido}>*</span></label>
               <input
                 type="text"
@@ -255,7 +257,7 @@ export function NuevoDonantePage() {
               />
             </div>
 
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+            <div className={styles.grupoInput}>
               <label className={styles.label}>Sexo <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
@@ -275,7 +277,7 @@ export function NuevoDonantePage() {
           </div>
 
           <div className={styles.filaFormulario}>
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+            <div className={styles.grupoInput}>
               <label className={styles.label}>Región <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
@@ -293,7 +295,7 @@ export function NuevoDonantePage() {
               </div>
             </div>
 
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+            <div className={styles.grupoInput}>
               <label className={styles.label}>Comuna <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
@@ -313,8 +315,8 @@ export function NuevoDonantePage() {
             </div>
           </div>
 
-          <div className={styles.filaFormulario} style={{ marginTop: '15px' }}>
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+          <div className={`${styles.filaFormulario} ${styles.filaConMargen}`}>
+            <div className={styles.grupoInput}>
               <label className={styles.label}>Grupo sanguíneo <span className={styles.requerido}>*</span></label>
               <div className={styles.selectContenedor}>
                 <select
@@ -337,7 +339,7 @@ export function NuevoDonantePage() {
               </div>
             </div>
 
-            <div className={styles.grupoInput} style={{ marginBottom: 0 }}>
+            <div className={styles.grupoInput}>
               <label className={styles.label}>Fenotipo <span className={styles.requerido}>*</span></label>
               <div
                 className={styles.selectContenedor}
@@ -345,8 +347,7 @@ export function NuevoDonantePage() {
               >
                 <input
                   type="text"
-                  className={styles.select}
-                  style={{ cursor: 'pointer', caretColor: 'transparent', color: '#333', width: '100%', boxSizing: 'border-box' }}
+                  className={`${styles.select} ${styles.inputFenotipo}`}
                   readOnly
                   value={hayAlMenosUnoSeleccionado ? fenotipoTexto : 'Seleccionar...'}
                 />
@@ -374,18 +375,18 @@ export function NuevoDonantePage() {
 
         </div>
 
-        <div className={styles.panelDerecho} style={{ textAlign: 'left', justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>
+        <div className={styles.panelDerecho}>
 
           <div className={styles.grupoInput}>
             <label className={styles.label}>Etiquetas del donante</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+            <div className={styles.listaEtiquetas}>
               {ETIQUETAS_DONANTE.map(etiqueta => (
-                <label key={etiqueta} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                <label key={etiqueta} className={styles.opcionMarcable}>
                   <input
                     type="checkbox"
                     checked={etiquetasSeleccionadas.includes(etiqueta)}
                     onChange={() => toggleEtiqueta(etiqueta)}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    className={styles.casillaPequena}
                   />
                   {etiqueta}
                 </label>
@@ -397,19 +398,18 @@ export function NuevoDonantePage() {
             <label className={styles.label}>Observaciones / Comentarios</label>
             <textarea
               name="observaciones"
-              className={styles.input}
               placeholder="Ej: Donó sin problemas, se desmayó brevemente, requirió hidratación..."
               rows={4}
               value={form.observaciones}
               onChange={handleChange}
-              style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '14px', padding: '10px' }}
+              className={`${styles.input} ${styles.textareaObservaciones}`}
             />
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', cursor: 'pointer', fontSize: '14px', color: reaccionAdversaPrevia ? '#bb4442' : '#666' }}>
+            <label className={`${styles.opcionMarcable} ${styles.opcionReaccion} ${reaccionAdversaPrevia ? styles.opcionReaccionActiva : ''}`}>
               <input
                 type="checkbox"
                 checked={reaccionAdversaPrevia}
                 onChange={e => setReaccionAdversaPrevia(e.target.checked)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                className={styles.casillaPequena}
               />
               El donante tiene reacción adversa (esto bloqueará al donante para futuras donaciones)
             </label>
@@ -445,7 +445,6 @@ export function NuevoDonantePage() {
 
           <button
             className={styles.botonGuardar}
-            style={{ marginTop: '30px' }}
             disabled={guardando}
             onClick={handleGuardar}
           >

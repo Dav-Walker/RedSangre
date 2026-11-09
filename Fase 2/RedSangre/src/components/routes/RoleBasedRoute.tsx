@@ -1,3 +1,5 @@
+// Comentarios - Rutas por rol
+// Muestra la página solo a usuarios activos con alguno de los roles permitidos; al resto los envía al dashboard.
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/useAuth';
 import type { UserRole } from '../../contexts/auth-context';

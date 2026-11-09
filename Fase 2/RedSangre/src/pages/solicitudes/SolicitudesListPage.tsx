@@ -1,3 +1,5 @@
+// Comentarios - Listado de solicitudes
+// Tabla de solicitudes con búsqueda y filtros por grupo, estado y fecha de creación.
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
@@ -128,7 +130,7 @@ export function SolicitudesListPage() {
         )}
       </div>
 
-      {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
+      {error && <div className={styles.mensajeError} role="alert">{error}</div>}
 
       <div className={styles.tablaContenedor}>
         <table className={styles.tabla}>
@@ -138,7 +140,7 @@ export function SolicitudesListPage() {
               <th>Tipo requerido</th>
               <th>Fenotipo</th>
               <th>Urgencia</th>
-              <th style={{ textAlign: 'center' }}>Estado</th>
+              <th className={styles.centrado}>Estado</th>
               <th>Candidato asignado</th>
               <th>Fecha de creación</th>
             </tr>
@@ -146,13 +148,13 @@ export function SolicitudesListPage() {
           <tbody>
             {cargando ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                <td colSpan={7} className={styles.celdaMensaje}>
                   Cargando solicitudes desde la base de datos...
                 </td>
               </tr>
             ) : solicitudesFiltradas.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                <td colSpan={7} className={styles.celdaMensaje}>
                   No se encontraron solicitudes registradas.
                 </td>
               </tr>
@@ -168,10 +170,10 @@ export function SolicitudesListPage() {
                     className={styles.fila}
                   >
                     <td>{idMostrado}</td>
-                    <td style={{ color: '#333', fontWeight: 'bold' }}>{sol.grupo_sanguineo_requerido || '-'}</td>
+                    <td className={styles.celdaGrupo}>{sol.grupo_sanguineo_requerido || '-'}</td>
                     <td>{sol.fenotipo_requerido || '-'}</td>
                     <td>{sol.urgencia || '-'}</td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td className={styles.centrado}>
                       <Badge texto={estado.texto} color={estado.color} />
                     </td>
                     <td>{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido}` : 'Sin asignar'}</td>

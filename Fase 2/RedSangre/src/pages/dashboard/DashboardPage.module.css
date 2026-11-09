@@ -18,7 +18,7 @@
 
 .tarjeta {
   background-color: white;
-  border: 2px solid #00a0df;
+  border: 2px solid var(--color-marca-azul);
   border-radius: 12px;
   padding: 20px;
   text-align: center;
@@ -121,8 +121,8 @@
 
 .tabla th {
   padding: 12px 10px;
-  border-bottom: 2px solid #00a0df;
-  color: #00a0df;
+  border-bottom: 2px solid var(--color-marca-azul);
+  color: var(--color-marca-azul);
   font-weight: bold;
 }
 

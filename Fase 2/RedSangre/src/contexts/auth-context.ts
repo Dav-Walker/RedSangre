@@ -1,3 +1,5 @@
+// Comentarios - Sesión y perfil del usuario
+// Tipos y contexto de autenticación. Va separado del proveedor para que Vite pueda recargar los componentes en caliente.
 import { createContext } from 'react';
 import type { Session } from '@supabase/supabase-js';
 

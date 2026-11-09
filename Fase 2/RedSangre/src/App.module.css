@@ -1,0 +1,5 @@
+/* Comentarios - Estilos del layout principal */
+/* Margen interior de las páginas internas. Las páginas públicas (login, activar) ocupan toda la pantalla. */
+.contenidoInterno {
+  padding: 30px;
+}

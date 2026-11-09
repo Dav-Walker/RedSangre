@@ -124,7 +124,7 @@
 
 /* Efecto cuando seleccionas un candidato */
 .tarjetaCandidato.seleccionado {
-  border: 2px solid #00a0df;
+  border: 2px solid var(--color-marca-azul);
   background-color: #f0f9ff;
 }
 
@@ -188,7 +188,7 @@
 }
 
 .botonGuardar {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   color: white;
   padding: 15px;
   border: none;
@@ -203,7 +203,7 @@
 }
 
 .botonGuardar:hover {
-  background-color: #9a3533;
+  background-color: var(--color-marca-rojo-oscuro);
 }
 
 .botonGuardar:disabled {
@@ -225,7 +225,7 @@
 
 .inputBusqueda:focus {
   outline: none;
-  border-color: #00a0df;
+  border-color: var(--color-marca-azul);
 }
 
 .mensajeError {

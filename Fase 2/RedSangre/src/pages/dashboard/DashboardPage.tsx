@@ -1,3 +1,5 @@
+// Comentarios - Dashboard
+// Indicadores, inventario por grupo, fenotipos más frecuentes, tendencia mensual y solicitudes activas.
 import { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -10,6 +12,8 @@ import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
 import { calcularFenotipos, construirTendencia } from '../../utils/graficosDashboard';
 import { cargarDashboard, type DatosDashboard } from '../../servicios/dashboard';
 
+// Comentarios - Dashboard
+// Recharts dibuja en SVG y necesita los colores como texto: no puede leer las variables CSS de la marca.
 const COLORES_PIE = ['#00a0df', '#f47c36', '#9b59b6', '#e74c3c', '#2ecc71', '#f1c40f'];
 
 const SIN_ERRORES: DatosDashboard['errores'] = { kpis: false, grupos: false, solicitudes: false, tendencia: false, fenotipos: false };
@@ -148,8 +152,8 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: Tabla */}
-        <div className={styles.panel}>
+        {/* COLUMNA DERECHA: Tabla (en celular pasa arriba, ver .panelSolicitudes) */}
+        <div className={`${styles.panel} ${styles.panelSolicitudes}`}>
           <h4 className={styles.tituloPanel}>Solicitudes Activas</h4>
           <table className={styles.tabla}>
             <thead>

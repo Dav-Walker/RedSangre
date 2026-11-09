@@ -1,3 +1,5 @@
+// Comentarios - Detalle de solicitud
+// Estado de la solicitud y bitácora de contacto con el donante asignado: llamada, correo y WhatsApp.
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge, type ColorBadge } from '../../components/common/Badge';

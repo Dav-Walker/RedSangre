@@ -20,7 +20,7 @@
 
 /* Cabecera azul */
 .cabecera {
-  background-color: #00a0df;
+  background-color: var(--color-marca-azul);
   padding: 20px 24px;
   display: flex;
   align-items: center;
@@ -96,7 +96,7 @@
 
 .input:focus,
 .select:focus {
-  border-color: #00a0df;
+  border-color: var(--color-marca-azul);
 }
 
 .inputError {
@@ -156,7 +156,7 @@
 }
 
 .botonPrimario {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   border: none;
   border-radius: 8px;
   padding: 10px 20px;

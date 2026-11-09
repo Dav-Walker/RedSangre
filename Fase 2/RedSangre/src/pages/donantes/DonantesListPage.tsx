@@ -1,3 +1,5 @@
+// Comentarios - Listado de donantes
+// Tabla paginada de donantes con búsqueda por nombre o RUT y filtros por grupo, fenotipo y etiqueta.
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
@@ -105,11 +107,11 @@ export function DonantesListPage() {
       </div>
 
       {/* FILTROS */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className={styles.filtros}>
         <select
           value={filtroGrupo}
           onChange={(e) => { setFiltroGrupo(e.target.value as GrupoSanguineo | ''); setPaginaActual(1); }}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+          className={styles.controlFiltro}
         >
           <option value="">Todos los grupos</option>
           {GRUPOS_SANGUINEOS.map(g => <option key={g} value={g}>{g}</option>)}
@@ -121,13 +123,13 @@ export function DonantesListPage() {
           value={filtroFenotipo}
           onChange={(e) => { setFiltroFenotipo(e.target.value); setPaginaActual(1); }}
           onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', minWidth: '220px' }}
+          className={`${styles.controlFiltro} ${styles.inputFenotipo}`}
         />
 
         <select
           value={filtroEtiqueta}
           onChange={(e) => { setFiltroEtiqueta(e.target.value); setPaginaActual(1); }}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
+          className={styles.controlFiltro}
         >
           <option value="">Todas las etiquetas</option>
           {ETIQUETAS_DONANTE.map(e => <option key={e} value={e}>{e}</option>)}
@@ -136,18 +138,18 @@ export function DonantesListPage() {
         {(filtroGrupo || filtroFenotipo || filtroEtiqueta || textoBusqueda) && (
           <button
             onClick={handleLimpiarFiltros}
-            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', fontSize: '13px' }}
+            className={styles.botonLimpiar}
           >
             ✕ Limpiar filtros
           </button>
         )}
 
-        <span style={{ marginLeft: 'auto', fontSize: '14px', color: '#666' }}>
+        <span className={styles.contador}>
           {cargando ? 'Cargando...' : `${totalDonantes} donante${totalDonantes !== 1 ? 's' : ''} encontrado${totalDonantes !== 1 ? 's' : ''}`}
         </span>
       </div>
 
-      {error && <p style={{ textAlign: 'center', color: 'red', padding: '20px' }}>{error}</p>}
+      {error && <p className={styles.mensajeError} role="alert">{error}</p>}
 
       {/* TABLA */}
       <div className={styles.tablaContenedor}>
@@ -166,9 +168,9 @@ export function DonantesListPage() {
           </thead>
           <tbody>
             {cargando ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#aaa' }}>Cargando donantes...</td></tr>
+              <tr><td colSpan={8} className={styles.celdaMensaje}>Cargando donantes...</td></tr>
             ) : donantes.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#aaa' }}>No se encontraron donantes</td></tr>
+              <tr><td colSpan={8} className={styles.celdaMensaje}>No se encontraron donantes</td></tr>
             ) : (
               donantes.map((donante, index) => {
                 const etiqueta = donante.fenotipo_raro ? 'Fenotipo raro' : donante.frecuente_plaquetas ? 'Plaquetas' : null;
@@ -188,12 +190,14 @@ export function DonantesListPage() {
                       {etiqueta ? (
                         <Badge texto={etiqueta} color={colorEtiqueta} />
                       ) : (
-                        <span style={{ color: '#aaa' }}>-</span>
+                        <span className={styles.sinDato}>-</span>
                       )}
                     </td>
                     <td>{donante.fecha_ultima_donacion ? textoMesesDesde(donante.fecha_ultima_donacion) : '-'}</td>
-                    <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: donante.observaciones ? '#333' : '#aaa' }}
-                        title={donante.observaciones || ''}>
+                    <td
+                      className={`${styles.celdaObservaciones} ${donante.observaciones ? '' : styles.sinDato}`}
+                      title={donante.observaciones || ''}
+                    >
                       {donante.observaciones || '-'}
                     </td>
                   </tr>
@@ -204,45 +208,45 @@ export function DonantesListPage() {
         </table>
       </div>
 
-     {/* PAGINACIÓN */}
+      {/* PAGINACIÓN */}
       {!cargando && !error && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#666' }}>
+        <div className={styles.paginacion}>
+          <div className={styles.porPagina}>
             <span>Mostrar</span>
             <select
               value={porPagina}
               onChange={(e) => { setPorPagina(Number(e.target.value)); setPaginaActual(1); }}
-              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '14px', cursor: 'pointer', backgroundColor: '#ffffff', color: '#333333' }}
+              className={styles.selectPorPagina}
             >
               {OPCIONES_POR_PAGINA.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
             <span>por página</span>
           </div>
 
-          <span style={{ fontSize: '14px', color: '#666' }}>
-            Página <strong style={{ color: '#333' }}>{paginaActual}</strong> de <strong style={{ color: '#333' }}>{totalPaginas}</strong>
+          <span className={styles.textoPagina}>
+            Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong>
           </span>
 
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div className={styles.botonesPagina}>
             <button
               onClick={() => setPaginaActual(1)}
               disabled={paginaActual === 1}
-              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', opacity: paginaActual === 1 ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
+              className={styles.botonPaginacion}
             >«</button>
             <button
               onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
               disabled={paginaActual === 1}
-              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', opacity: paginaActual === 1 ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
+              className={styles.botonPaginacion}
             >‹ Anterior</button>
             <button
               onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
               disabled={paginaActual === totalPaginas}
-              style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', opacity: paginaActual === totalPaginas ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
+              className={styles.botonPaginacion}
             >Siguiente ›</button>
             <button
               onClick={() => setPaginaActual(totalPaginas)}
               disabled={paginaActual === totalPaginas}
-              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #ccc', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', opacity: paginaActual === totalPaginas ? 0.4 : 1, fontSize: '14px', backgroundColor: '#ffffff', color: '#333333' }}
+              className={styles.botonPaginacion}
             >»</button>
           </div>
         </div>

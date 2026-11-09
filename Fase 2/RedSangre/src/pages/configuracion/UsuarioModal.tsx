@@ -1,3 +1,5 @@
+// Comentarios - Detalle de usuario
+// Modal del usuario: datos, reenvío de activación, cambio de contraseña y desactivación o reactivación.
 import { useState } from 'react';
 import { Modal } from '../../components/common/Modal';
 import { validarContrasena } from '../../utils/politicaContrasena';
@@ -108,7 +110,7 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
 
         {/* Cabecera */}
         <div className={styles.cabecera}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className={styles.tituloConRol}>
             <h2 className={styles.nombreUsuario} id="titulo-usuario">
               {usuario.nombre} {usuario.apellido}
             </h2>

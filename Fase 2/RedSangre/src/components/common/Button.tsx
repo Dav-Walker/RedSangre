@@ -1,27 +1,18 @@
+// Comentarios - Componente Button
+// Botón principal de las páginas (rojo de la marca). Por defecto es type="button" para que, si queda dentro
+// de un formulario, no lo envíe sin querer.
+import styles from './Button.module.css';
+
 interface ButtonProps {
   texto: string;
   onClick?: () => void;
   disabled?: boolean;
+  type?: 'button' | 'submit';
 }
 
-export function Button({ texto, onClick, disabled }: ButtonProps) {
+export function Button({ texto, onClick, disabled, type = 'button' }: ButtonProps) {
   return (
-    <button 
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        backgroundColor: disabled ? '#ccc' : '#bb4442', /* El rojo hermoso de tu mockup */
-        color: 'white', 
-        padding: '12px 24px', 
-        border: 'none', 
-        borderRadius: '8px', 
-        fontWeight: 'bold', 
-        fontSize: '15px', 
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'background-color 0.2s',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)' /* Una sombrita para que resalte más */
-      }}
-    >
+    <button type={type} className={styles.boton} onClick={onClick} disabled={disabled}>
       {texto}
     </button>
   );

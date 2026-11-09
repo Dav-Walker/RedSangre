@@ -14,7 +14,7 @@
 .tarjeta {
   background: white;
   border-radius: 12px;
-  border-top: 6px solid #00a0df;
+  border-top: 6px solid var(--color-marca-azul);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   width: 440px;
   max-width: 100%;
@@ -49,7 +49,7 @@
 }
 
 .boton {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   border: none;
   border-radius: 8px;
   padding: 12px 20px;

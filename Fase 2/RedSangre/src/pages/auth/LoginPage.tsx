@@ -1,9 +1,10 @@
+// Comentarios - Inicio de sesión
+// Pantalla de login con correo, contraseña y captcha. Tras validar, la app pide el código TOTP.
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import styles from './LoginPage.module.css';
 import { useAuth } from '../../contexts/useAuth';
-// Importamos el nuevo logo que acabas de guardar
 import logoIndisa from '../../assets/cl_nica_indisa_logo_2.jpg';
 
 // Comentarios - Captcha en inicio de sesión
@@ -57,14 +58,13 @@ export function LoginPage() {
     <div className={styles.contenedorLogin}>
       
       <div className={styles.panelIzquierdo}>
-        <div style={{ width: '100%' }}></div>
+        <div className={styles.espaciador}></div>
         
         <div className={styles.logoContainer}>
-          {/* Aquí se carga automáticamente el nuevo logo */}
           <img src={logoIndisa} alt="Logo Clinica Indisa" className={styles.logoImg} />
         </div>
 
-        <div style={{ textAlign: 'center' }}>
+        <div className={styles.textoInferior}>
           <div className={styles.textoInferiorAzul}>Acceso al sistema interno de gestión de donantes</div>
         </div>
       </div>
@@ -83,7 +83,7 @@ export function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleLogin} style={{ width: '100%' }}>
+          <form onSubmit={handleLogin} className={styles.formulario}>
             
             <div className={styles.grupoInput}>
               <label className={`${styles.label} ${mensajeError ? styles.labelError : ''}`} htmlFor="correo">

@@ -1,3 +1,5 @@
+// Comentarios - Ficha de donante
+// Muestra y edita los datos del donante, su consentimiento y etiquetas, y registra donaciones.
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
@@ -200,8 +202,8 @@ export function DonanteFichaPage() {
     cerrarPanelDonacion();
   };
 
-  if (cargando) return <p style={{ textAlign: 'center', padding: '40px' }}>Cargando donante...</p>;
-  if (!donante) return <p style={{ textAlign: 'center', padding: '40px', color: 'red' }}>{error ?? 'No se encontró el donante.'}</p>;
+  if (cargando) return <p className={styles.mensajePagina}>Cargando donante...</p>;
+  if (!donante) return <p className={`${styles.mensajePagina} ${styles.textoError}`} role="alert">{error ?? 'No se encontró el donante.'}</p>;
 
   return (
     <div className={styles.contenedor}>
@@ -214,17 +216,15 @@ export function DonanteFichaPage() {
       </div>
 
       {editando ? (
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+        <div className={styles.filaNombreEdit}>
           <input
-            className={styles.inputEdit}
-            style={{ fontSize: '24px', fontWeight: 'bold', flex: 1 }}
+            className={`${styles.inputEdit} ${styles.inputNombre}`}
             value={donante.nombre}
             onChange={(e) => setDonante({ ...donante, nombre: e.target.value })}
             placeholder="Nombre"
           />
           <input
-            className={styles.inputEdit}
-            style={{ fontSize: '24px', fontWeight: 'bold', flex: 1 }}
+            className={`${styles.inputEdit} ${styles.inputNombre}`}
             value={donante.apellido}
             onChange={(e) => setDonante({ ...donante, apellido: e.target.value })}
             placeholder="Apellido"
@@ -259,7 +259,7 @@ export function DonanteFichaPage() {
             <span className={styles.etiquetaDato}>Sexo</span>
             {editando ? (
               <select
-                className={styles.inputEdit}
+                className={styles.selectEdit}
                 value={donante.sexo ?? ''}
                 onChange={(e) => setDonante({ ...donante, sexo: e.target.value || null })}
               >
@@ -303,7 +303,7 @@ export function DonanteFichaPage() {
                 donante.frecuente_plaquetas && <Badge texto="Plaquetas" color="azul" />
               )}
               {editando ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className={styles.listaEtiquetasEdit}>
                   {ETIQUETAS_GENERICAS.map(e => (
                     <label key={e} className={styles.checkboxEdit}>
                       <input
@@ -325,7 +325,7 @@ export function DonanteFichaPage() {
                   }
                   {!donante.fenotipo_raro && !donante.frecuente_plaquetas &&
                     etiquetas.filter(e => !esEtiquetaDeColumna(e)).length === 0 && (
-                    <span style={{ color: '#aaa' }}>-</span>
+                    <span className={styles.sinDato}>-</span>
                   )}
                 </>
               )}
@@ -336,8 +336,7 @@ export function DonanteFichaPage() {
             <span className={styles.etiquetaDato}>Observaciones</span>
             {editando ? (
               <textarea
-                className={styles.inputEdit}
-                style={{ minHeight: '80px', resize: 'vertical' }}
+                className={`${styles.inputEdit} ${styles.textareaObservaciones}`}
                 value={donante.observaciones || ''}
                 onChange={(e) => setDonante({ ...donante, observaciones: e.target.value })}
               />
@@ -445,7 +444,6 @@ export function DonanteFichaPage() {
             <button
               className={styles.botonDonacion}
               disabled={!!donante.reaccion_adversa_previa}
-              style={donante.reaccion_adversa_previa ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
               onClick={() => setPanelDonacionAbierto(true)}
             >
               + Registrar donación
@@ -463,90 +461,90 @@ export function DonanteFichaPage() {
           idTitulo="titulo-registrar-donacion"
           onCerrar={registrandoDonacion ? undefined : cerrarPanelDonacion}
         >
-            <div className={styles.modalCabecera}>
-              <h2 id="titulo-registrar-donacion">Registrar donación</h2>
-            </div>
+          <div className={styles.modalCabecera}>
+            <h2 id="titulo-registrar-donacion">Registrar donación</h2>
+          </div>
 
-            <div className={styles.filaPanelDonacion}>
-              <span className={styles.labelDonacion}>Fecha de donación</span>
-              <input
-                type="date"
-                className={styles.inputFecha}
-                value={fechaDonacion}
-                max={hoyISO()}
-                onChange={e => setFechaDonacion(e.target.value)}
-              />
-            </div>
+          <div className={styles.filaPanelDonacion}>
+            <span className={styles.labelDonacion}>Fecha de donación</span>
+            <input
+              type="date"
+              className={styles.inputFecha}
+              value={fechaDonacion}
+              max={hoyISO()}
+              onChange={e => setFechaDonacion(e.target.value)}
+            />
+          </div>
 
-            <div className={styles.filaPanelDonacion}>
-              <span className={styles.labelDonacion}>Tipo</span>
-              <div className={styles.toggleGrupo}>
-                <button
-                  className={tipoDonacion === 'sangre_total' ? styles.toggleActivo : styles.toggleInactivo}
-                  onClick={() => setTipoDonacion('sangre_total')}
-                >
-                  Sangre total
-                </button>
-                <button
-                  className={tipoDonacion === 'plaquetas' ? styles.toggleActivo : styles.toggleInactivo}
-                  onClick={() => setTipoDonacion('plaquetas')}
-                >
-                  Plaquetas
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.filaPanelDonacion}>
-              <span className={styles.labelDonacion}>¿Hubo reacción adversa?</span>
-              <div className={styles.toggleGrupo}>
-                <button
-                  className={!huboReaccion ? styles.toggleActivo : styles.toggleInactivo}
-                  onClick={() => setHuboReaccion(false)}
-                >
-                  No
-                </button>
-                <button
-                  className={huboReaccion ? styles.toggleActivoRojo : styles.toggleInactivo}
-                  onClick={() => setHuboReaccion(true)}
-                >
-                  Sí
-                </button>
-              </div>
-            </div>
-
-            {huboReaccion && (
-              <p className={styles.avisoReaccionAdversa}>
-                ⚠ Esto bloqueará a este donante para futuras donaciones.
-              </p>
-            )}
-
-            {/* Comentarios - Registrar donación */}
-            {/* El detalle solo se pide si hubo reacción: cualquier detalle guardado marca la reacción y bloquea al donante. */}
-            {huboReaccion && (
-              <div className={styles.filaPanelDonacion}>
-                <span className={styles.labelDonacion}>Detalle de la reacción</span>
-                <textarea
-                  className={styles.textareaReaccion}
-                  placeholder="Describe brevemente lo ocurrido..."
-                  rows={3}
-                  value={detalleReaccion}
-                  onChange={e => setDetalleReaccion(e.target.value)}
-                />
-              </div>
-            )}
-
-            <div className={styles.botonesPanel}>
-              <button className={styles.botonCancelar} onClick={cerrarPanelDonacion} disabled={registrandoDonacion}>
-                Cancelar
+          <div className={styles.filaPanelDonacion}>
+            <span className={styles.labelDonacion}>Tipo</span>
+            <div className={styles.toggleGrupo}>
+              <button
+                className={tipoDonacion === 'sangre_total' ? styles.toggleActivo : styles.toggleInactivo}
+                onClick={() => setTipoDonacion('sangre_total')}
+              >
+                Sangre total
               </button>
               <button
-                className={styles.botonConfirmarDonacion}
-                onClick={handleRegistrarDonacion}
-                disabled={registrandoDonacion || !fechaDonacion}
+                className={tipoDonacion === 'plaquetas' ? styles.toggleActivo : styles.toggleInactivo}
+                onClick={() => setTipoDonacion('plaquetas')}
               >
-                {registrandoDonacion ? 'Registrando...' : 'Confirmar donación'}
+                Plaquetas
               </button>
             </div>
+          </div>
+
+          <div className={styles.filaPanelDonacion}>
+            <span className={styles.labelDonacion}>¿Hubo reacción adversa?</span>
+            <div className={styles.toggleGrupo}>
+              <button
+                className={!huboReaccion ? styles.toggleActivo : styles.toggleInactivo}
+                onClick={() => setHuboReaccion(false)}
+              >
+                No
+              </button>
+              <button
+                className={huboReaccion ? styles.toggleActivoRojo : styles.toggleInactivo}
+                onClick={() => setHuboReaccion(true)}
+              >
+                Sí
+              </button>
+            </div>
+          </div>
+
+          {huboReaccion && (
+            <p className={styles.avisoReaccionAdversa}>
+              ⚠ Esto bloqueará a este donante para futuras donaciones.
+            </p>
+          )}
+
+          {/* Comentarios - Registrar donación */}
+          {/* El detalle solo se pide si hubo reacción: cualquier detalle guardado marca la reacción y bloquea al donante. */}
+          {huboReaccion && (
+            <div className={styles.filaPanelDonacion}>
+              <span className={styles.labelDonacion}>Detalle de la reacción</span>
+              <textarea
+                className={styles.textareaReaccion}
+                placeholder="Describe brevemente lo ocurrido..."
+                rows={3}
+                value={detalleReaccion}
+                onChange={e => setDetalleReaccion(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className={styles.botonesPanel}>
+            <button className={styles.botonCancelar} onClick={cerrarPanelDonacion} disabled={registrandoDonacion}>
+              Cancelar
+            </button>
+            <button
+              className={styles.botonConfirmarDonacion}
+              onClick={handleRegistrarDonacion}
+              disabled={registrandoDonacion || !fechaDonacion}
+            >
+              {registrandoDonacion ? 'Registrando...' : 'Confirmar donación'}
+            </button>
+          </div>
         </Modal>
       )}
     </div>

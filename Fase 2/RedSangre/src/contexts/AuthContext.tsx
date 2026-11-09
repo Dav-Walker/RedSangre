@@ -1,3 +1,5 @@
+// Comentarios - Sesión y perfil del usuario
+// Proveedor de autenticación: sesión de Supabase, perfil, límite de 1 hora, código TOTP y cambio de contraseña.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../utils/supabase';
@@ -92,7 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { vigente = false; };
   }, [userId]);
 
-  // Presence: cada sesión se anuncia en su propio canal privado (presencia:<id>).
+  // Comentarios - Presencia en línea
+  // Cada sesión se anuncia en su propio canal privado (presencia:<id>).
   // Solo el dueño del canal y el administrador pueden leerlo (RLS en realtime.messages).
   useEffect(() => {
     if (!userId) return;

@@ -1,0 +1,16 @@
+/* Comentarios - Componente Badge */
+/* Forma común de la etiqueta y un par fondo/texto por cada color. */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.morado { background-color: #f3e8ff; color: #7e22ce; }
+.azul { background-color: #e0f2fe; color: #0369a1; }
+.gris { background-color: #f3f4f6; color: #4b5563; }
+.verde { background-color: #dcfce7; color: #15803d; }
+.naranja { background-color: #ffedd5; color: #c2410c; }
+.rojo { background-color: #fee2e2; color: #b91c1c; }

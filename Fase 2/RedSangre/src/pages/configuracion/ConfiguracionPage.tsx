@@ -1,3 +1,5 @@
+// Comentarios - Usuarios y roles
+// Página de administración: lista de usuarios con su conexión en línea, creación de usuarios y acceso al detalle.
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../contexts/useAuth';
@@ -134,7 +136,6 @@ export function ConfiguracionPage() {
                 key={usuario.id}
                 className={styles.fila}
                 onClick={() => setUsuarioSeleccionado(usuario)}
-                style={{ cursor: 'pointer' }}
               >
                 <td className={styles.celdaNombre}>{usuario.nombre} {usuario.apellido}</td>
                 <td className={styles.celdaCorreo}>{usuario.correo}</td>

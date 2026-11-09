@@ -33,7 +33,7 @@
 }
 
 .tabla th {
-  background-color: #00a0df;
+  background-color: var(--color-marca-azul);
   color: white;
   padding: 15px 20px;
   font-weight: bold;
@@ -81,13 +81,6 @@
   width: 150px;
 }
 
-.nota {
-  margin: -10px 0 20px;
-  text-align: right;
-  font-size: 13px;
-  color: #666;
-}
-
 .mensajeError {
   color: #b91c1c;
   background-color: #fee2e2;
@@ -114,4 +107,10 @@
 
 .celdaRol {
   font-weight: 500;
+}
+
+/* Comentarios - Lista de usuarios */
+/* Cada fila abre el detalle del usuario al hacer clic. */
+.fila {
+  cursor: pointer;
 }

@@ -16,7 +16,7 @@
 
 /* Cabecera azul */
 .cabecera {
-  background-color: #00a0df;
+  background-color: var(--color-marca-azul);
   padding: 20px 24px;
   display: flex;
   align-items: center;
@@ -154,7 +154,7 @@
 }
 
 .input:focus {
-  border-color: #00a0df;
+  border-color: var(--color-marca-azul);
 }
 
 .inputError {
@@ -177,12 +177,6 @@
   color: #555;
   line-height: 1.4;
   margin: 0;
-}
-
-.notaSoloPropio {
-  font-size: 12px;
-  color: #999;
-  font-style: italic;
 }
 
 /* Pie con botones */
@@ -226,18 +220,18 @@
 
 .botonEliminar {
   background: none;
-  border: 1.5px solid #bb4442;
+  border: 1.5px solid var(--color-marca-rojo);
   border-radius: 8px;
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
-  color: #bb4442;
+  color: var(--color-marca-rojo);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
 }
 
 .botonEliminar:hover {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   color: white;
 }
 
@@ -259,7 +253,7 @@
 }
 
 .botonEliminarConfirmar {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   border: none;
   border-radius: 8px;
   padding: 8px 14px;
@@ -313,7 +307,7 @@
 }
 
 .botonPrimario {
-  background-color: #bb4442;
+  background-color: var(--color-marca-rojo);
   border: none;
   border-radius: 8px;
   padding: 10px 20px;
@@ -332,4 +326,12 @@
 .botonPrimario:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+/* Comentarios - Detalle de usuario */
+/* Nombre del usuario y su rol en la misma línea de la cabecera. */
+.tituloConRol {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }

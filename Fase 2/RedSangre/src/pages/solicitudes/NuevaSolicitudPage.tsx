@@ -1,3 +1,5 @@
+// Comentarios - Nueva solicitud
+// Busca donantes compatibles priorizados por la base y crea la solicitud con el candidato elegido.
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { textoMesesDesde } from '../../utils/fechas';
