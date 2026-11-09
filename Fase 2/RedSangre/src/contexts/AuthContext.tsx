@@ -60,12 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [userId]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, captchaToken?: string) => {
     if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
 
     cuentaDesactivada.current = false;
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
+    // Comentarios - Captcha en inicio de sesión
+    // Envía el token de Turnstile a Supabase Auth, que lo verifica antes de validar la contraseña
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
+    if (error) {
+      return error.code === 'captcha_failed'
+        ? 'No se pudo verificar el captcha. Inténtalo nuevamente.'
+        : error.message;
+    }
 
     setSession(data.session);
 

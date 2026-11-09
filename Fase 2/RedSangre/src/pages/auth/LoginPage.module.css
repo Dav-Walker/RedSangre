@@ -138,6 +138,16 @@
   text-align: center;
 }
 
+/* Comentarios - Captcha en inicio de sesión */
+/* Contenedor del widget de Turnstile: ocupa el ancho del formulario y deja aire antes del botón */
+.captcha {
+  width: 100%;
+  min-height: 65px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
 .botonLogin {
   width: 100%;
   padding: 14px;
@@ -154,6 +164,17 @@
 
 .botonLogin:hover {
   background-color: #0088bd;
+}
+
+/* Comentarios - Captcha en inicio de sesión */
+/* El botón queda atenuado mientras el captcha no se resuelve o el ingreso está en curso */
+.botonLogin:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.botonLogin:disabled:hover {
+  background-color: #00a0df;
 }
 
 /* BOTÓN ROJO CUANDO HAY ERROR */

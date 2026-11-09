@@ -18,7 +18,9 @@ export interface AuthContextValue {
   loading: boolean;
   configured: boolean;
   user: UserProfile | null;
-  signIn: (email: string, password: string) => Promise<string | null>;
+  // Comentarios - Captcha en inicio de sesión
+  // captchaToken es el token de Cloudflare Turnstile; Supabase Auth lo valida cuando el captcha está activo
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<string | null>;
   signOut: () => Promise<string | null>;
   completarCambioContrasena: (nuevaContrasena: string) => Promise<string | null>;
 }

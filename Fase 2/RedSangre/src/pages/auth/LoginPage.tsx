@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import styles from './LoginPage.module.css';
 import { useAuth } from '../../contexts/useAuth';
 // Importamos el nuevo logo que acabas de guardar
 import logoIndisa from '../../assets/cl_nica_indisa_logo_2.jpg';
+
+// Comentarios - Captcha en inicio de sesión
+// Site key pública de Cloudflare Turnstile; si no está definida, el login se muestra sin captcha
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim();
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -12,6 +17,18 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Comentarios - Captcha en inicio de sesión
+  // Guarda el token vigente del captcha y la referencia al widget para pedir uno nuevo
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileInstance>(null);
+  const faltaCaptcha = Boolean(turnstileSiteKey) && !captchaToken;
+
+  // Comentarios - Captcha en inicio de sesión
+  // Cada token sirve una sola vez: tras un intento fallido se descarta y el widget genera otro
+  const reiniciarCaptcha = () => {
+    setCaptchaToken(null);
+    captchaRef.current?.reset();
+  };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,16 +36,18 @@ export function LoginPage() {
     setErrorMessage('');
     setIsSubmitting(true);
     try {
-      const error = await signIn(correo.trim(), password);
+      const error = await signIn(correo.trim(), password, captchaToken ?? undefined);
 
       if (error) {
         setErrorMessage(error);
+        reiniciarCaptcha();
         return;
       }
 
       navigate('/dashboard', { replace: true });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+      reiniciarCaptcha();
     } finally {
       setIsSubmitting(false);
     }
@@ -91,16 +110,34 @@ export function LoginPage() {
               />
             </div>
 
+            {/* Comentarios - Captcha en inicio de sesión */}
+            {/* Widget de Cloudflare Turnstile; entrega el token que se envía junto con el correo y la contraseña */}
+            {turnstileSiteKey && (
+              <div className={styles.captcha}>
+                <Turnstile
+                  ref={captchaRef}
+                  siteKey={turnstileSiteKey}
+                  options={{ language: 'es', theme: 'light', size: 'flexible' }}
+                  onSuccess={setCaptchaToken}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => {
+                    setCaptchaToken(null);
+                    setErrorMessage('No se pudo cargar la verificación de seguridad. Recarga la página.');
+                  }}
+                />
+              </div>
+            )}
+
             {errorMessage && (
               <div className={styles.mensajeError} role="alert">
                 {errorMessage}
               </div>
             )}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className={`${styles.botonLogin} ${errorMessage ? styles.botonLoginError : ''}`}
-              disabled={isSubmitting || !configured}
+              disabled={isSubmitting || !configured || faltaCaptcha}
             >
               {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
