@@ -17,6 +17,13 @@ export async function generarEnlace(
   tipo: TipoEnlace,
   datos?: { nombre: string; apellido: string },
 ): Promise<{ enlace: string; usuarioId: string } | { error: string }> {
+  // Comentarios - APP_URL obligatorio
+  // Sin APP_URL el enlace apuntaría a localhost y no serviría en producción: se informa el error en vez de enviarlo.
+  // Se revisa antes de generateLink, porque con tipo invite esa llamada ya crea la cuenta en Auth.
+  // Para probar en local, definir APP_URL=http://localhost:5173 en supabase/functions/.env.
+  const urlApp = Deno.env.get('APP_URL')?.replace(/\/+$/, '');
+  if (!urlApp) return { error: 'Falta el secreto APP_URL: no se puede armar el enlace de activación' };
+
   const { data, error } = tipo === 'invite'
     ? await admin.auth.admin.generateLink({ type: 'invite', email: correo, options: { data: datos } })
     : await admin.auth.admin.generateLink({ type: 'recovery', email: correo });
@@ -24,7 +31,6 @@ export async function generarEnlace(
   const token = data?.properties?.hashed_token;
   if (error || !token || !data?.user) return { error: error?.message ?? 'Auth no devolvió el token de activación' };
 
-  const urlApp = (Deno.env.get('APP_URL') ?? 'http://localhost:5173').replace(/\/+$/, '');
   return {
     enlace: `${urlApp}/activar?token_hash=${encodeURIComponent(token)}&type=${tipo}`,
     usuarioId: data.user.id,

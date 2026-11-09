@@ -3,8 +3,13 @@
 // Cada petición recibe el origen que corresponde; cualquier otro origen recibe el de producción y el navegador lo rechaza.
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-const ORIGEN_PRODUCCION = (Deno.env.get('APP_URL') ?? 'http://localhost:5173').replace(/\/+$/, '');
-const ORIGENES_PERMITIDOS = [ORIGEN_PRODUCCION, 'http://localhost:5173'];
+// Comentarios - APP_URL obligatorio
+// Si falta APP_URL solo se acepta el origen local, y se deja aviso en los logs de la función.
+const ORIGEN_LOCAL = 'http://localhost:5173';
+const APP_URL = Deno.env.get('APP_URL')?.replace(/\/+$/, '');
+if (!APP_URL) console.error('Falta el secreto APP_URL: CORS solo aceptará el origen local');
+const ORIGEN_PRODUCCION = APP_URL ?? ORIGEN_LOCAL;
+const ORIGENES_PERMITIDOS = [ORIGEN_PRODUCCION, ORIGEN_LOCAL];
 
 const origenDeLaPeticion = new AsyncLocalStorage<string>();
 

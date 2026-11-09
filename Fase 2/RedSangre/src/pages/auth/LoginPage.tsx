@@ -66,7 +66,6 @@ export function LoginPage() {
 
         <div style={{ textAlign: 'center' }}>
           <div className={styles.textoInferiorAzul}>Acceso al sistema interno de gestión de donantes</div>
-          <div className={styles.certificaciones}>HIPAA Certification • OWASP Compliant</div>
         </div>
       </div>
 

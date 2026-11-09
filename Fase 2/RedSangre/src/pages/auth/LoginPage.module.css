@@ -41,16 +41,6 @@
   opacity: 0.9;
 }
 
-/* CERTIFICACIONES ABAJO A LA IZQUIERDA */
-.certificaciones {
-  font-size: 11px;
-  letter-spacing: 1px;
-  opacity: 0.7;
-  text-transform: uppercase;
-  margin-top: 20px;
-  text-align: center;
-}
-
 /* COLUMNA DERECHA: FORMULARIO BLANCO */
 .panelDerecho {
   width: 55%;

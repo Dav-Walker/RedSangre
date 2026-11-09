@@ -40,12 +40,16 @@ Deno.serve(conCors(async (req) => {
 
   const { data: perfil, error: errPerfil } = await supabaseUsuario
     .from('usuario')
-    .select('rol')
+    .select('rol, activo')
     .eq('id', usuarioActual.id)
     .maybeSingle();
 
+  // Comentarios - Verificar administrador activo
+  // Igual que crear-usuario y reenviar-activacion: un administrador desactivado no puede cambiar contraseñas.
   if (errPerfil || !perfil) return responder({ error: 'No se pudo verificar el rol' }, 403);
-  if (perfil.rol !== 'administrador') return responder({ error: 'Solo administradores pueden cambiar contraseñas' }, 403);
+  if (perfil.rol !== 'administrador' || !perfil.activo) {
+    return responder({ error: 'Solo administradores activos pueden cambiar contraseñas' }, 403);
+  }
 
   // 2. Leer parámetros
   let usuarioId: string | undefined;
