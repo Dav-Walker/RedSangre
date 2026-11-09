@@ -5,7 +5,7 @@
 // y gastarían el token de un solo uso.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { supabase } from '../../utils/supabase';
+import { activarCuenta } from '../../servicios/autenticacion';
 import styles from './ActivarCuentaPage.module.css';
 
 export function ActivarCuentaPage() {
@@ -22,9 +22,9 @@ export function ActivarCuentaPage() {
 
     setActivando(true);
     setError(null);
-    const { error: errorToken } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: tipo });
-    if (errorToken) {
-      setError('El enlace no es válido o ya venció. Pide al administrador que te envíe uno nuevo.');
+    const errorActivacion = await activarCuenta(tokenHash, tipo);
+    if (errorActivacion) {
+      setError(errorActivacion);
       setActivando(false);
     }
   };

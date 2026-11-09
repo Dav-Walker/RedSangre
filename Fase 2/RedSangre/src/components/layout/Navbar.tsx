@@ -8,30 +8,30 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, user, signOut } = useAuth();
-  const [logoutError, setLogoutError] = useState('');
-  const userMetadata = session?.user.user_metadata;
-  const displayName = user ? `${user.nombre} ${user.apellido}` :
-    (typeof userMetadata?.full_name === 'string' && userMetadata.full_name) ||
-    (typeof userMetadata?.name === 'string' && userMetadata.name) ||
+  const [errorCierre, setErrorCierre] = useState('');
+  const metadatos = session?.user.user_metadata;
+  const nombreVisible = user ? `${user.nombre} ${user.apellido}` :
+    (typeof metadatos?.full_name === 'string' && metadatos.full_name) ||
+    (typeof metadatos?.name === 'string' && metadatos.name) ||
     session?.user.email ||
     'Usuario';
-  const isAdmin = user?.rol === 'administrador';
+  const esAdmin = user?.rol === 'administrador';
 
-  const handleLogout = async () => {
-    setLogoutError('');
+  const handleCerrarSesion = async () => {
+    setErrorCierre('');
     try {
       const error = await signOut();
       if (error) {
-        setLogoutError(error);
+        setErrorCierre(error);
         return;
       }
       navigate('/', { replace: true });
     } catch (error) {
-      setLogoutError(error instanceof Error ? error.message : 'No se pudo cerrar sesión.');
+      setErrorCierre(error instanceof Error ? error.message : 'No se pudo cerrar sesión.');
     }
   };
 
-  const getLinkClass = (path: string) => {
+  const claseEnlace = (path: string) => {
     if (location.pathname === path || location.pathname.startsWith(`${path}/`)) return styles.activeLink;
     return styles.navLink;
   };
@@ -46,11 +46,11 @@ export function Navbar() {
         
         <div className={styles.userActions}>
           <div className={styles.userBadge}>
-            {displayName}
+            {nombreVisible}
             {user && <span style={{ marginLeft: '8px', fontSize: '0.85em', opacity: 0.7 }}>({user.rol})</span>}
           </div>
-          {logoutError && <span role="alert">{logoutError}</span>}
-          <button className={styles.logoutBtn} onClick={handleLogout}>
+          {errorCierre && <span role="alert">{errorCierre}</span>}
+          <button className={styles.logoutBtn} onClick={handleCerrarSesion}>
             Cerrar sesión
           </button>
         </div>
@@ -59,23 +59,23 @@ export function Navbar() {
       <nav className={styles.navbar}>
         <ul className={styles.links}>
           <li>
-            <Link to="/dashboard" className={getLinkClass('/dashboard')}>
+            <Link to="/dashboard" className={claseEnlace('/dashboard')}>
               Dashboard
             </Link>
           </li>
           <li>
-            <Link to="/donantes" className={getLinkClass('/donantes')}>
+            <Link to="/donantes" className={claseEnlace('/donantes')}>
               Donantes
             </Link>
           </li>
           <li>
-            <Link to="/solicitudes" className={getLinkClass('/solicitudes')}>
+            <Link to="/solicitudes" className={claseEnlace('/solicitudes')}>
               Solicitudes
             </Link>
           </li>
-          {isAdmin && (
+          {esAdmin && (
             <li>
-              <Link to="/configuracion" className={getLinkClass('/configuracion')}>
+              <Link to="/configuracion" className={claseEnlace('/configuracion')}>
                 Configuración
               </Link>
             </li>

@@ -14,9 +14,9 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { signIn, configured, sesionExpirada } = useAuth();
   const [correo, setCorreo] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contrasena, setContrasena] = useState('');
+  const [mensajeError, setMensajeError] = useState('');
+  const [enviando, setEnviando] = useState(false);
   // Comentarios - Captcha en inicio de sesión
   // Guarda el token vigente del captcha y la referencia al widget para pedir uno nuevo
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -33,23 +33,23 @@ export function LoginPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setErrorMessage('');
-    setIsSubmitting(true);
+    setMensajeError('');
+    setEnviando(true);
     try {
-      const error = await signIn(correo.trim(), password, captchaToken ?? undefined);
+      const error = await signIn(correo.trim(), contrasena, captchaToken ?? undefined);
 
       if (error) {
-        setErrorMessage(error);
+        setMensajeError(error);
         reiniciarCaptcha();
         return;
       }
 
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+      setMensajeError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
       reiniciarCaptcha();
     } finally {
-      setIsSubmitting(false);
+      setEnviando(false);
     }
   };
 
@@ -77,7 +77,7 @@ export function LoginPage() {
 
           {/* Comentarios - Límite de sesión de 1 hora */}
           {/* Avisa que la sesión anterior se cerró por tiempo; se oculta si aparece otro error */}
-          {sesionExpirada && !errorMessage && (
+          {sesionExpirada && !mensajeError && (
             <div className={styles.mensajeAviso} role="status">
               Tu sesión expiró después de 1 hora. Vuelve a iniciar sesión.
             </div>
@@ -86,32 +86,32 @@ export function LoginPage() {
           <form onSubmit={handleLogin} style={{ width: '100%' }}>
             
             <div className={styles.grupoInput}>
-              <label className={`${styles.label} ${errorMessage ? styles.labelError : ''}`} htmlFor="correo">
+              <label className={`${styles.label} ${mensajeError ? styles.labelError : ''}`} htmlFor="correo">
                 Correo Institucional
               </label>
               <input 
                 id="correo"
                 type="email" 
-                className={`${styles.input} ${errorMessage ? styles.inputError : ''}`}
+                className={`${styles.input} ${mensajeError ? styles.inputError : ''}`}
                 placeholder="nombre.apellido@indisa.cl"
                 value={correo}
-                onChange={(e) => { setCorreo(e.target.value); setErrorMessage(''); }}
+                onChange={(e) => { setCorreo(e.target.value); setMensajeError(''); }}
                 autoComplete="username"
                 required
               />
             </div>
 
             <div className={styles.grupoInput}>
-              <label className={`${styles.label} ${errorMessage ? styles.labelError : ''}`} htmlFor="password">
+              <label className={`${styles.label} ${mensajeError ? styles.labelError : ''}`} htmlFor="contrasena">
                 Contraseña
               </label>
               <input 
-                id="password"
+                id="contrasena"
                 type="password" 
-                className={`${styles.input} ${errorMessage ? styles.inputError : ''}`}
+                className={`${styles.input} ${mensajeError ? styles.inputError : ''}`}
                 placeholder="********"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setErrorMessage(''); }}
+                value={contrasena}
+                onChange={(e) => { setContrasena(e.target.value); setMensajeError(''); }}
                 autoComplete="current-password"
                 required
               />
@@ -129,24 +129,24 @@ export function LoginPage() {
                   onExpire={() => setCaptchaToken(null)}
                   onError={() => {
                     setCaptchaToken(null);
-                    setErrorMessage('No se pudo cargar la verificación de seguridad. Recarga la página.');
+                    setMensajeError('No se pudo cargar la verificación de seguridad. Recarga la página.');
                   }}
                 />
               </div>
             )}
 
-            {errorMessage && (
+            {mensajeError && (
               <div className={styles.mensajeError} role="alert">
-                {errorMessage}
+                {mensajeError}
               </div>
             )}
 
             <button
               type="submit"
-              className={`${styles.botonLogin} ${errorMessage ? styles.botonLoginError : ''}`}
-              disabled={isSubmitting || !configured || faltaCaptcha}
+              className={`${styles.botonLogin} ${mensajeError ? styles.botonLoginError : ''}`}
+              disabled={enviando || !configured || faltaCaptcha}
             >
-              {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
+              {enviando ? 'Ingresando...' : 'Iniciar sesión'}
             </button>
             {!configured && (
               <div className={styles.mensajeError} role="alert">

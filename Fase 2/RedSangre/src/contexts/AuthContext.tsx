@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabase } from '../utils/supabase';
 import { AuthContext, type UserProfile } from './auth-context';
 import { DURACION_SESION_MS, obtenerInicioSesion } from '../utils/duracionSesion';
 import { leerClaimsToken } from '../utils/tokenSesion';
+import { traducirErrorAuth } from '../utils/mensajesAuth';
 
 const MENSAJE_CUENTA_DESACTIVADA = 'Tu cuenta está desactivada. Contacta al administrador.';
 const MENSAJE_SIN_CONFIGURACION = 'Supabase no está configurado. Revisa las variables del archivo .env.';
@@ -143,11 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Comentarios - Captcha en inicio de sesión
     // Envía el token de Turnstile a Supabase Auth, que lo verifica antes de validar la contraseña
     const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
-    if (error) {
-      return error.code === 'captcha_failed'
-        ? 'No se pudo verificar el captcha. Inténtalo nuevamente.'
-        : error.message;
-    }
+    // Comentarios - Mensajes de Supabase Auth en español
+    // Supabase responde en inglés; el usuario ve el mensaje traducido según el código de error.
+    if (error) return traducirErrorAuth(error.code, 'No se pudo iniciar sesión. Inténtalo nuevamente.');
 
     // Comentarios - Carga del perfil de usuario
     // Revisa aquí si la cuenta está desactivada para devolver el mensaje a la pantalla de login.
@@ -169,11 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return 'No hay una sesión válida.';
 
     const { error } = await supabase.auth.updateUser({ password: nuevaContrasena });
-    if (error) {
-      return error.code === 'same_password'
-        ? 'La nueva contraseña debe ser distinta de la actual.'
-        : error.message;
-    }
+    if (error) return traducirErrorAuth(error.code, 'No se pudo cambiar la contraseña. Inténtalo nuevamente.');
 
     const { error: errorPerfil } = await supabase
       .from('usuario')
@@ -234,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) return MENSAJE_SIN_CONFIGURACION;
 
     const { error } = await supabase.auth.signOut();
-    if (error) return error.message;
+    if (error) return 'No se pudo cerrar sesión. Inténtalo nuevamente.';
 
     setSession(null);
     setUser(null);

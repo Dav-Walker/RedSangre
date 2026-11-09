@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../utils/supabase';
 import { hoyISO } from '../../utils/fechas';
 import type { GrupoSanguineo } from '../../tipos/dominio';
+import { Modal } from '../../components/common/Modal';
+import { ETIQUETA_FENOTIPO_RARO, ETIQUETA_PLAQUETAS, ETIQUETAS_DONANTE } from '../../utils/etiquetas';
+import { registrarDonante } from '../../servicios/donantes';
 import styles from './NuevoDonantePage.module.css';
 
 const REGIONES_CHILE: Record<string, string[]> = {
@@ -23,16 +25,6 @@ const REGIONES_CHILE: Record<string, string[]> = {
   "Aysén": ["Coyhaique", "Puerto Aysén", "Chile Chico", "Cochrane"],
   "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir", "Cabo de Hornos"]
 };
-
-const ETIQUETAS_DISPONIBLES = [
-  'Fenotipo sanguíneo raro',
-  'Donación altruista',
-  'Grupo sanguíneo de interés',
-  'Donante derivado o referido',
-  'Donante corporativo',
-  'Donante de plaquetas',
-  'Donante de plasma',
-];
 
 const FENOTIPOS_COMPACTOS = ['C', 'E', 'K', 'c', 'e'];
 
@@ -61,7 +53,7 @@ export function NuevoDonantePage() {
 
   const comunasDisponibles = form.region ? (REGIONES_CHILE[form.region] ?? []) : [];
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalFenotipoAbierto, setModalFenotipoAbierto] = useState(false);
   const [modoExtendido, setModoExtendido] = useState(false);
   const [valoresFenotipos, setValoresFenotipos] = useState<Record<string, string>>({});
   const [valoresFenotiposBackup, setValoresFenotiposBackup] = useState<Record<string, string>>({});
@@ -69,7 +61,7 @@ export function NuevoDonantePage() {
   const [reaccionAdversaPrevia, setReaccionAdversaPrevia] = useState(false);
   const [consentCookies, setConsentCookies] = useState(false);
   const [consentContacto, setConsentContacto] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (
@@ -87,6 +79,14 @@ export function NuevoDonantePage() {
     setEtiquetasSeleccionadas(prev =>
       prev.includes(etiqueta) ? prev.filter(e => e !== etiqueta) : [...prev, etiqueta]
     );
+  };
+
+  // Comentarios - Modal de tipificación
+  // Cancelar (botón, Escape o clic fuera) restaura los valores que había al abrir el modal.
+  const cancelarTipificacion = () => {
+    setValoresFenotipos(valoresFenotiposBackup);
+    setModoExtendido(false);
+    setModalFenotipoAbierto(false);
   };
 
   const handleCambioFenotipo = (fenotipo: string, valor: string) => {
@@ -137,7 +137,7 @@ export function NuevoDonantePage() {
       return;
     }
 
-    setLoading(true);
+    setGuardando(true);
     setError(null);
 
     // Comentarios - Registro atómico de donante
@@ -145,7 +145,7 @@ export function NuevoDonantePage() {
     // si algo falla, no queda un donante sin consentimiento. La ubicación va como "Comuna, Región";
     // la base deriva de ahí la comuna y las coordenadas para medir la cercanía.
     // Los campos opcionales vacíos van como undefined: se omiten y la función usa su valor por defecto (NULL).
-    const { error: errorRegistro } = await supabase.rpc('fn_registrar_donante', {
+    const errorRegistro = await registrarDonante({
       p_nombre: form.nombre.trim(),
       p_apellido: form.apellido.trim(),
       p_rut: form.rut.trim(),
@@ -158,16 +158,16 @@ export function NuevoDonantePage() {
       p_fenotipo: fenotipoTexto || undefined,
       p_ubicacion: `${form.comuna}, ${form.region}`,
       p_observaciones: form.observaciones.trim() || undefined,
-      p_fenotipo_raro: etiquetasSeleccionadas.includes('Fenotipo sanguíneo raro'),
-      p_frecuente_plaquetas: etiquetasSeleccionadas.includes('Donante de plaquetas'),
+      p_fenotipo_raro: etiquetasSeleccionadas.includes(ETIQUETA_FENOTIPO_RARO),
+      p_frecuente_plaquetas: etiquetasSeleccionadas.includes(ETIQUETA_PLAQUETAS),
       p_reaccion_adversa: reaccionAdversaPrevia,
       p_etiquetas: etiquetasSeleccionadas,
       p_sexo: form.sexo,
     });
 
-    setLoading(false);
+    setGuardando(false);
     if (errorRegistro) {
-      setError('Error al guardar el donante: ' + errorRegistro.message);
+      setError(errorRegistro);
       return;
     }
     navigate('/donantes');
@@ -341,7 +341,7 @@ export function NuevoDonantePage() {
               <label className={styles.label}>Fenotipo <span className={styles.requerido}>*</span></label>
               <div
                 className={styles.selectContenedor}
-                onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setModoExtendido(false); setIsModalOpen(true); }}
+                onClick={() => { setValoresFenotiposBackup({ ...valoresFenotipos }); setModoExtendido(false); setModalFenotipoAbierto(true); }}
               >
                 <input
                   type="text"
@@ -379,7 +379,7 @@ export function NuevoDonantePage() {
           <div className={styles.grupoInput}>
             <label className={styles.label}>Etiquetas del donante</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-              {ETIQUETAS_DISPONIBLES.map(etiqueta => (
+              {ETIQUETAS_DONANTE.map(etiqueta => (
                 <label key={etiqueta} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
                   <input
                     type="checkbox"
@@ -446,20 +446,19 @@ export function NuevoDonantePage() {
           <button
             className={styles.botonGuardar}
             style={{ marginTop: '30px' }}
-            disabled={loading}
+            disabled={guardando}
             onClick={handleGuardar}
           >
-            {loading ? 'Guardando...' : 'Finalizar y guardar donante'}
+            {guardando ? 'Guardando...' : 'Finalizar y guardar donante'}
           </button>
         </div>
       </div>
 
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContenido}>
+      {modalFenotipoAbierto && (
+        <Modal className={styles.modalContenido} idTitulo="titulo-tipificacion" onCerrar={cancelarTipificacion}>
 
             <div className={styles.modalCabecera}>
-              <h2>{modoExtendido ? 'Tipificación Extendida' : 'Tipificación'}</h2>
+              <h2 id="titulo-tipificacion">{modoExtendido ? 'Tipificación Extendida' : 'Tipificación'}</h2>
             </div>
 
             <table className={styles.tablaCompacta}>
@@ -513,7 +512,7 @@ export function NuevoDonantePage() {
             <div className={styles.modalPie}>
               <button
                 className={styles.botonCancelarModal}
-                onClick={() => { setValoresFenotipos(valoresFenotiposBackup); setModoExtendido(false); setIsModalOpen(false); }}
+                onClick={cancelarTipificacion}
               >
                 Cancelar
               </button>
@@ -537,14 +536,13 @@ export function NuevoDonantePage() {
               <button
                 className={styles.botonGuardarModal}
                 disabled={!hayAlMenosUnoSeleccionado}
-                onClick={() => { setModoExtendido(false); setIsModalOpen(false); }}
+                onClick={() => { setModoExtendido(false); setModalFenotipoAbierto(false); }}
               >
                 Guardar
               </button>
             </div>
 
-          </div>
-        </div>
+        </Modal>
       )}
 
     </div>

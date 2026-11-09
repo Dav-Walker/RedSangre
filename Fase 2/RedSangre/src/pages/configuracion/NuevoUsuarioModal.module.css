@@ -1,15 +1,10 @@
 /* Comentarios - Crear usuario desde Configuración */
 /* Estilos del modal "Nuevo usuario". Fijan fondo y color en los controles por el modo oscuro del sistema. */
 
-/* Fondo oscuro detrás del modal */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+/* Comentarios - Componente Modal */
+/* El formulario no agrega su propia caja: la caja es .modal (la pone el componente Modal). */
+.formulario {
+  display: contents;
 }
 
 /* Tarjeta del modal */

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../utils/supabase';
-import { mesesDesde } from '../../utils/fechas';
+import { textoMesesDesde } from '../../utils/fechas';
+import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
+import { buscarCandidatos, crearSolicitud, type Candidato } from '../../servicios/solicitudes';
 import type { GrupoSanguineo, Urgencia } from '../../tipos/dominio';
 import styles from './NuevaSolicitudPage.module.css';
 
@@ -9,40 +10,19 @@ import styles from './NuevaSolicitudPage.module.css';
 // Milisegundos que se espera después de la última tecla en el fenotipo antes de consultar la base.
 const ESPERA_BUSQUEDA_MS = 350;
 
-const GRUPOS_SANGUINEOS: GrupoSanguineo[] = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
-
-interface CandidatoRow {
-  prioridad: number;
-  donante_id: string;
-  codigo_donante: string;
-  nombre_completo: string;
-  grupo_sanguineo: string;
-  fenotipo: string | null;
-  fecha_ultima_donacion: string | null;
-  meses_desde_ultima_donacion: number | null;
-  disponible: boolean;
-  puede_contactarse: boolean;
-  asignado_activo: boolean;
-  apto: boolean;
-  distancia_km: number | null;
-  compatibilidad: 'exacta' | 'compatible';
-}
-
 // Comentarios - Regla de espera entre donaciones por sexo
 // Motivo por el que un candidato no es apto. La espera (3 o 4 meses según sexo) la decide la base.
-function motivoNoApto(c: CandidatoRow): string {
+function motivoNoApto(c: Candidato): string {
   if (!c.disponible) return `En espera (donó hace ${c.meses_desde_ultima_donacion ?? 0} meses)`;
   if (c.asignado_activo) return 'Asignado a otra solicitud';
   if (!c.puede_contactarse) return 'Sin consentimiento de contacto';
   return 'No disponible';
 }
 
+// Comentarios - Búsqueda de candidatos
+// Texto de la última donación del candidato, por ejemplo "donó hace 4 meses".
 function formatearUltimaDonacion(fecha: string | null): string {
-  if (!fecha) return 'sin donaciones previas';
-  const meses = mesesDesde(fecha);
-  if (meses === 0) return 'donó este mes';
-  if (meses === 1) return 'donó hace 1 mes';
-  return `donó hace ${meses} meses`;
+  return fecha ? `donó ${textoMesesDesde(fecha)}` : 'sin donaciones previas';
 }
 
 export function NuevaSolicitudPage() {
@@ -50,7 +30,7 @@ export function NuevaSolicitudPage() {
   const [grupoSanguineo, setGrupoSanguineo] = useState<GrupoSanguineo>('O-');
   const [fenotipoSearch, setFenotipoSearch] = useState('');
   const [urgencia, setUrgencia] = useState<Urgencia>('media');
-  const [candidatos, setCandidatos] = useState<CandidatoRow[]>([]);
+  const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [cargandoCandidatos, setCargandoCandidatos] = useState(false);
   const [candidatoSeleccionado, setCandidatoSeleccionado] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -69,19 +49,12 @@ export function NuevaSolicitudPage() {
       setCandidatoSeleccionado(null);
       setError(null);
 
-      const { data, error: err } = await supabase.rpc('fn_buscar_donantes_compatibles', {
-        p_grupo_requerido: grupoSanguineo,
-        p_fenotipo_requerido: fenotipoSearch.trim() || undefined,
-        p_limite: 20,
-      });
+      const resultado = await buscarCandidatos(grupoSanguineo, fenotipoSearch);
       if (!vigente) return;
 
       setCargandoCandidatos(false);
-      if (err) {
-        setError('Error al buscar candidatos: ' + err.message);
-        return;
-      }
-      setCandidatos((data as CandidatoRow[]) ?? []);
+      setError(resultado.error);
+      setCandidatos(resultado.candidatos);
     }, ESPERA_BUSQUEDA_MS);
 
     return () => {
@@ -96,18 +69,17 @@ export function NuevaSolicitudPage() {
     setGuardando(true);
     setError(null);
 
-    const { error: err } = await supabase.from('solicitud').insert({
-      grupo_sanguineo_requerido: grupoSanguineo,
-      fenotipo_requerido: fenotipoSearch.trim() || null,
+    const errorCreacion = await crearSolicitud({
+      grupo: grupoSanguineo,
+      fenotipo: fenotipoSearch,
       urgencia,
-      estado: 'abierta',
-      donante_asignado_id: candidatoSeleccionado,
+      donanteId: candidatoSeleccionado,
     });
 
     setGuardando(false);
 
-    if (err) {
-      setError('Error al crear la solicitud: ' + err.message);
+    if (errorCreacion) {
+      setError(errorCreacion);
       return;
     }
 

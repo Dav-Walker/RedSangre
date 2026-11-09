@@ -2,18 +2,10 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import { supabase } from '../../utils/supabase';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
-import type { Donante, Solicitud } from '../../tipos/dominio';
+import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
+import { listarSolicitudes, type SolicitudFila } from '../../servicios/solicitudes';
 import styles from './SolicitudesListPage.module.css';
-
-const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
-
-// Comentarios - Tipos de la base de datos
-// Solicitud con los datos del donante asignado que trae la consulta (relación donante_asignado_id).
-type SolicitudFila = Solicitud & {
-  donante: Pick<Donante, 'codigo_donante' | 'nombre' | 'apellido'> | null;
-};
 
 export function SolicitudesListPage() {
   const navigate = useNavigate();
@@ -27,41 +19,17 @@ export function SolicitudesListPage() {
   const [error, setError] = useState<string | null>(null);
   const fechaRef = useRef<HTMLInputElement>(null);
 
+  // Comentarios - Listado de solicitudes
+  // Carga las solicitudes ya ordenadas por la base (estado y urgencia). Los filtros se aplican en pantalla.
   useEffect(() => {
-    async function cargarSolicitudes() {
-      setCargando(true);
-      setError(null);
-
-      const { data, error: err } = await supabase
-        .from('solicitud')
-        .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)');
-
-      if (err) {
-        setError('Error al cargar las solicitudes: ' + err.message);
-        setCargando(false);
-        return;
-      }
-
-      const lista = data ?? [];
-
-      const ORDEN_ESTADO: Record<string, number> = { abierta: 0, en_proceso: 1, cerrada: 2 };
-      const ORDEN_URGENCIA: Record<string, number> = { alta: 0, media: 1, baja: 2 };
-
-      lista.sort((a, b) => {
-        const estA = ORDEN_ESTADO[obtenerEstadoSolicitud(a.estado)] ?? 1;
-        const estB = ORDEN_ESTADO[obtenerEstadoSolicitud(b.estado)] ?? 1;
-        if (estA !== estB) return estA - estB;
-
-        const urgA = ORDEN_URGENCIA[a.urgencia ?? ''] ?? 4;
-        const urgB = ORDEN_URGENCIA[b.urgencia ?? ''] ?? 4;
-        return urgA - urgB;
-      });
-
+    let vigente = true;
+    void listarSolicitudes().then(({ solicitudes: lista, error: err }) => {
+      if (!vigente) return;
       setSolicitudes(lista);
+      setError(err);
       setCargando(false);
-    }
-
-    cargarSolicitudes();
+    });
+    return () => { vigente = false; };
   }, []);
 
   const solicitudesFiltradas = useMemo(() => {

@@ -1,27 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../contexts/useAuth';
-import type { UserRole } from '../../contexts/auth-context';
-import { supabase } from '../../utils/supabase';
+import { ETIQUETAS_ROL } from '../../utils/roles';
+import {
+  consultarUltimaConexion,
+  escucharPresencia,
+  listarUsuarios,
+  type UsuarioFila,
+} from '../../servicios/usuarios';
 import { UsuarioModal } from './UsuarioModal';
-import { NuevoUsuarioModal, type UsuarioCreado } from './NuevoUsuarioModal';
+import { NuevoUsuarioModal } from './NuevoUsuarioModal';
 import styles from './ConfiguracionPage.module.css';
-
-interface UsuarioFila {
-  id: string;
-  nombre: string;
-  apellido: string;
-  correo: string;
-  rol: UserRole;
-  activo: boolean;
-  debe_cambiar_password: boolean;
-  created_at: string;
-}
-
-const ETIQUETAS_ROL: Record<UserRole, string> = {
-  administrador: 'Administrador',
-  tecnologo: 'Tecnólogo',
-};
 
 function formatearUltimaConexion(fecha: string | null): string {
   if (!fecha) return 'Sin conexiones registradas';
@@ -29,18 +18,6 @@ function formatearUltimaConexion(fecha: string | null): string {
   const dia = d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const hora = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
   return `Última conexión el ${dia} a las ${hora}`;
-}
-
-async function cargarUltimaConexion(usuarioId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('auditoria')
-    .select('fecha')
-    .eq('usuario_id', usuarioId)
-    .eq('accion', 'LOGIN')
-    .order('fecha', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.fecha ?? null;
 }
 
 export function ConfiguracionPage() {
@@ -54,62 +31,58 @@ export function ConfiguracionPage() {
   const [creandoUsuario, setCreandoUsuario] = useState(false);
   const [avisoCreado, setAvisoCreado] = useState<string | null>(null);
 
+  // Comentarios - Lista de usuarios
+  // Carga los usuarios y la última conexión de cada uno.
   useEffect(() => {
-    const cargarUsuarios = async () => {
-      const { data, error: err } = await supabase
-        .from('usuario')
-        .select('id, nombre, apellido, correo, rol, activo, debe_cambiar_password, created_at')
-        .order('nombre');
+    let vigente = true;
 
-      if (err || !data) {
+    void (async () => {
+      const lista = await listarUsuarios();
+      if (!vigente) return;
+      if (!lista) {
         setError('No se pudieron cargar los usuarios.');
         setCargando(false);
         return;
       }
 
-      const ultimas = await Promise.all(data.map((u) => cargarUltimaConexion(u.id)));
-
-      setUsuarios(data);
-      setUltimaConexion(Object.fromEntries(data.map((u, i) => [u.id, ultimas[i]])));
+      const ultimas = await Promise.all(lista.map((u) => consultarUltimaConexion(u.id)));
+      if (!vigente) return;
+      setUsuarios(lista);
+      setUltimaConexion(Object.fromEntries(lista.map((u, i) => [u.id, ultimas[i]])));
       setCargando(false);
-    };
+    })();
 
-    cargarUsuarios();
+    return () => { vigente = false; };
   }, []);
 
   const idsOtros = usuarios.filter((u) => u.id !== user?.id).map((u) => u.id).join(',');
 
+  // Comentarios - Presencia en línea
+  // Escucha el canal de presencia de cada usuario (salvo el propio). Cuando alguien se desconecta,
+  // se relee su última conexión para mostrarla al instante.
   useEffect(() => {
     if (!idsOtros) return;
     const enLinea = new Set<string>();
 
-    const canales = idsOtros.split(',').map((id) => {
-      const canal = supabase.channel(`presencia:${id}`, { config: { private: true } });
-      canal
-        .on('presence', { event: 'sync' }, async () => {
-          const conectado = Object.keys(canal.presenceState()).length > 0;
-          const estaba = enLinea.has(id);
-          if (conectado) enLinea.add(id);
-          else enLinea.delete(id);
-          setUsuariosEnLinea([...enLinea]);
+    const cerrarCanales = idsOtros.split(',').map((id) => escucharPresencia(id, (conectado) => {
+      const estaba = enLinea.has(id);
+      if (conectado) enLinea.add(id);
+      else enLinea.delete(id);
+      setUsuariosEnLinea([...enLinea]);
 
-          if (estaba && !conectado) {
-            const fecha = await cargarUltimaConexion(id);
-            setUltimaConexion((prev) => ({ ...prev, [id]: fecha }));
-          }
-        })
-        .subscribe();
-      return canal;
-    });
+      if (estaba && !conectado) {
+        void consultarUltimaConexion(id).then((fecha) => {
+          setUltimaConexion((prev) => ({ ...prev, [id]: fecha }));
+        });
+      }
+    }));
 
-    return () => {
-      canales.forEach((canal) => supabase.removeChannel(canal));
-    };
+    return () => { cerrarCanales.forEach((cerrar) => cerrar()); };
   }, [idsOtros]);
 
   // Comentarios - Crear usuario desde Configuración
   // Agrega el usuario recién creado a la lista (ordenada por nombre), cierra el modal y avisa del resultado.
-  const handleUsuarioCreado = (nuevo: UsuarioCreado, correoEnviado: boolean) => {
+  const handleUsuarioCreado = (nuevo: UsuarioFila, correoEnviado: boolean) => {
     setUsuarios((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
     setUltimaConexion((prev) => ({ ...prev, [nuevo.id]: null }));
     setCreandoUsuario(false);

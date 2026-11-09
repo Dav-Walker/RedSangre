@@ -1,32 +1,23 @@
 import { useState } from 'react';
-import type { UserRole } from '../../contexts/auth-context';
-import { supabase } from '../../utils/supabase';
+import { Modal } from '../../components/common/Modal';
 import { validarContrasena } from '../../utils/politicaContrasena';
-import { leerMensajeError } from '../../utils/mensajeErrorFuncion';
+import { ETIQUETAS_ROL } from '../../utils/roles';
+import {
+  cambiarContrasenaUsuario,
+  cambiarEstadoUsuario,
+  reenviarActivacion,
+  type UsuarioFila,
+} from '../../servicios/usuarios';
 import styles from './UsuarioModal.module.css';
 
 interface UsuarioModalProps {
-  usuario: {
-    id: string;
-    nombre: string;
-    apellido: string;
-    correo: string;
-    rol: UserRole;
-    activo: boolean;
-    debe_cambiar_password: boolean;
-    created_at: string;
-  };
+  usuario: UsuarioFila;
   estaEnLinea: boolean;
   textoEstado: string;
   usuarioActualId: string;
   onCerrar: () => void;
   onCambioEstado: (id: string, activo: boolean) => void;
 }
-
-const ETIQUETAS_ROL: Record<UserRole, string> = {
-  administrador: 'Administrador',
-  tecnologo: 'Tecnólogo',
-};
 
 function formatearFecha(fecha: string): string {
   return new Date(fecha).toLocaleDateString('es-CL', {
@@ -64,16 +55,11 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
 
     setGuardando(true);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.functions.invoke('cambiar-contrasena', {
-      body: { usuario_id: usuario.id, nueva_contrasena: nuevaContrasena },
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
-
+    const errorCambio = await cambiarContrasenaUsuario(usuario.id, nuevaContrasena);
     setGuardando(false);
 
-    if (error || !data?.ok) {
-      setErrorForm(await leerMensajeError(error, 'No se pudo actualizar la contraseña. Intenta nuevamente.'));
+    if (errorCambio) {
+      setErrorForm(errorCambio);
     } else {
       setExito(true);
       setNuevaContrasena('');
@@ -81,25 +67,18 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     }
   };
 
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onCerrar();
-  };
-
   const handleCambiarEstado = async () => {
     setCambiandoEstado(true);
     setErrorEstado(null);
 
     const nuevoEstado = !usuario.activo;
-    const { error } = await supabase
-      .from('usuario')
-      .update({ activo: nuevoEstado })
-      .eq('id', usuario.id);
+    const errorEstadoUsuario = await cambiarEstadoUsuario(usuario.id, nuevoEstado);
 
     setCambiandoEstado(false);
     setConfirmandoCambio(false);
 
-    if (error) {
-      setErrorEstado(error.message || 'No se pudo cambiar el estado del usuario. Intenta nuevamente.');
+    if (errorEstadoUsuario) {
+      setErrorEstado(errorEstadoUsuario);
     } else {
       onCambioEstado(usuario.id, nuevoEstado);
     }
@@ -111,16 +90,11 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setReenviando(true);
     setAvisoReenvio(null);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.functions.invoke('reenviar-activacion', {
-      body: { usuario_id: usuario.id },
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
-
+    const errorReenvio = await reenviarActivacion(usuario.id);
     setReenviando(false);
 
-    if (error || !data?.ok) {
-      setAvisoReenvio({ texto: await leerMensajeError(error, 'No se pudo reenviar el correo. Intenta nuevamente.'), esError: true });
+    if (errorReenvio) {
+      setAvisoReenvio({ texto: errorReenvio, esError: true });
     } else {
       setAvisoReenvio({ texto: `Correo de activación enviado a ${usuario.correo}.`, esError: false });
     }
@@ -130,13 +104,12 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
   const hayDatosCambio = nuevaContrasena.length > 0 || confirmar.length > 0;
 
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.modal} role="dialog" aria-modal="true">
+    <Modal className={styles.modal} idTitulo="titulo-usuario" onCerrar={onCerrar}>
 
         {/* Cabecera */}
         <div className={styles.cabecera}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 className={styles.nombreUsuario}>
+            <h2 className={styles.nombreUsuario} id="titulo-usuario">
               {usuario.nombre} {usuario.apellido}
             </h2>
             <span className={styles.rolBadge}>{ETIQUETAS_ROL[usuario.rol]}</span>
@@ -276,7 +249,6 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
           </div>
         </div>
 
-      </div>
-    </div>
+    </Modal>
   );
 }

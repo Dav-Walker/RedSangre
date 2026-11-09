@@ -1,0 +1,11 @@
+/* Comentarios - Componente Modal */
+/* Fondo oscuro que cubre la pantalla y centra la caja del modal. */
+.fondo {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}

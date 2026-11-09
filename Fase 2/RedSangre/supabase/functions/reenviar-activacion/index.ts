@@ -1,47 +1,20 @@
 // Comentarios - Activación de cuenta por correo
 // Edge Function que reenvía el correo de activación a un usuario que aún no define su contraseña.
 // Solo la puede usar un administrador activo.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { enviarCorreoActivacion, generarEnlace } from '../_shared/activacion.ts';
-import { cabeceras, conCors } from '../_shared/cors.ts';
-import { MENSAJE_SIN_DOS_PASOS, tieneDosPasos } from '../_shared/dosPasos.ts';
-
-
-function responder(cuerpo: unknown, status = 200) {
-  return new Response(JSON.stringify(cuerpo), {
-    status,
-    headers: { ...cabeceras(), 'Content-Type': 'application/json' },
-  });
-}
+import { verificarAdministrador } from '../_shared/administrador.ts';
+import { clienteAdmin } from '../_shared/clientes.ts';
+import { conCors } from '../_shared/cors.ts';
+import { responder, revisarMetodo } from '../_shared/respuesta.ts';
 
 Deno.serve(conCors(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras() });
-  if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405);
+  const respuestaMetodo = revisarMetodo(req);
+  if (respuestaMetodo) return respuestaMetodo;
 
   // Comentarios - Activación de cuenta por correo
-  // 1. Verifica con el token de la sesión que quien llama es un administrador autenticado y activo.
-  const supabaseUsuario = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-  );
-
-  const { data: { user: usuarioActual }, error: errAuth } = await supabaseUsuario.auth.getUser();
-  if (errAuth || !usuarioActual) return responder({ error: 'No autenticado' }, 401);
-  // Comentarios - Segundo factor TOTP (RF-36)
-  // Un administrador sin el código TOTP (sesión aal1) no puede reenviar activaciones
-  if (!tieneDosPasos(req)) return responder({ error: MENSAJE_SIN_DOS_PASOS }, 403);
-
-  const { data: perfil, error: errPerfil } = await supabaseUsuario
-    .from('usuario')
-    .select('rol, activo')
-    .eq('id', usuarioActual.id)
-    .maybeSingle();
-
-  if (errPerfil || !perfil) return responder({ error: 'No se pudo verificar el rol' }, 403);
-  if (perfil.rol !== 'administrador' || !perfil.activo) {
-    return responder({ error: 'Solo administradores activos pueden reenviar activaciones' }, 403);
-  }
+  // 1. Verifica que quien llama sea un administrador activo con la sesión en aal2.
+  const verificacion = await verificarAdministrador(req, 'reenviar activaciones');
+  if ('respuesta' in verificacion) return verificacion.respuesta;
 
   // Comentarios - Activación de cuenta por correo
   // 2. Lee el usuario al que se reenvía y comprueba que realmente esté pendiente y activo.
@@ -53,10 +26,7 @@ Deno.serve(conCors(async (req) => {
   }
   if (!usuarioId) return responder({ error: 'Falta el parámetro usuario_id' }, 400);
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabaseAdmin = clienteAdmin();
 
   const { data: destino, error: errDestino } = await supabaseAdmin
     .from('usuario')

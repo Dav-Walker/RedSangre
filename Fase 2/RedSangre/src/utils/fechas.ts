@@ -25,3 +25,12 @@ export function mesesDesde(fecha: string): number {
 export function formatearFecha(fecha: string): string {
   return fechaLocal(fecha).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+// Comentarios - Fechas locales
+// Texto del tiempo transcurrido desde una fecha: "este mes", "hace 1 mes" o "hace N meses".
+export function textoMesesDesde(fecha: string): string {
+  const meses = mesesDesde(fecha);
+  if (meses === 0) return 'este mes';
+  if (meses === 1) return 'hace 1 mes';
+  return `hace ${meses} meses`;
+}

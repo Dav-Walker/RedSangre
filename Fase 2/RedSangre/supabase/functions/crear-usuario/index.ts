@@ -1,82 +1,30 @@
 // Comentarios - Crear usuario desde Configuración
 // Edge Function que crea una cuenta nueva (Auth + perfil) sin contraseña y envía un correo de activación.
 // La persona define su propia contraseña desde el enlace. Solo la puede usar un administrador activo.
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import { enviarCorreoActivacion, generarEnlace } from '../_shared/activacion.ts';
-import { cabeceras, conCors } from '../_shared/cors.ts';
-import { MENSAJE_SIN_DOS_PASOS, tieneDosPasos } from '../_shared/dosPasos.ts';
-
+import { verificarAdministrador } from '../_shared/administrador.ts';
+import { clienteAdmin, type ClienteSupabase } from '../_shared/clientes.ts';
+import { conCors } from '../_shared/cors.ts';
+import { responder, revisarMetodo } from '../_shared/respuesta.ts';
+import { correoCanonico, validarCorreo } from '../_shared/validaciones.ts';
 
 const ROLES_VALIDOS = ['administrador', 'tecnologo'];
 
-// Comentarios - Validar correo duplicado y correo real (RF-07)
-// Solo se aceptan correos de estos dominios; con eso quedan bloqueados los dominios inventados y los desechables.
-const DOMINIOS_PERMITIDOS = ['gmail.com', 'duocuc.cl', 'indisa.cl'];
-const MENSAJE_DOMINIO = 'Solo se permiten correos @gmail.com, @duocuc.cl o @indisa.cl.';
-const MENSAJE_FORMATO = 'El correo no tiene un formato válido';
-const FORMATO_LOCAL = /^[a-z0-9]+(?:[._+-][a-z0-9]+)*$/;
-
-// Devuelve el mensaje de error si el correo (ya en minúsculas y sin espacios) no es válido, o null si está bien.
-function validarCorreo(correo: string): string | null {
-  if (correo.length > 254) return MENSAJE_FORMATO;
-  const partes = correo.split('@');
-  if (partes.length !== 2) return MENSAJE_FORMATO;
-  const [local, dominio] = partes;
-  if (local.length > 64 || !FORMATO_LOCAL.test(local)) return MENSAJE_FORMATO;
-  if (!DOMINIOS_PERMITIDOS.includes(dominio)) return MENSAJE_DOMINIO;
-  return null;
-}
-
-// Forma única de un correo para detectar duplicados. Gmail ignora los puntos y lo que va después de "+",
-// así que j.perez+x@gmail.com y jperez@gmail.com son el mismo buzón.
-function correoCanonico(correo: string): string {
-  const [local, dominio] = correo.split('@');
-  if (dominio !== 'gmail.com') return `${local}@${dominio}`;
-  return `${local.split('+')[0].replace(/\./g, '')}@${dominio}`;
-}
-
-function responder(cuerpo: unknown, status = 200) {
-  return new Response(JSON.stringify(cuerpo), {
-    status,
-    headers: { ...cabeceras(), 'Content-Type': 'application/json' },
-  });
-}
-
 // Comentarios - Crear usuario
 // Deshace una creación a medias: primero el perfil (la clave foránea lo exige) y luego la cuenta de Auth.
-async function deshacerCreacion(supabaseAdmin: ReturnType<typeof createClient>, id: string) {
+async function deshacerCreacion(supabaseAdmin: ClienteSupabase, id: string) {
   await supabaseAdmin.from('usuario').delete().eq('id', id);
   await supabaseAdmin.auth.admin.deleteUser(id);
 }
 
 Deno.serve(conCors(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras() });
-  if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405);
+  const respuestaMetodo = revisarMetodo(req);
+  if (respuestaMetodo) return respuestaMetodo;
 
   // Comentarios - Crear usuario
-  // 1. Verifica con el token de la sesión que quien llama es un administrador autenticado y activo.
-  const supabaseUsuario = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-  );
-
-  const { data: { user: usuarioActual }, error: errAuth } = await supabaseUsuario.auth.getUser();
-  if (errAuth || !usuarioActual) return responder({ error: 'No autenticado' }, 401);
-  // Comentarios - Segundo factor TOTP (RF-36)
-  // Un administrador sin el código TOTP (sesión aal1) no puede crear usuarios
-  if (!tieneDosPasos(req)) return responder({ error: MENSAJE_SIN_DOS_PASOS }, 403);
-
-  const { data: perfil, error: errPerfil } = await supabaseUsuario
-    .from('usuario')
-    .select('rol, activo')
-    .eq('id', usuarioActual.id)
-    .maybeSingle();
-
-  if (errPerfil || !perfil) return responder({ error: 'No se pudo verificar el rol' }, 403);
-  if (perfil.rol !== 'administrador' || !perfil.activo) {
-    return responder({ error: 'Solo administradores activos pueden crear usuarios' }, 403);
-  }
+  // 1. Verifica que quien llama sea un administrador activo con la sesión en aal2.
+  const verificacion = await verificarAdministrador(req, 'crear usuarios');
+  if ('respuesta' in verificacion) return verificacion.respuesta;
 
   // Comentarios - Crear usuario
   // 2. Lee y valida los datos recibidos. La validación del formulario no se confía: se repite aquí.
@@ -101,10 +49,7 @@ Deno.serve(conCors(async (req) => {
 
   // Comentarios - Validar correo duplicado y correo real (RF-07)
   // Busca duplicados entre todos los usuarios del mismo dominio, activos o desactivados, con la forma canónica.
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabaseAdmin = clienteAdmin();
 
   const dominioCorreo = correo.split('@')[1];
   const { data: delDominio, error: errBusqueda } = await supabaseAdmin

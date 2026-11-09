@@ -6,6 +6,9 @@ import { validarContrasena, MENSAJE_POLITICA_CONTRASENA } from './politicaContra
 import { fechaLocal, formatearFecha, mesesDesde } from './fechas';
 import { valorFiltro } from './filtrosPostgrest';
 import { obtenerEstadoSolicitud } from './estadosSolicitud';
+import { calcularFenotipos, construirTendencia } from './graficosDashboard';
+import { traducirErrorAuth } from './mensajesAuth';
+import { esEtiquetaDeColumna } from './etiquetas';
 
 describe('validarCorreo', () => {
   it('acepta correos de los dominios permitidos', () => {
@@ -85,5 +88,47 @@ describe('obtenerEstadoSolicitud', () => {
     expect(obtenerEstadoSolicitud('cerrada')).toBe('cerrada');
     expect(obtenerEstadoSolicitud('otro')).toBe('abierta');
     expect(obtenerEstadoSolicitud(null)).toBe('abierta');
+  });
+});
+
+describe('construirTendencia', () => {
+  it('une donaciones y solicitudes por mes en orden cronológico y omite filas sin fecha', () => {
+    const puntos = construirTendencia(
+      [{ anio: 2026, mes: 2, total_donaciones: 3 }, { anio: null, mes: 1, total_donaciones: 9 }],
+      [{ anio: 2026, mes: 1, total_solicitudes: 2 }, { anio: 2026, mes: 2, total_solicitudes: null }],
+    );
+    expect(puntos).toEqual([
+      { clave: '2026-01', name: 'Ene 26', donaciones: 0, solicitudes: 2 },
+      { clave: '2026-02', name: 'Feb 26', donaciones: 3, solicitudes: 0 },
+    ]);
+  });
+});
+
+describe('calcularFenotipos', () => {
+  it('cuenta los fenotipos y filtra por grupo', () => {
+    const donantes = [
+      { grupo_sanguineo: 'O+' as const, fenotipo: 'K+' },
+      { grupo_sanguineo: 'O+' as const, fenotipo: 'K+' },
+      { grupo_sanguineo: 'A+' as const, fenotipo: 'C-' },
+      { grupo_sanguineo: 'A+' as const, fenotipo: null },
+    ];
+    expect(calcularFenotipos(donantes, 'Todos')).toEqual([{ name: 'K+', value: 2 }, { name: 'C-', value: 1 }]);
+    expect(calcularFenotipos(donantes, 'A+')).toEqual([{ name: 'C-', value: 1 }]);
+  });
+});
+
+describe('traducirErrorAuth', () => {
+  it('traduce los códigos conocidos y usa el mensaje por defecto para los demás', () => {
+    expect(traducirErrorAuth('invalid_credentials', 'x')).toBe('Correo o contraseña incorrectos.');
+    expect(traducirErrorAuth('codigo_desconocido', 'Mensaje por defecto')).toBe('Mensaje por defecto');
+    expect(traducirErrorAuth(undefined, 'Mensaje por defecto')).toBe('Mensaje por defecto');
+  });
+});
+
+describe('etiquetas de donante', () => {
+  it('reconoce las etiquetas que también son columnas de donante', () => {
+    expect(esEtiquetaDeColumna('Fenotipo sanguíneo raro')).toBe(true);
+    expect(esEtiquetaDeColumna('Donante de plaquetas')).toBe(true);
+    expect(esEtiquetaDeColumna('Donación altruista')).toBe(false);
   });
 });

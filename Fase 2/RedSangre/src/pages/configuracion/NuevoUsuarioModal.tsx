@@ -2,27 +2,16 @@
 // Modal con el formulario de nuevo usuario. Valida los datos y llama a la Edge Function crear-usuario,
 // que envía un correo de activación: la persona define su propia contraseña desde el enlace.
 import { useState } from 'react';
-import type { UserRole } from '../../contexts/auth-context';
-import { supabase } from '../../utils/supabase';
-import { leerMensajeError } from '../../utils/mensajeErrorFuncion';
+import { Modal } from '../../components/common/Modal';
 import { correoCanonico, validarCorreo } from '../../utils/validacionCorreo';
+import { crearUsuario, type UsuarioFila } from '../../servicios/usuarios';
+import type { RolUsuario } from '../../tipos/dominio';
 import styles from './NuevoUsuarioModal.module.css';
-
-export interface UsuarioCreado {
-  id: string;
-  nombre: string;
-  apellido: string;
-  correo: string;
-  rol: UserRole;
-  activo: boolean;
-  debe_cambiar_password: boolean;
-  created_at: string;
-}
 
 interface NuevoUsuarioModalProps {
   usuariosExistentes: { correo: string; activo: boolean }[];
   onCerrar: () => void;
-  onCreado: (usuario: UsuarioCreado, correoEnviado: boolean) => void;
+  onCreado: (usuario: UsuarioFila, correoEnviado: boolean) => void;
 }
 
 type Campo = 'nombre' | 'apellido' | 'correo';
@@ -48,7 +37,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [correo, setCorreo] = useState('');
-  const [rol, setRol] = useState<UserRole>('tecnologo');
+  const [rol, setRol] = useState<RolUsuario>('tecnologo');
   const [errores, setErrores] = useState<Errores>({});
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
@@ -85,12 +74,6 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
   };
 
   // Comentarios - Crear usuario
-  // Cierra con clic fuera solo si el formulario está vacío, para no perder lo escrito sin querer.
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && !hayDatos && !creando) onCerrar();
-  };
-
-  // Comentarios - Crear usuario
   // Valida, llama a la Edge Function con el token de la sesión y entrega el usuario creado a la página.
   const handleCrear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,33 +85,33 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
     if (Object.keys(erroresForm).length > 0) return;
 
     setCreando(true);
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.functions.invoke('crear-usuario', {
-      body: {
-        nombre: nombre.trim(),
-        apellido: apellido.trim(),
-        correo: correo.trim().toLowerCase(),
-        rol,
-      },
-      headers: { Authorization: `Bearer ${session?.access_token}` },
+    const resultado = await crearUsuario({
+      nombre: nombre.trim(),
+      apellido: apellido.trim(),
+      correo: correo.trim().toLowerCase(),
+      rol,
     });
+    setCreando(false);
 
-    if (error || !data?.ok) {
-      setErrorServidor(await leerMensajeError(error, 'No se pudo crear el usuario. Intenta nuevamente.'));
-      setCreando(false);
+    if ('error' in resultado) {
+      setErrorServidor(resultado.error);
       return;
     }
-
-    setCreando(false);
-    onCreado(data.usuario as UsuarioCreado, data.correo_enviado !== false);
+    onCreado(resultado.usuario, resultado.correoEnviado);
   };
 
   const claseInput = (campo: Campo) => `${styles.input} ${errores[campo] ? styles.inputError : ''}`;
 
   return (
-    <div className={styles.overlay} onClick={handleOverlayClick}>
-      <form className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="titulo-nuevo-usuario" onSubmit={handleCrear} noValidate>
+    // Comentarios - Crear usuario
+    // Escape y clic fuera cierran solo si el formulario está vacío, para no perder lo escrito sin querer.
+    <Modal
+      className={styles.modal}
+      idTitulo="titulo-nuevo-usuario"
+      onCerrar={creando ? undefined : onCerrar}
+      cerrarConClicFuera={!hayDatos}
+    >
+      <form className={styles.formulario} onSubmit={handleCrear} noValidate>
 
         <div className={styles.cabecera}>
           <h2 className={styles.titulo} id="titulo-nuevo-usuario">Nuevo usuario</h2>
@@ -182,7 +165,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
               id="nuevo-rol"
               className={styles.select}
               value={rol}
-              onChange={(e) => setRol(e.target.value as UserRole)}
+              onChange={(e) => setRol(e.target.value as RolUsuario)}
             >
               <option value="tecnologo">Tecnólogo</option>
               <option value="administrador">Administrador</option>
@@ -207,6 +190,6 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
         </div>
 
       </form>
-    </div>
+    </Modal>
   );
 }

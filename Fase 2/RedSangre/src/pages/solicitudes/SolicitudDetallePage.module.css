@@ -186,19 +186,6 @@
 /* ========================================== */
 /* MODAL DE WHATSAPP                          */
 /* ========================================== */
-.modalOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.55);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
 .modalWsp {
   background-color: #ffffff;
   color: #000000;
@@ -287,6 +274,77 @@
 
 .botonEnviarWsp:hover {
   background-color: #1da851;
+}
+
+/* Comentarios - Cambiar estado de solicitud */
+/* Confirmación en pantalla antes de cerrar una solicitud. */
+.confirmacionCierre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #b3261e;
+}
+
+/* Comentarios - Detalle de solicitud */
+/* Pantallas de carga y de error de la página. */
+.estadoPagina {
+  text-align: center;
+  padding: 50px;
+}
+
+.tituloError {
+  color: #c0392b;
+}
+
+.botonVolverError {
+  margin-top: 20px;
+}
+
+/* Comentarios - Llamar al donante */
+/* Aviso que se muestra al intentar llamar desde un computador. */
+.modalAvisoPc {
+  background-color: #ffffff;
+  color: #000000;
+  color-scheme: light;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+}
+
+.tituloAvisoPc {
+  color: #c0392b;
+  margin-bottom: 15px;
+}
+
+.textoAvisoPc {
+  color: #555;
+  margin-bottom: 20px;
+  font-size: 15px;
+}
+
+.telefonoAvisoPc {
+  color: #333;
+  font-weight: bold;
+  margin-bottom: 20px;
+  background-color: #f5f7fa;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.botonEntendido {
+  background-color: #00a0df;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
 }
 
 /* ========================================== */

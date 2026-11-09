@@ -4,140 +4,43 @@ import {
   PieChart, Pie, Cell, LineChart, Line, Legend
 } from 'recharts';
 import styles from './DashboardPage.module.css';
-import { supabase } from '../../utils/supabase';
 import { Badge } from '../../components/common/Badge';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
-import type { Tables } from '../../tipos/database.types';
+import { calcularFenotipos, construirTendencia } from '../../utils/graficosDashboard';
+import { cargarDashboard, type DatosDashboard } from '../../servicios/dashboard';
 
 const COLORES_PIE = ['#00a0df', '#f47c36', '#9b59b6', '#e74c3c', '#2ecc71', '#f1c40f'];
-const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-interface Totales {
-  donantes: number;
-  fenotipos: number;
-  plaquetas: number;
-  disponibles: number;
-}
-
-// Comentarios - Tipos de la base de datos
-// Fila de la vista v_solicitud_activa con las columnas que muestra la tabla del dashboard.
-type SolicitudActiva = Pick<Tables<'v_solicitud_activa'>, 'id' | 'codigo_solicitud' | 'grupo_sanguineo_requerido' | 'urgencia' | 'estado'>;
-
-interface DonanteFenotipo {
-  grupo_sanguineo: string | null;
-  fenotipo: string | null;
-}
-
-interface PuntoTendencia {
-  clave: string;
-  name: string;
-  donaciones: number;
-  solicitudes: number;
-}
-
-// Une donaciones y solicitudes por mes (AAAA-MM), en orden cronológico.
-// Las vistas pueden devolver null en sus columnas: esas filas se omiten o cuentan como 0.
-function construirTendencia(
-  donaciones: { anio: number | null; mes: number | null; total_donaciones: number | null }[],
-  demanda: { anio: number | null; mes: number | null; total_solicitudes: number | null }[],
-): PuntoTendencia[] {
-  const puntos = new Map<string, PuntoTendencia>();
-
-  const obtenerPunto = (anio: number, mes: number) => {
-    const clave = `${anio}-${String(mes).padStart(2, '0')}`;
-    const existente = puntos.get(clave);
-    if (existente) return existente;
-
-    const nuevo = { clave, name: `${MESES[mes - 1]} ${String(anio).slice(-2)}`, donaciones: 0, solicitudes: 0 };
-    puntos.set(clave, nuevo);
-    return nuevo;
-  };
-
-  donaciones.forEach((d) => {
-    if (d.anio !== null && d.mes !== null) obtenerPunto(d.anio, d.mes).donaciones += d.total_donaciones ?? 0;
-  });
-  demanda.forEach((s) => {
-    if (s.anio !== null && s.mes !== null) obtenerPunto(s.anio, s.mes).solicitudes += s.total_solicitudes ?? 0;
-  });
-
-  return [...puntos.values()].sort((a, b) => a.clave.localeCompare(b.clave));
-}
-
-// Top 5 fenotipos de los donantes, filtrados por grupo si corresponde
-function calcularFenotipos(donantes: DonanteFenotipo[], grupo: string) {
-  const conteo: Record<string, number> = {};
-
-  donantes.forEach((d) => {
-    const fenotipo = d.fenotipo?.trim();
-    if (!fenotipo) return;
-    if (grupo !== 'Todos' && d.grupo_sanguineo !== grupo) return;
-    conteo[fenotipo] = (conteo[fenotipo] || 0) + 1;
-  });
-
-  return Object.entries(conteo)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([name, value]) => ({ name, value }));
-}
+const SIN_ERRORES: DatosDashboard['errores'] = { kpis: false, grupos: false, solicitudes: false, tendencia: false, fenotipos: false };
 
 export function DashboardPage() {
-  // null = cargando; [] = sin datos; valor = datos reales
-  const [totales, setTotales] = useState<Totales | null>(null);
-  const [inventario, setInventario] = useState<{ name: string; cantidad: number }[] | null>(null);
-  const [solicitudesActivas, setSolicitudesActivas] = useState<SolicitudActiva[] | null>(null);
-  const [tendencia, setTendencia] = useState<PuntoTendencia[] | null>(null);
-  const [donantesFenotipo, setDonantesFenotipo] = useState<DonanteFenotipo[] | null>(null);
-  const [errores, setErrores] = useState({ kpis: false, grupos: false, solicitudes: false, tendencia: false, fenotipos: false });
+  // Comentarios - Dashboard
+  // null mientras carga; después, los datos de las vistas (cada panel muestra su propio error si falló).
+  const [datos, setDatos] = useState<DatosDashboard | null>(null);
   const [filtroGrupo, setFiltroGrupo] = useState('Todos');
 
   useEffect(() => {
-    async function cargarDashboard() {
-      const [resumen, grupos, activas, donaciones, demanda, donantes] = await Promise.all([
-        supabase.from('v_dashboard_resumen').select('*').single(),
-        supabase.from('v_dashboard_donantes_por_grupo').select('grupo_sanguineo, disponibles'),
-        supabase.from('v_solicitud_activa')
-          .select('id, codigo_solicitud, grupo_sanguineo_requerido, urgencia, estado')
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase.from('v_donaciones_mensuales').select('anio, mes, total_donaciones'),
-        supabase.from('v_demanda_historica').select('anio, mes, total_solicitudes'),
-        supabase.from('donante').select('grupo_sanguineo, fenotipo'),
-      ]);
-
-      const hayError = {
-        kpis: !!resumen.error,
-        grupos: !!grupos.error,
-        solicitudes: !!activas.error,
-        tendencia: !!(donaciones.error || demanda.error),
-        fenotipos: !!donantes.error,
-      };
-      setErrores(hayError);
-
-      [resumen.error, grupos.error, activas.error, donaciones.error, demanda.error, donantes.error]
-        .filter(Boolean)
-        .forEach((error) => console.error('Error cargando dashboard:', error));
-
-      const r = resumen.data;
-      setTotales(r ? {
-        donantes: r.donantes_totales ?? 0,
-        fenotipos: r.fenotipos_raros ?? 0,
-        plaquetas: r.plaquetas_frecuentes ?? 0,
-        disponibles: r.disponibles_ahora ?? 0,
-      } : null);
-
-      setInventario((grupos.data ?? []).map((fila) => ({
-        name: fila.grupo_sanguineo ?? 'Sin grupo',
-        cantidad: fila.disponibles ?? 0,
-      })));
-
-      setSolicitudesActivas(activas.data ?? []);
-      setTendencia(construirTendencia(donaciones.data ?? [], demanda.data ?? []));
-      setDonantesFenotipo(donantes.data ?? []);
-    }
-
-    cargarDashboard();
+    let vigente = true;
+    void cargarDashboard().then((resultado) => { if (vigente) setDatos(resultado); });
+    return () => { vigente = false; };
   }, []);
+
+  const errores = datos?.errores ?? SIN_ERRORES;
+  const r = datos?.resumen;
+  const totales = r ? {
+    donantes: r.donantes_totales ?? 0,
+    fenotipos: r.fenotipos_raros ?? 0,
+    plaquetas: r.plaquetas_frecuentes ?? 0,
+    disponibles: r.disponibles_ahora ?? 0,
+  } : null;
+  const inventario = datos ? datos.porGrupo.map((fila) => ({
+    name: fila.grupo_sanguineo ?? 'Sin grupo',
+    cantidad: fila.disponibles ?? 0,
+  })) : null;
+  const solicitudesActivas = datos?.solicitudesActivas ?? null;
+  const tendencia = datos ? construirTendencia(datos.donaciones, datos.demanda) : null;
+  const donantesFenotipo = datos?.donantes ?? null;
 
   const mensaje = (texto: string) => <p className={styles.mensajePanel}>{texto}</p>;
 

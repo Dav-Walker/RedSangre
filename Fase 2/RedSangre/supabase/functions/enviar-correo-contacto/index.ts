@@ -1,14 +1,10 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import nodemailer from 'npm:nodemailer@6';
-import { cabeceras, conCors } from '../_shared/cors.ts';
-
-
-function responder(cuerpo: unknown, status = 200) {
-  return new Response(JSON.stringify(cuerpo), {
-    status,
-    headers: { ...cabeceras(), 'Content-Type': 'application/json' },
-  });
-}
+// Comentarios - Contactar donante por correo
+// Edge Function que envía al donante asignado el aviso de una solicitud y lo registra en la bitácora.
+// Actúa con el token de quien llama, así que las políticas RLS y los triggers RS002/RS005 se aplican igual.
+import { clienteUsuario } from '../_shared/clientes.ts';
+import { crearTransporte, remitente } from '../_shared/correo.ts';
+import { conCors } from '../_shared/cors.ts';
+import { responder, revisarMetodo } from '../_shared/respuesta.ts';
 
 const CONTACTO_BANCO = '+56 9 3640 5976 o al correo redsangre.notificaciones@gmail.com';
 
@@ -37,8 +33,8 @@ function textoCorreo(nombre: string, codigoSolicitud: string, grupo: string, urg
 }
 
 Deno.serve(conCors(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cabeceras() });
-  if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405);
+  const respuestaMetodo = revisarMetodo(req);
+  if (respuestaMetodo) return respuestaMetodo;
 
   let solicitudId: string | undefined;
   try {
@@ -48,11 +44,7 @@ Deno.serve(conCors(async (req) => {
   }
   if (!solicitudId) return responder({ error: 'Falta solicitud_id' }, 400);
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-  );
+  const supabase = clienteUsuario(req);
 
   const { data: solicitud, error: errSolicitud } = await supabase
     .from('solicitud')
@@ -63,7 +55,10 @@ Deno.serve(conCors(async (req) => {
   if (errSolicitud || !solicitud) return responder({ error: 'Solicitud no encontrada o sin acceso' }, 404);
   if (solicitud.estado === 'cerrada') return responder({ error: 'La solicitud está cerrada' }, 409);
 
-  const donante = solicitud.donante as { id: string; nombre: string; apellido: string; correo: string | null } | null;
+  // Comentarios - Contactar donante por correo
+  // donante_asignado_id apunta a un solo donante, así que PostgREST devuelve un objeto. El cliente sin esquema
+  // tipado lo infiere como lista; por eso se convierte pasando por unknown.
+  const donante = solicitud.donante as unknown as { id: string; nombre: string; apellido: string; correo: string | null } | null;
   if (!donante) return responder({ error: 'La solicitud no tiene donante asignado' }, 422);
   if (!donante.correo) return responder({ error: 'El donante no tiene correo registrado' }, 422);
 
@@ -72,17 +67,9 @@ Deno.serve(conCors(async (req) => {
   if (errConsentimiento) return responder({ error: 'No se pudo verificar el consentimiento' }, 500);
   if (!puedeContactar) return responder({ error: 'El donante no autorizó contacto' }, 422);
 
-  const usuarioGmail = Deno.env.get('GMAIL_USER');
-  const transporte = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: { user: usuarioGmail, pass: Deno.env.get('GMAIL_APP_PASSWORD') },
-  });
-
   try {
-    await transporte.sendMail({
-      from: `"RedSangre – Banco de Sangre" <${usuarioGmail}>`,
+    await crearTransporte().sendMail({
+      from: remitente(),
       to: donante.correo,
       subject: `Solicitud ${solicitud.codigo_solicitud} – Banco de Sangre`,
       text: textoCorreo(donante.nombre, solicitud.codigo_solicitud, solicitud.grupo_sanguineo_requerido, solicitud.urgencia),

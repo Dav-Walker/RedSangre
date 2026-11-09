@@ -1,9 +1,7 @@
 // Comentarios - Activación de cuenta por correo
 // Código compartido por crear-usuario y reenviar-activacion: genera el enlace de activación y envía el correo.
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import nodemailer from 'npm:nodemailer@6';
-
-type ClienteAdmin = ReturnType<typeof createClient>;
+import type { ClienteSupabase } from './clientes.ts';
+import { crearTransporte, remitente } from './correo.ts';
 
 // invite: cuenta nueva sin confirmar. recovery: la persona ya confirmó su correo pero aún no tiene contraseña.
 export type TipoEnlace = 'invite' | 'recovery';
@@ -12,7 +10,7 @@ export type TipoEnlace = 'invite' | 'recovery';
 // Pide a Auth un token de un solo uso y arma el enlace hacia la aplicación (/activar). El correo se envía aparte.
 // Con tipo invite, Auth también crea la cuenta (sin contraseña y sin confirmar). APP_URL es un secreto de Supabase.
 export async function generarEnlace(
-  admin: ClienteAdmin,
+  admin: ClienteSupabase,
   correo: string,
   tipo: TipoEnlace,
   datos?: { nombre: string; apellido: string },
@@ -40,16 +38,8 @@ export async function generarEnlace(
 // Comentarios - Activación de cuenta por correo
 // Envía el correo con el enlace por Gmail SMTP, igual que enviar-correo-contacto. Lanza un error si el envío falla.
 export async function enviarCorreoActivacion(correo: string, nombre: string, enlace: string) {
-  const usuarioGmail = Deno.env.get('GMAIL_USER');
-  const transporte = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: { user: usuarioGmail, pass: Deno.env.get('GMAIL_APP_PASSWORD') },
-  });
-
-  await transporte.sendMail({
-    from: `"RedSangre – Banco de Sangre" <${usuarioGmail}>`,
+  await crearTransporte().sendMail({
+    from: remitente(),
     to: correo,
     subject: 'Activa tu cuenta en RedSangre',
     text: [
