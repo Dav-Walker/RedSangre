@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, Legend
 } from 'recharts';
 import styles from './DashboardPage.module.css';
-import { supabase } from '../../supabase';
+import { supabase } from '../../utils/supabase';
 import { Badge } from '../../components/common/Badge';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
@@ -91,6 +91,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     async function cargarDashboard() {
+      if (!supabase) return;
       const [resumen, grupos, activas, donaciones, demanda, donantes] = await Promise.all([
         supabase.from('v_dashboard_resumen').select('*').single(),
         supabase.from('v_dashboard_donantes_por_grupo').select('grupo_sanguineo, disponibles'),

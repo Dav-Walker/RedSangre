@@ -49,7 +49,7 @@ export function SolicitudesListPage() {
       const lista = data ?? [];
 
       const ORDEN_ESTADO: Record<string, number> = { abierta: 0, en_proceso: 1, cerrada: 2 };
-      const ORDEN_URGENCIA: Record<string, number> = { emergencia_vital: 0, alta: 1, media: 2, baja: 3 };
+      const ORDEN_URGENCIA: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 
       lista.sort((a, b) => {
         const estA = ORDEN_ESTADO[obtenerEstadoSolicitud(a.estado)] ?? 1;

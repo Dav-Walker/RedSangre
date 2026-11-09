@@ -20,6 +20,12 @@ export function validarCorreo(correo: string): string | null {
   return null;
 }
 
+// Comentarios - Validar correo de donante
+// Formato básico de correo (algo@dominio.ext) para los donantes, que pueden usar cualquier dominio.
+export function tieneFormatoCorreo(correo: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+}
+
 // Forma única de un correo para detectar duplicados. Gmail ignora los puntos y lo que va después de "+",
 // así que j.perez+x@gmail.com y jperez@gmail.com son el mismo buzón.
 export function correoCanonico(correo: string): string {

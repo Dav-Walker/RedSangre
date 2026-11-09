@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
+import { mesesDesde } from '../../utils/fechas';
 import styles from './NuevaSolicitudPage.module.css';
+
+// Comentarios - Búsqueda de candidatos
+// Milisegundos que se espera después de la última tecla en el fenotipo antes de consultar la base.
+const ESPERA_BUSQUEDA_MS = 350;
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
@@ -22,8 +27,10 @@ interface CandidatoRow {
   compatibilidad: 'exacta' | 'compatible';
 }
 
+// Comentarios - Regla de espera entre donaciones por sexo
+// Motivo por el que un candidato no es apto. La espera (3 o 4 meses según sexo) la decide la base.
 function motivoNoApto(c: CandidatoRow): string {
-  if (!c.disponible) return `En espera (${c.meses_desde_ultima_donacion ?? 0} de 3 meses)`;
+  if (!c.disponible) return `En espera (donó hace ${c.meses_desde_ultima_donacion ?? 0} meses)`;
   if (c.asignado_activo) return 'Asignado a otra solicitud';
   if (!c.puede_contactarse) return 'Sin consentimiento de contacto';
   return 'No disponible';
@@ -31,9 +38,7 @@ function motivoNoApto(c: CandidatoRow): string {
 
 function formatearUltimaDonacion(fecha: string | null): string {
   if (!fecha) return 'sin donaciones previas';
-  const hoy = new Date();
-  const d = new Date(fecha);
-  const meses = (hoy.getFullYear() - d.getFullYear()) * 12 + (hoy.getMonth() - d.getMonth());
+  const meses = mesesDesde(fecha);
   if (meses === 0) return 'donó este mes';
   if (meses === 1) return 'donó hace 1 mes';
   return `donó hace ${meses} meses`;
@@ -50,43 +55,38 @@ export function NuevaSolicitudPage() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Comentarios - Búsqueda de candidatos
+  // Consulta los candidatos compatibles tras una pausa al escribir el fenotipo. Si cambian los filtros antes de
+  // que llegue la respuesta, "vigente" la descarta. fn_buscar_donantes_compatibles ya excluye a los donantes
+  // bloqueados por reacción adversa.
   useEffect(() => {
     if (!supabase || !grupoSanguineo) return;
+    let vigente = true;
 
-    setCargandoCandidatos(true);
-    setCandidatoSeleccionado(null);
-    setError(null);
+    const temporizador = window.setTimeout(async () => {
+      setCargandoCandidatos(true);
+      setCandidatoSeleccionado(null);
+      setError(null);
 
-    supabase
-      .rpc('fn_buscar_donantes_compatibles', {
+      const { data, error: err } = await supabase!.rpc('fn_buscar_donantes_compatibles', {
         p_grupo_requerido: grupoSanguineo,
         p_fenotipo_requerido: fenotipoSearch.trim() || null,
         p_limite: 20,
-      })
-      .then(async ({ data, error: err }) => {
-        if (err) {
-          setCargandoCandidatos(false);
-          setError('Error al buscar candidatos: ' + err.message);
-          return;
-        }
-        const lista = (data as CandidatoRow[]) ?? [];
-
-        const { data: bloqueados, error: errBloq } = lista.length
-          ? await supabase!
-              .from('donante')
-              .select('id')
-              .in('id', lista.map(c => c.donante_id))
-              .eq('reaccion_adversa_previa', true)
-          : { data: [], error: null };
-
-        setCargandoCandidatos(false);
-        if (errBloq) {
-          setError('Error al verificar candidatos: ' + errBloq.message);
-          return;
-        }
-        const idsBloqueados = new Set((bloqueados ?? []).map((d: { id: string }) => d.id));
-        setCandidatos(lista.filter(c => !idsBloqueados.has(c.donante_id)));
       });
+      if (!vigente) return;
+
+      setCargandoCandidatos(false);
+      if (err) {
+        setError('Error al buscar candidatos: ' + err.message);
+        return;
+      }
+      setCandidatos((data as CandidatoRow[]) ?? []);
+    }, ESPERA_BUSQUEDA_MS);
+
+    return () => {
+      vigente = false;
+      window.clearTimeout(temporizador);
+    };
   }, [grupoSanguineo, fenotipoSearch]);
 
   const handleCrearSolicitud = async () => {
@@ -172,7 +172,6 @@ export function NuevaSolicitudPage() {
                 <option value="baja">Baja (Programada)</option>
                 <option value="media">Media (24 a 48 hrs)</option>
                 <option value="alta">Alta (Menos de 24 hrs)</option>
-                <option value="emergencia_vital">Emergencia vital (Inmediata)</option>
               </select>
               <div className={styles.selectIcon}>▼</div>
             </div>

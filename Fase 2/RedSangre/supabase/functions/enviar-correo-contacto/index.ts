@@ -13,7 +13,9 @@ function responder(cuerpo: unknown, status = 200) {
 const CONTACTO_BANCO = '+56 9 3640 5976 o al correo redsangre.notificaciones@gmail.com';
 
 function textoCorreo(nombre: string, codigoSolicitud: string, grupo: string, urgencia: string) {
-  const urgente = urgencia === 'alta' || urgencia === 'emergencia vital';
+  // Comentarios - Urgencia de la solicitud
+  // urgencia_enum solo tiene alta, media y baja; la urgencia alta usa el texto de necesidad urgente.
+  const urgente = urgencia === 'alta';
   const frase = urgente
     ? `Existe una necesidad urgente de sangre del grupo ${grupo}.`
     : `Existe una necesidad de sangre del grupo ${grupo}, con fecha por confirmar.`;

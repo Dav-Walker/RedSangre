@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../utils/supabase';
 import { AuthContext, type UserProfile } from './auth-context';
@@ -25,12 +25,28 @@ function mensajeErrorDosPasos(codigo: string | undefined): string {
   }
 }
 
+// Comentarios - Carga del perfil de usuario
+// Lee el perfil (tabla usuario) del usuario autenticado. Devuelve null si no existe o no se pudo leer.
+async function cargarPerfil(id: string): Promise<UserProfile | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('usuario')
+    .select('id, nombre, apellido, correo, rol, activo, debe_cambiar_password')
+    .eq('id', id)
+    .single();
+  return error ? null : data;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(isSupabaseConfigured);
   const userId = session?.user.id;
-  const cuentaDesactivada = useRef(false);
+  // Comentarios - Carga del perfil de usuario
+  // authListo: ya llegó el primer evento de Auth. perfilCargadoDe: id del usuario cuyo perfil ya se leyó.
+  // La app espera ambos antes de mostrar rutas, para que las rutas por rol no vean un perfil vacío.
+  const [authListo, setAuthListo] = useState(!isSupabaseConfigured);
+  const [perfilCargadoDe, setPerfilCargadoDe] = useState<string | null>(null);
+  const loading = !authListo || (userId !== undefined && perfilCargadoDe !== userId);
   // Comentarios - Límite de sesión de 1 hora
   // Hora de inicio de la sesión actual; es la misma aunque el token se renueve, así el temporizador no se reinicia
   const [sesionExpirada, setSesionExpirada] = useState(false);
@@ -42,35 +58,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+    // Comentarios - Carga del perfil de usuario
+    // El callback solo guarda la sesión. Supabase advierte que esperar otras consultas dentro de
+    // onAuthStateChange puede bloquear el cliente, así que el perfil se carga en el efecto siguiente.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession);
-
-      if (currentSession?.user) {
-        const { data: profile, error } = await supabase!
-          .from('usuario')
-          .select('*')
-          .eq('id', currentSession.user.id)
-          .single();
-
-        if (!error && profile && !profile.activo) {
-          cuentaDesactivada.current = true;
-          setSession(null);
-          setUser(null);
-          void supabase!.auth.signOut();
-        } else if (!error && profile) {
-          setUser(profile);
-        } else {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-
-      setLoading(false);
+      if (!currentSession) setUser(null);
+      setAuthListo(true);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Comentarios - Carga del perfil de usuario
+  // Cada vez que cambia el usuario de la sesión, lee su perfil. Si la cuenta está desactivada, cierra la sesión.
+  // "vigente" descarta la respuesta si el usuario cambió mientras se esperaba.
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let vigente = true;
+
+    void cargarPerfil(userId).then((perfil) => {
+      if (!vigente) return;
+      if (perfil && !perfil.activo) {
+        setSession(null);
+        setUser(null);
+        void supabase!.auth.signOut();
+      } else {
+        setUser(perfil);
+      }
+      setPerfilCargadoDe(userId);
+    });
+
+    return () => { vigente = false; };
+  }, [userId]);
 
   // Presence: cada sesión se anuncia en su propio canal privado (presencia:<id>).
   // Solo el dueño del canal y el administrador pueden leerlo (RLS en realtime.messages).
@@ -120,7 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string, captchaToken?: string) => {
     if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
 
-    cuentaDesactivada.current = false;
     setSesionExpirada(false);
     // Comentarios - Captcha en inicio de sesión
     // Envía el token de Turnstile a Supabase Auth, que lo verifica antes de validar la contraseña
@@ -131,27 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : error.message;
     }
 
-    setSession(data.session);
-
-    if (data.user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('usuario')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (!profileError && profile && !profile.activo) {
-        cuentaDesactivada.current = true;
-      } else if (!profileError && profile) {
-        setUser(profile);
-      }
-
-      if (cuentaDesactivada.current) {
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        return MENSAJE_CUENTA_DESACTIVADA;
-      }
+    // Comentarios - Carga del perfil de usuario
+    // Revisa aquí si la cuenta está desactivada para devolver el mensaje a la pantalla de login.
+    // La sesión y el perfil los guardan onAuthStateChange y el efecto de carga del perfil.
+    const perfil = await cargarPerfil(data.user.id);
+    if (perfil && !perfil.activo) {
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      return MENSAJE_CUENTA_DESACTIVADA;
     }
 
     return null;

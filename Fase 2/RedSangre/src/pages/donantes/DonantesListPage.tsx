@@ -1,9 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import styles from './DonantesListPage.module.css';
 import { supabase } from '../../utils/supabase';
+import { mesesDesde } from '../../utils/fechas';
+import { valorFiltro } from '../../utils/filtrosPostgrest';
+
+// Comentarios - Búsqueda de donantes
+// Milisegundos que se espera después de la última tecla antes de consultar la base.
+const ESPERA_BUSQUEDA_MS = 350;
 
 interface Donante {
   id: string;
@@ -33,9 +39,7 @@ const ETIQUETAS_DISPONIBLES = [
 
 function calcularUltimaDonacion(fecha: string | null): string {
   if (!fecha) return '-';
-  const hoy = new Date();
-  const donacion = new Date(fecha);
-  const meses = (hoy.getFullYear() - donacion.getFullYear()) * 12 + (hoy.getMonth() - donacion.getMonth());
+  const meses = mesesDesde(fecha);
   if (meses === 0) return 'este mes';
   if (meses === 1) return 'hace 1 mes';
   return `hace ${meses} meses`;
@@ -53,10 +57,26 @@ export function DonantesListPage() {
   const [paginaActual, setPaginaActual] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
   const [totalDonantes, setTotalDonantes] = useState(0);
+  // Comentarios - Búsqueda de donantes
+  // Textos que realmente se consultan. Se copian desde los campos tras una pausa al escribir,
+  // o de inmediato con Enter o la lupa, para no consultar la base en cada tecla.
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
+  const [fenotipoAplicado, setFenotipoAplicado] = useState('');
+  // Número de la última consulta enviada: una respuesta de una consulta anterior se descarta.
+  const ultimaConsulta = useRef(0);
 
   const totalPaginas = Math.max(1, Math.ceil(totalDonantes / porPagina));
 
+  useEffect(() => {
+    const temporizador = window.setTimeout(() => {
+      setBusquedaAplicada(textoBusqueda.trim());
+      setFenotipoAplicado(filtroFenotipo.trim());
+    }, ESPERA_BUSQUEDA_MS);
+    return () => window.clearTimeout(temporizador);
+  }, [textoBusqueda, filtroFenotipo]);
+
   const cargarDonantes = useCallback(async () => {
+    const consulta = ++ultimaConsulta.current;
     setCargando(true);
     setError(null);
 
@@ -76,16 +96,18 @@ export function DonantesListPage() {
       .order('codigo_donante', { ascending: false });
 
     if (filtroGrupo) query = query.eq('grupo_sanguineo', filtroGrupo);
-    if (filtroFenotipo) query = query.ilike('fenotipo', `%${filtroFenotipo}%`);
-    if (textoBusqueda) {
-      query = query.or(
-        `nombre.ilike.%${textoBusqueda}%,apellido.ilike.%${textoBusqueda}%,rut.ilike.%${textoBusqueda}%`
-      );
+    if (fenotipoAplicado) query = query.ilike('fenotipo', `%${fenotipoAplicado}%`);
+    if (busquedaAplicada) {
+      // Comentarios - Búsqueda segura en filtros .or()
+      // El texto va entre comillas para que comas o paréntesis escritos por el usuario no rompan el filtro.
+      const patron = valorFiltro(`%${busquedaAplicada}%`);
+      query = query.or(`nombre.ilike.${patron},apellido.ilike.${patron},rut.ilike.${patron}`);
     }
     if (filtroEtiqueta === 'Fenotipo sanguíneo raro') query = query.eq('fenotipo_raro', true);
     else if (filtroEtiqueta === 'Donante de plaquetas') query = query.eq('frecuente_plaquetas', true);
     else if (idsConEtiqueta !== null) {
       if (idsConEtiqueta.length === 0) {
+        if (consulta !== ultimaConsulta.current) return;
         setDonantes([]);
         setTotalDonantes(0);
         setCargando(false);
@@ -100,6 +122,10 @@ export function DonantesListPage() {
 
     const { data, error: err, count } = await query;
 
+    // Comentarios - Búsqueda de donantes
+    // Si mientras tanto se envió otra consulta, esta respuesta ya no corresponde a los filtros actuales.
+    if (consulta !== ultimaConsulta.current) return;
+
     if (err) {
       setError('No se pudieron cargar los donantes.');
     } else {
@@ -107,15 +133,18 @@ export function DonantesListPage() {
       setTotalDonantes(count || 0);
     }
     setCargando(false);
-  }, [paginaActual, porPagina, filtroGrupo, filtroFenotipo, filtroEtiqueta, textoBusqueda]);
+  }, [paginaActual, porPagina, filtroGrupo, fenotipoAplicado, filtroEtiqueta, busquedaAplicada]);
 
   useEffect(() => {
     cargarDonantes();
   }, [cargarDonantes]);
 
+  // Comentarios - Búsqueda de donantes
+  // Enter o la lupa aplican la búsqueda de inmediato; el efecto de arriba hace la consulta una sola vez.
   const handleBuscar = () => {
     setPaginaActual(1);
-    cargarDonantes();
+    setBusquedaAplicada(textoBusqueda.trim());
+    setFenotipoAplicado(filtroFenotipo.trim());
   };
 
   const handleLimpiarFiltros = () => {
@@ -123,6 +152,8 @@ export function DonantesListPage() {
     setFiltroGrupo('');
     setFiltroFenotipo('');
     setFiltroEtiqueta('');
+    setBusquedaAplicada('');
+    setFenotipoAplicado('');
     setPaginaActual(1);
   };
 

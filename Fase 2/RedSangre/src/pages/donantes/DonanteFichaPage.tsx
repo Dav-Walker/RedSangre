@@ -5,6 +5,12 @@ import { Badge } from '../../components/common/Badge';
 import styles from './DonanteFichaPage.module.css';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../contexts/useAuth';
+import { formatearFecha, hoyISO, mesesDesde } from '../../utils/fechas';
+import { tieneFormatoCorreo } from '../../utils/validacionCorreo';
+
+// Comentarios - Regla de espera entre donaciones por sexo
+// Valores permitidos por la columna donante.sexo. Define la espera entre donaciones (3 o 4 meses).
+const OPCIONES_SEXO = ['Femenino', 'Masculino', 'No especifica'];
 
 interface DonanteDetalle {
   id: string;
@@ -12,7 +18,7 @@ interface DonanteDetalle {
   nombre: string;
   apellido: string;
   rut: string;
-  sexo?: string; // <--- Agregamos sexo para la regla médica
+  sexo: string | null;
   correo: string | null;
   telefono: string | null;
   grupo_sanguineo: string;
@@ -27,17 +33,11 @@ interface DonanteDetalle {
 
 function calcularUltimaDonacion(fecha: string | null): string {
   if (!fecha) return '-';
-  const hoy = new Date();
-  const donacion = new Date(fecha);
-  const meses = (hoy.getFullYear() - donacion.getFullYear()) * 12 + (hoy.getMonth() - donacion.getMonth());
-  const fechaFormateada = donacion.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const meses = mesesDesde(fecha);
+  const fechaFormateada = formatearFecha(fecha);
   if (meses === 0) return `${fechaFormateada} (este mes)`;
   if (meses === 1) return `${fechaFormateada} (hace 1 mes)`;
   return `${fechaFormateada} (hace ${meses} meses)`;
-}
-
-function hoyISO(): string {
-  return new Date().toLocaleDateString('en-CA'); // Formato AAAA-MM-DD en hora local
 }
 
 type ConsentState = { acepta_cookies: boolean; autoriza_contacto: boolean };
@@ -123,6 +123,13 @@ export function DonanteFichaPage() {
   const handleGuardar = async () => {
     if (!donante) return;
 
+    // Comentarios - Validar correo de donante
+    // El correo es opcional, pero si se escribe debe tener formato válido para poder enviarle avisos.
+    if (donante.correo?.trim() && !tieneFormatoCorreo(donante.correo)) {
+      setError('El correo del donante no tiene un formato válido.');
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
@@ -133,7 +140,8 @@ export function DonanteFichaPage() {
       .update({
         nombre: donante.nombre,
         apellido: donante.apellido,
-        correo: donante.correo || null,
+        sexo: donante.sexo || null,
+        correo: donante.correo?.trim() || null,
         telefono: donante.telefono || null,
         ubicacion: donante.ubicacion || null,
         observaciones: donante.observaciones || null,
@@ -176,17 +184,25 @@ export function DonanteFichaPage() {
       setConsentimiento(consentimientoEdit);
     }
 
-    // Sincronizar etiquetas genéricas: borrar las existentes y reinsertar las seleccionadas
-    await supabase!
+    // Comentarios - Guardar etiquetas del donante
+    // Sincroniza las etiquetas genéricas: borra las existentes y reinserta las seleccionadas.
+    // Si alguna operación falla, se avisa y la ficha queda en modo edición para reintentar.
+    const { error: errBorrar } = await supabase!
       .from('etiqueta_donante')
       .delete()
       .eq('donante_id', donante.id)
       .in('etiqueta', ETIQUETAS_GENERICAS);
 
-    if (etiquetasEdit.length > 0) {
-      await supabase!
+    const { error: errInsertar } = !errBorrar && etiquetasEdit.length > 0
+      ? await supabase!
         .from('etiqueta_donante')
-        .insert(etiquetasEdit.map(e => ({ donante_id: donante.id, etiqueta: e })));
+        .insert(etiquetasEdit.map(e => ({ donante_id: donante.id, etiqueta: e })))
+      : { error: null };
+
+    if (errBorrar || errInsertar) {
+      setGuardando(false);
+      setError('Los datos se guardaron, pero no se pudieron actualizar las etiquetas: ' + (errBorrar ?? errInsertar)!.message);
+      return;
     }
 
     const etiquetasNoGenericas = etiquetas.filter(e => !ETIQUETAS_GENERICAS.includes(e));
@@ -211,28 +227,33 @@ export function DonanteFichaPage() {
     if (!donante || donante.reaccion_adversa_previa) return;
     setError(null);
 
-    // ==========================================
-    // REGLA MÉDICA DE INTERVALO DE DONACIÓN
-    // ==========================================
-    if (donante.fecha_ultima_donacion) {
-      const ultimaDonacion = new Date(donante.fecha_ultima_donacion);
-      const nuevaDonacion = new Date(fechaDonacion);
-      
-      // Hombres: cada 3 meses | Mujeres o No especifica: cada 4 meses
-      const mesesRequeridos = donante.sexo === 'Masculino' ? 3 : 4;
-      
-      // Calculamos la fecha mínima permitida sumando los meses requeridos a la última donación
-      const fechaPermitida = new Date(ultimaDonacion);
-      fechaPermitida.setMonth(fechaPermitida.getMonth() + mesesRequeridos);
+    setRegistrandoDonacion(true);
 
-      if (nuevaDonacion < fechaPermitida) {
-        setError(`No se puede registrar la donación. Según el sexo (${donante.sexo || 'No especifica'}), debe esperar un intervalo mínimo de ${mesesRequeridos} meses entre donaciones (Aún debe esperar hasta el ${fechaPermitida.toLocaleDateString('es-CL')}).`);
+    // Comentarios - Regla de espera entre donaciones por sexo
+    // La base calcula desde qué fecha puede volver a donar (3 meses hombres o sin dato, 4 mujeres y "No especifica").
+    // Las fechas 'AAAA-MM-DD' se comparan como texto, sin pasar por Date, para no desfasarlas por la zona horaria.
+    if (donante.fecha_ultima_donacion) {
+      const { data: fechaPermitida, error: errFecha } = await supabase!.rpc('fn_fecha_proxima_donacion', {
+        p_ultima: donante.fecha_ultima_donacion,
+        p_sexo: donante.sexo,
+      });
+
+      if (errFecha || typeof fechaPermitida !== 'string') {
+        setRegistrandoDonacion(false);
+        setError('No se pudo verificar la regla de espera entre donaciones. Intenta nuevamente.');
+        return;
+      }
+      if (fechaDonacion < fechaPermitida) {
+        setRegistrandoDonacion(false);
+        setError(`No se puede registrar la donación. Según la regla de espera (${donante.sexo ?? 'sexo no registrado'}), el donante puede volver a donar desde el ${formatearFecha(fechaPermitida)}.`);
         return;
       }
     }
 
-    setRegistrandoDonacion(true);
-
+    // Comentarios - Registrar donación
+    // El detalle solo se envía si hubo reacción: la base marca hubo_reaccion cuando recibe un detalle,
+    // y eso bloquea al donante. El trigger fn_aplicar_donacion actualiza la fecha de última donación
+    // (sin retroceder si se carga una donación antigua) y la marca de reacción adversa.
     const { error: donacionErr } = await supabase!
       .from('donacion')
       .insert({
@@ -240,7 +261,7 @@ export function DonanteFichaPage() {
         fecha_donacion: fechaDonacion,
         tipo: tipoDonacion,
         hubo_reaccion: huboReaccion,
-        detalle_reaccion: detalleReaccion.trim() || null,
+        detalle_reaccion: huboReaccion ? detalleReaccion.trim() || null : null,
         registrado_por: user?.id ?? null,
       });
 
@@ -250,26 +271,22 @@ export function DonanteFichaPage() {
       return;
     }
 
-    const actualizacionDonante: Record<string, unknown> = { fecha_ultima_donacion: fechaDonacion };
-    if (huboReaccion) actualizacionDonante.reaccion_adversa_previa = true;
-
-    const { error: donanteErr } = await supabase!
+    // Comentarios - Registrar donación
+    // Relee los campos que actualizó el trigger para mostrar los valores reales de la base.
+    const { data: actualizado, error: errReleer } = await supabase!
       .from('donante')
-      .update(actualizacionDonante)
-      .eq('id', donante.id);
+      .select('fecha_ultima_donacion, reaccion_adversa_previa')
+      .eq('id', donante.id)
+      .single();
 
     setRegistrandoDonacion(false);
 
-    if (donanteErr) {
-      setError('Donación registrada, pero error al actualizar el donante: ' + donanteErr.message);
+    if (errReleer || !actualizado) {
+      setError('Donación registrada, pero no se pudo actualizar la ficha. Recarga la página.');
       return;
     }
 
-    const donanteActualizado = {
-      ...donante,
-      fecha_ultima_donacion: fechaDonacion,
-      ...(huboReaccion ? { reaccion_adversa_previa: true } : {}),
-    };
+    const donanteActualizado = { ...donante, ...actualizado };
     setDonante(donanteActualizado);
     setDonanteOriginal(donanteActualizado);
     resetPanelDonacion();
@@ -326,6 +343,24 @@ export function DonanteFichaPage() {
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>RUT</span>
             <span className={styles.valorDato}>{donante.rut}</span>
+          </div>
+
+          {/* Comentarios - Regla de espera entre donaciones por sexo */}
+          {/* Sexo del donante: define si espera 3 o 4 meses entre donaciones. Editable para completar donantes antiguos. */}
+          <div className={styles.filaDatos}>
+            <span className={styles.etiquetaDato}>Sexo</span>
+            {isEditing ? (
+              <select
+                className={styles.inputEdit}
+                value={donante.sexo ?? ''}
+                onChange={(e) => setDonante({ ...donante, sexo: e.target.value || null })}
+              >
+                <option value="">Sin registrar</option>
+                {OPCIONES_SEXO.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <span className={styles.valorDato}>{donante.sexo ?? 'Sin registrar'}</span>
+            )}
           </div>
 
           <div className={styles.filaDatos}>
@@ -495,7 +530,7 @@ export function DonanteFichaPage() {
             <button className={styles.botonCancelar} onClick={handleCancelar} disabled={guardando}>
               Cancelar
             </button>
-            <Button texto={guardando ? 'Guardando...' : 'Guardar cambios'} onClick={handleGuardar} />
+            <Button texto={guardando ? 'Guardando...' : 'Guardar cambios'} onClick={handleGuardar} disabled={guardando} />
           </div>
         ) : (
           <div className={styles.botonesPie}>
@@ -578,16 +613,20 @@ export function DonanteFichaPage() {
               </p>
             )}
 
-            <div className={styles.filaPanelDonacion}>
-              <span className={styles.labelDonacion}>Observaciones</span>
-              <textarea
-                className={styles.textareaReaccion}
-                placeholder="Describe brevemente lo ocurrido..."
-                rows={3}
-                value={detalleReaccion}
-                onChange={e => setDetalleReaccion(e.target.value)}
-              />
-            </div>
+            {/* Comentarios - Registrar donación */}
+            {/* El detalle solo se pide si hubo reacción: cualquier detalle guardado marca la reacción y bloquea al donante. */}
+            {huboReaccion && (
+              <div className={styles.filaPanelDonacion}>
+                <span className={styles.labelDonacion}>Detalle de la reacción</span>
+                <textarea
+                  className={styles.textareaReaccion}
+                  placeholder="Describe brevemente lo ocurrido..."
+                  rows={3}
+                  value={detalleReaccion}
+                  onChange={e => setDetalleReaccion(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className={styles.botonesPanel}>
               <button className={styles.botonCancelar} onClick={resetPanelDonacion} disabled={registrandoDonacion}>

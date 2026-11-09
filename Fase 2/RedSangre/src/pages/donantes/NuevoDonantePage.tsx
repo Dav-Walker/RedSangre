@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
-import { useAuth } from '../../contexts/useAuth';
+import { hoyISO } from '../../utils/fechas';
 import styles from './NuevoDonantePage.module.css';
 
 const REGIONES_CHILE: Record<string, string[]> = {
@@ -43,7 +43,6 @@ const FENOTIPOS_EXTENDIDOS = [
 
 export function NuevoDonantePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [form, setForm] = useState({
     nombre: '',
@@ -55,6 +54,7 @@ export function NuevoDonantePage() {
     region: '',
     comuna: '',
     grupoSanguineo: '',
+    fechaUltimaDonacion: '',
     observaciones: '',
   });
 
@@ -115,20 +115,23 @@ export function NuevoDonantePage() {
       return;
     }
 
-    // VALIDACIÓN ESTRICTA DE COOKIES
-    if (!consentCookies) {
-      setError('Debe aceptar la política de cookies y tratamiento de datos para registrar al donante.');
+    // Comentarios - Registro atómico de donante
+    // fn_registrar_donante exige ambos consentimientos; se avisa antes de llamar a la base.
+    if (!consentCookies || !consentContacto) {
+      setError('Debe aceptar el tratamiento de datos y la autorización de contacto para registrar al donante.');
       return;
     }
 
     const camposFaltantes = [];
     if (!form.nombre.trim()) camposFaltantes.push('Nombre');
     if (!form.apellido.trim()) camposFaltantes.push('Apellido');
+    if (!form.telefono.trim()) camposFaltantes.push('Teléfono');
     if (!form.rut.trim()) camposFaltantes.push('RUT');
     if (!form.sexo) camposFaltantes.push('Sexo');
     if (!form.region) camposFaltantes.push('Región');
     if (!form.comuna) camposFaltantes.push('Comuna');
     if (!form.grupoSanguineo) camposFaltantes.push('Grupo Sanguíneo');
+    if (!form.fechaUltimaDonacion) camposFaltantes.push('Fecha de última donación');
     if (camposFaltantes.length > 0) {
       setError(`Campos obligatorios incompletos: ${camposFaltantes.join(', ')}.`);
       return;
@@ -141,59 +144,36 @@ export function NuevoDonantePage() {
     setLoading(true);
     setError(null);
 
-    try {
-      const { data: donante, error: donanteError } = await supabase
-        .from('donante')
-        .insert({
-          nombre: form.nombre.trim(),
-          apellido: form.apellido.trim(),
-          correo: form.correo.trim() || null,
-          telefono: form.telefono.trim() || null,
-          rut: form.rut.trim(),
-          grupo_sanguineo: form.grupoSanguineo,
-          fenotipo: fenotipoTexto || null,
-          fenotipo_raro: etiquetasSeleccionadas.includes('Fenotipo sanguíneo raro'),
-          frecuente_plaquetas: etiquetasSeleccionadas.includes('Donante de plaquetas'),
-          observaciones: form.observaciones.trim() || null,
-          comuna: form.comuna || null,
-          reaccion_adversa_previa: reaccionAdversaPrevia,
-          sincronizado_registro_global: false,
-        })
-        .select('id')
-        .single();
+    // Comentarios - Registro atómico de donante
+    // Guarda donante, consentimiento y etiquetas en una sola transacción con fn_registrar_donante:
+    // si algo falla, no queda un donante sin consentimiento. La ubicación va como "Comuna, Región";
+    // la base deriva de ahí la comuna y las coordenadas para medir la cercanía.
+    const { error: errorRegistro } = await supabase.rpc('fn_registrar_donante', {
+      p_nombre: form.nombre.trim(),
+      p_apellido: form.apellido.trim(),
+      p_rut: form.rut.trim(),
+      p_grupo_sanguineo: form.grupoSanguineo,
+      p_telefono: form.telefono.trim(),
+      p_fecha_ultima_donacion: form.fechaUltimaDonacion,
+      p_acepta_cookies: consentCookies,
+      p_autoriza_contacto: consentContacto,
+      p_correo: form.correo.trim() || null,
+      p_fenotipo: fenotipoTexto || null,
+      p_ubicacion: `${form.comuna}, ${form.region}`,
+      p_observaciones: form.observaciones.trim() || null,
+      p_fenotipo_raro: etiquetasSeleccionadas.includes('Fenotipo sanguíneo raro'),
+      p_frecuente_plaquetas: etiquetasSeleccionadas.includes('Donante de plaquetas'),
+      p_reaccion_adversa: reaccionAdversaPrevia,
+      p_etiquetas: etiquetasSeleccionadas,
+      p_sexo: form.sexo,
+    });
 
-      if (donanteError) throw donanteError;
-
-      const donanteId = donante.id;
-
-      const { error: consentError } = await supabase
-        .from('consentimiento')
-        .insert({
-          donante_id: donanteId,
-          acepta_cookies: consentCookies,
-          fecha_cookies: consentCookies ? new Date().toISOString() : null,
-          autoriza_contacto: consentContacto,
-          fecha_autoriza_contacto: consentContacto ? new Date().toISOString() : null,
-          registrado_por: user?.id ?? null,
-        });
-
-      if (consentError) throw consentError;
-
-      if (etiquetasSeleccionadas.length > 0) {
-        const { error: etiquetasError } = await supabase
-          .from('etiqueta_donante')
-          .insert(
-            etiquetasSeleccionadas.map(e => ({ donante_id: donanteId, etiqueta: e }))
-          );
-        if (etiquetasError) throw etiquetasError;
-      }
-
-      navigate('/donantes');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al guardar el donante.');
-    } finally {
-      setLoading(false);
+    setLoading(false);
+    if (errorRegistro) {
+      setError('Error al guardar el donante: ' + errorRegistro.message);
+      return;
     }
+    navigate('/donantes');
   };
 
   return (
@@ -254,7 +234,7 @@ export function NuevoDonantePage() {
           </div>
 
           <div className={styles.grupoInput}>
-            <label className={styles.label}>Número telefónico</label>
+            <label className={styles.label}>Número telefónico <span className={styles.requerido}>*</span></label>
             <input
               type="tel"
               name="telefono"
@@ -378,6 +358,23 @@ export function NuevoDonantePage() {
             </div>
           </div>
 
+          {/* Comentarios - Registro atómico de donante */}
+          {/* Fecha de la última donación: la exige fn_registrar_donante y define cuándo puede volver a donar. */}
+          <div className={styles.grupoInput}>
+            <label className={styles.label} htmlFor="fecha-ultima-donacion">
+              Fecha de última donación <span className={styles.requerido}>*</span>
+            </label>
+            <input
+              id="fecha-ultima-donacion"
+              type="date"
+              name="fechaUltimaDonacion"
+              className={styles.input}
+              value={form.fechaUltimaDonacion}
+              max={hoyISO()}
+              onChange={handleChange}
+            />
+          </div>
+
         </div>
 
         <div className={styles.panelDerecho} style={{ textAlign: 'left', justifyContent: 'center', display: 'flex', flexDirection: 'column' }}>
@@ -445,7 +442,7 @@ export function NuevoDonantePage() {
               onChange={e => setConsentContacto(e.target.checked)}
             />
             <label htmlFor="ck2" className={styles.checkboxLabel}>
-              Autoriza a ser contactado telefónicamente ante una necesidad de transfusión compatible
+              Autoriza ser contactado (teléfono, correo o WhatsApp) ante una necesidad de transfusión compatible <span className={styles.requerido}>*</span>
             </label>
           </div>
 
