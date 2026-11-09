@@ -1,6 +1,10 @@
+// Comentarios - Colores de Badge
+// Colores disponibles; se exporta el tipo para que las páginas no tengan que usar "as any".
+export type ColorBadge = 'morado' | 'azul' | 'gris' | 'verde' | 'naranja' | 'rojo';
+
 interface BadgeProps {
   texto: string;
-  color: 'morado' | 'azul' | 'gris' | 'verde' | 'naranja' | 'rojo';
+  color: ColorBadge;
 }
 
 export function Badge({ texto, color }: BadgeProps) {

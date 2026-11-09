@@ -64,8 +64,8 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
 
     setGuardando(true);
 
-    const { data: { session } } = await supabase!.auth.getSession();
-    const { data, error } = await supabase!.functions.invoke('cambiar-contrasena', {
+    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('cambiar-contrasena', {
       body: { usuario_id: usuario.id, nueva_contrasena: nuevaContrasena },
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
@@ -90,7 +90,7 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setErrorEstado(null);
 
     const nuevoEstado = !usuario.activo;
-    const { error } = await supabase!
+    const { error } = await supabase
       .from('usuario')
       .update({ activo: nuevoEstado })
       .eq('id', usuario.id);
@@ -111,8 +111,8 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setReenviando(true);
     setAvisoReenvio(null);
 
-    const { data: { session } } = await supabase!.auth.getSession();
-    const { data, error } = await supabase!.functions.invoke('reenviar-activacion', {
+    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('reenviar-activacion', {
       body: { usuario_id: usuario.id },
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });

@@ -1,26 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge } from '../../components/common/Badge';
+import { Badge, type ColorBadge } from '../../components/common/Badge';
 import { supabase } from '../../utils/supabase';
+import { leerMensajeError } from '../../utils/mensajeErrorFuncion';
+import type { Donante, ResultadoContacto, Solicitud } from '../../tipos/dominio';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud, type EstadoSolicitud } from '../../utils/estadosSolicitud';
 import styles from './SolicitudDetallePage.module.css';
 
-const BADGES_CORREO: Record<string, { texto: string; color: string }> = {
+// Comentarios - Tipos de la base de datos
+// Solicitud con los datos de contacto del donante asignado (relación donante_asignado_id).
+type SolicitudConDonante = Solicitud & {
+  donante: Pick<Donante, 'id' | 'rut' | 'nombre' | 'apellido' | 'correo' | 'telefono'> | null;
+};
+
+const BADGES_CORREO: Record<ResultadoContacto, { texto: string; color: ColorBadge }> = {
   enviado: { texto: 'Enviado', color: 'rojo' },
   confirmado: { texto: 'Confirmado', color: 'verde' },
   sin_respuesta: { texto: 'Sin respuesta', color: 'gris' },
   rechazado: { texto: 'Rechazado', color: 'gris' },
 };
 
+// Comentarios - Bitácora de contacto
+// Resultado del último correo registrado para la solicitud, o null si aún no se envía ninguno.
+async function consultarUltimoCorreo(solicitudId: string): Promise<ResultadoContacto | null> {
+  const { data } = await supabase
+    .from('seguimiento_contacto')
+    .select('resultado')
+    .eq('solicitud_id', solicitudId)
+    .eq('canal', 'correo')
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.resultado ?? null;
+}
+
 export function SolicitudDetallePage() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const [solicitud, setSolicitud] = useState<any>(null);
+  const [solicitud, setSolicitud] = useState<SolicitudConDonante | null>(null);
   const [cargando, setCargando] = useState(true);
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [mensajeCorreo, setMensajeCorreo] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
-  const [ultimoCorreo, setUltimoCorreo] = useState<string | null>(null);
+  const [ultimoCorreo, setUltimoCorreo] = useState<ResultadoContacto | null>(null);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [mensajeEstado, setMensajeEstado] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +61,7 @@ export function SolicitudDetallePage() {
       setError(null);
 
       // 1. Buscamos por 'codigo_solicitud' solicitando explícitamente 'rut'
-      let { data, error: err } = await supabase!
+      let { data, error: err } = await supabase
         .from('solicitud')
         .select('*, donante:donante_asignado_id (id, rut, nombre, apellido, correo, telefono)')
         .eq('codigo_solicitud', id)
@@ -47,7 +69,7 @@ export function SolicitudDetallePage() {
 
       // 2. Si no lo encuentra por código, intentamos por 'id'
       if (!data && !err) {
-        const resId = await supabase!
+        const resId = await supabase
           .from('solicitud')
           .select('*, donante:donante_asignado_id (id, rut, nombre, apellido, correo, telefono)')
           .eq('id', id)
@@ -63,39 +85,26 @@ export function SolicitudDetallePage() {
       }
 
       setSolicitud(data);
-      await cargarUltimoCorreo(data.id);
+      setUltimoCorreo(await consultarUltimoCorreo(data.id));
       setCargando(false);
     }
 
     cargarDetalleSolicitud();
   }, [id]);
 
-  const cargarUltimoCorreo = async (solicitudId: string) => {
-    const { data } = await supabase!
-      .from('seguimiento_contacto')
-      .select('resultado')
-      .eq('solicitud_id', solicitudId)
-      .eq('canal', 'correo')
-      .order('fecha', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setUltimoCorreo(data?.resultado ?? null);
-  };
-
   const handleEnviarCorreo = async () => {
     if (!solicitud) return;
     setEnviandoCorreo(true);
     setMensajeCorreo(null);
 
-    const { data, error: errFuncion } = await supabase!.functions.invoke('enviar-correo-contacto', {
+    const { data, error: errFuncion } = await supabase.functions.invoke('enviar-correo-contacto', {
       body: { solicitud_id: solicitud.id },
     });
 
     setEnviandoCorreo(false);
 
     if (errFuncion) {
-      const cuerpo = await (errFuncion as any).context?.json?.().catch(() => null);
-      setMensajeCorreo({ tipo: 'error', texto: cuerpo?.error ?? 'No se pudo enviar el correo.' });
+      setMensajeCorreo({ tipo: 'error', texto: await leerMensajeError(errFuncion, 'No se pudo enviar el correo.') });
       return;
     }
     if (data?.error) {
@@ -103,7 +112,7 @@ export function SolicitudDetallePage() {
       return;
     }
     setMensajeCorreo({ tipo: 'ok', texto: 'Correo enviado y registrado en la bitácora.' });
-    await cargarUltimoCorreo(solicitud.id);
+    setUltimoCorreo(await consultarUltimoCorreo(solicitud.id));
   };
 
   const handleCambiarEstado = async (nuevoEstado: EstadoSolicitud) => {
@@ -120,7 +129,7 @@ export function SolicitudDetallePage() {
       ? { estado: nuevoEstado, fecha_cierre: new Date().toLocaleDateString('en-CA') }
       : { estado: nuevoEstado };
 
-    const { data, error: errUpdate } = await supabase!
+    const { data, error: errUpdate } = await supabase
       .from('solicitud')
       .update(cambios)
       .eq('id', solicitud.id)
@@ -164,7 +173,7 @@ export function SolicitudDetallePage() {
 
   const handleEnviarWhatsApp = () => {
     const telefonoRaw = solicitud?.donante?.telefono ?? '';
-    const limpio = telefonoRaw.replace(/[\s\-\+]/g, '');
+    const limpio = telefonoRaw.replace(/[\s\-+]/g, '');
     const numero = limpio.startsWith('56') ? limpio : '56' + limpio;
     const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensajeWsp)}`;
     window.open(url, '_blank');
@@ -173,7 +182,7 @@ export function SolicitudDetallePage() {
 
   // LÓGICA DE LLAMADA Y DETECCIÓN DE PC
   const handleLlamar = () => {
-    const telefono = solicitud.donante?.telefono;
+    const telefono = solicitud?.donante?.telefono;
     
     if (!telefono) {
       alert('El donante asignado no tiene un número de teléfono registrado.');
@@ -322,7 +331,7 @@ export function SolicitudDetallePage() {
             <span className={styles.bitacoraEtiqueta}>Correo</span>
             <div className={styles.bitacoraCelda}>
               {ultimoCorreo ? (
-                <Badge texto={BADGES_CORREO[ultimoCorreo]?.texto ?? ultimoCorreo} color={(BADGES_CORREO[ultimoCorreo]?.color ?? 'gris') as any} />
+                <Badge texto={BADGES_CORREO[ultimoCorreo].texto} color={BADGES_CORREO[ultimoCorreo].color} />
               ) : (
                 <Badge texto="Sin enviar" color="gris" />
               )}

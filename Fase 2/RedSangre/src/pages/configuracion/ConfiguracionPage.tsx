@@ -32,7 +32,7 @@ function formatearUltimaConexion(fecha: string | null): string {
 }
 
 async function cargarUltimaConexion(usuarioId: string): Promise<string | null> {
-  const { data } = await supabase!
+  const { data } = await supabase
     .from('auditoria')
     .select('fecha')
     .eq('usuario_id', usuarioId)
@@ -56,7 +56,7 @@ export function ConfiguracionPage() {
 
   useEffect(() => {
     const cargarUsuarios = async () => {
-      const { data, error: err } = await supabase!
+      const { data, error: err } = await supabase
         .from('usuario')
         .select('id, nombre, apellido, correo, rol, activo, debe_cambiar_password, created_at')
         .order('nombre');
@@ -84,7 +84,7 @@ export function ConfiguracionPage() {
     const enLinea = new Set<string>();
 
     const canales = idsOtros.split(',').map((id) => {
-      const canal = supabase!.channel(`presencia:${id}`, { config: { private: true } });
+      const canal = supabase.channel(`presencia:${id}`, { config: { private: true } });
       canal
         .on('presence', { event: 'sync' }, async () => {
           const conectado = Object.keys(canal.presenceState()).length > 0;
@@ -103,7 +103,7 @@ export function ConfiguracionPage() {
     });
 
     return () => {
-      canales.forEach((canal) => supabase!.removeChannel(canal));
+      canales.forEach((canal) => supabase.removeChannel(canal));
     };
   }, [idsOtros]);
 

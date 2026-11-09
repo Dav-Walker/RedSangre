@@ -28,7 +28,6 @@ function mensajeErrorDosPasos(codigo: string | undefined): string {
 // Comentarios - Carga del perfil de usuario
 // Lee el perfil (tabla usuario) del usuario autenticado. Devuelve null si no existe o no se pudo leer.
 async function cargarPerfil(id: string): Promise<UserProfile | null> {
-  if (!supabase) return null;
   const { data, error } = await supabase
     .from('usuario')
     .select('id, nombre, apellido, correo, rol, activo, debe_cambiar_password')
@@ -56,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const dosPasosCompleto = session ? leerClaimsToken(session.access_token)?.aal === 'aal2' : false;
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!isSupabaseConfigured) return;
 
     // Comentarios - Carga del perfil de usuario
     // El callback solo guarda la sesión. Supabase advierte que esperar otras consultas dentro de
@@ -74,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Cada vez que cambia el usuario de la sesión, lee su perfil. Si la cuenta está desactivada, cierra la sesión.
   // "vigente" descarta la respuesta si el usuario cambió mientras se esperaba.
   useEffect(() => {
-    if (!supabase || !userId) return;
+    if (!userId) return;
     let vigente = true;
 
     void cargarPerfil(userId).then((perfil) => {
@@ -82,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (perfil && !perfil.activo) {
         setSession(null);
         setUser(null);
-        void supabase!.auth.signOut();
+        void supabase.auth.signOut();
       } else {
         setUser(perfil);
       }
@@ -95,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Presence: cada sesión se anuncia en su propio canal privado (presencia:<id>).
   // Solo el dueño del canal y el administrador pueden leerlo (RLS en realtime.messages).
   useEffect(() => {
-    if (!supabase || !userId) return;
+    if (!userId) return;
 
     const canal = supabase.channel(`presencia:${userId}`, { config: { private: true } });
     canal.subscribe((status) => {
@@ -103,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
-      supabase!.removeChannel(canal);
+      supabase.removeChannel(canal);
     };
   }, [userId]);
 
@@ -111,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Cierra la sesión al cumplir 1 hora desde el login. También revisa al volver a la pestaña,
   // porque el navegador retrasa los temporizadores de las pestañas en segundo plano.
   useEffect(() => {
-    if (!supabase || inicioSesion === null) return;
+    if (inicioSesion === null) return;
 
     const vence = inicioSesion + DURACION_SESION_MS;
     let cerrando = false;
@@ -123,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setUser(null);
       // scope 'local' revoca solo esta sesión en el servidor, sin cerrar las de otros equipos del usuario
-      void supabase!.auth.signOut({ scope: 'local' });
+      void supabase.auth.signOut({ scope: 'local' });
     };
 
     const temporizador = window.setTimeout(revisarVencimiento, Math.max(vence - Date.now(), 0));
@@ -138,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [inicioSesion]);
 
   const signIn = async (email: string, password: string, captchaToken?: string) => {
-    if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
+    if (!isSupabaseConfigured) return MENSAJE_SIN_CONFIGURACION;
 
     setSesionExpirada(false);
     // Comentarios - Captcha en inicio de sesión
@@ -167,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión
   // Cambia la contraseña de la sesión actual y marca en el perfil que ya no debe cambiarla. Devuelve un error o null.
   const completarCambioContrasena = async (nuevaContrasena: string) => {
-    if (!supabase || !user) return 'No hay una sesión válida.';
+    if (!user) return 'No hay una sesión válida.';
 
     const { error } = await supabase.auth.updateUser({ password: nuevaContrasena });
     if (error) {
@@ -190,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Consulta al servidor si el usuario ya tiene una app autenticadora confirmada y devuelve su id (o null si no tiene).
   // useCallback la mantiene estable entre renders, porque la pantalla de verificación la usa en un useEffect.
   const obtenerFactorDosPasos = useCallback(async () => {
-    if (!supabase) return { factorId: null, error: MENSAJE_SIN_CONFIGURACION };
+    if (!isSupabaseConfigured) return { factorId: null, error: MENSAJE_SIN_CONFIGURACION };
 
     const { data, error } = await supabase.auth.mfa.listFactors();
     if (error) return { factorId: null, error: mensajeErrorDosPasos(error.code) };
@@ -202,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Genera un QR nuevo para vincular la app autenticadora. Antes borra las configuraciones a medias
   // (QR generado y nunca confirmado), porque Supabase no permite dos factores con el mismo nombre.
   const configurarDosPasos = async () => {
-    if (!supabase) return { datos: null, error: MENSAJE_SIN_CONFIGURACION };
+    if (!isSupabaseConfigured) return { datos: null, error: MENSAJE_SIN_CONFIGURACION };
 
     const { data: factores, error: errorFactores } = await supabase.auth.mfa.listFactors();
     if (errorFactores) return { datos: null, error: mensajeErrorDosPasos(errorFactores.code) };
@@ -222,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Valida el código de 6 dígitos. Si es correcto, Supabase eleva la sesión a aal2 y la aplicación se desbloquea sola.
   // El inicio de sesión se registra en auditoría recién aquí; si la auditoría falla, no bloquea el ingreso.
   const verificarDosPasos = async (factorId: string, codigo: string) => {
-    if (!supabase) return MENSAJE_SIN_CONFIGURACION;
+    if (!isSupabaseConfigured) return MENSAJE_SIN_CONFIGURACION;
 
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: codigo });
     if (error) return mensajeErrorDosPasos(error.code);
@@ -232,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
+    if (!isSupabaseConfigured) return MENSAJE_SIN_CONFIGURACION;
 
     const { error } = await supabase.auth.signOut();
     if (error) return error.message;

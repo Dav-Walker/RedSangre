@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
 import { mesesDesde } from '../../utils/fechas';
+import type { GrupoSanguineo, Urgencia } from '../../tipos/dominio';
 import styles from './NuevaSolicitudPage.module.css';
 
 // Comentarios - Búsqueda de candidatos
 // Milisegundos que se espera después de la última tecla en el fenotipo antes de consultar la base.
 const ESPERA_BUSQUEDA_MS = 350;
 
-const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+const GRUPOS_SANGUINEOS: GrupoSanguineo[] = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
 interface CandidatoRow {
   prioridad: number;
@@ -46,9 +47,9 @@ function formatearUltimaDonacion(fecha: string | null): string {
 
 export function NuevaSolicitudPage() {
   const navigate = useNavigate();
-  const [grupoSanguineo, setGrupoSanguineo] = useState('O-');
+  const [grupoSanguineo, setGrupoSanguineo] = useState<GrupoSanguineo>('O-');
   const [fenotipoSearch, setFenotipoSearch] = useState('');
-  const [urgencia, setUrgencia] = useState('media');
+  const [urgencia, setUrgencia] = useState<Urgencia>('media');
   const [candidatos, setCandidatos] = useState<CandidatoRow[]>([]);
   const [cargandoCandidatos, setCargandoCandidatos] = useState(false);
   const [candidatoSeleccionado, setCandidatoSeleccionado] = useState<string | null>(null);
@@ -60,7 +61,7 @@ export function NuevaSolicitudPage() {
   // que llegue la respuesta, "vigente" la descarta. fn_buscar_donantes_compatibles ya excluye a los donantes
   // bloqueados por reacción adversa.
   useEffect(() => {
-    if (!supabase || !grupoSanguineo) return;
+    if (!grupoSanguineo) return;
     let vigente = true;
 
     const temporizador = window.setTimeout(async () => {
@@ -68,9 +69,9 @@ export function NuevaSolicitudPage() {
       setCandidatoSeleccionado(null);
       setError(null);
 
-      const { data, error: err } = await supabase!.rpc('fn_buscar_donantes_compatibles', {
+      const { data, error: err } = await supabase.rpc('fn_buscar_donantes_compatibles', {
         p_grupo_requerido: grupoSanguineo,
-        p_fenotipo_requerido: fenotipoSearch.trim() || null,
+        p_fenotipo_requerido: fenotipoSearch.trim() || undefined,
         p_limite: 20,
       });
       if (!vigente) return;
@@ -90,7 +91,7 @@ export function NuevaSolicitudPage() {
   }, [grupoSanguineo, fenotipoSearch]);
 
   const handleCrearSolicitud = async () => {
-    if (!candidatoSeleccionado || !supabase) return;
+    if (!candidatoSeleccionado) return;
 
     setGuardando(true);
     setError(null);
@@ -137,7 +138,7 @@ export function NuevaSolicitudPage() {
               <select
                 className={styles.select}
                 value={grupoSanguineo}
-                onChange={(e) => setGrupoSanguineo(e.target.value)}
+                onChange={(e) => setGrupoSanguineo(e.target.value as GrupoSanguineo)}
               >
                 {GRUPOS_SANGUINEOS.map(g => (
                   <option key={g} value={g}>{g}</option>
@@ -167,7 +168,7 @@ export function NuevaSolicitudPage() {
               <select
                 className={styles.select}
                 value={urgencia}
-                onChange={(e) => setUrgencia(e.target.value)}
+                onChange={(e) => setUrgencia(e.target.value as Urgencia)}
               >
                 <option value="baja">Baja (Programada)</option>
                 <option value="media">Media (24 a 48 hrs)</option>

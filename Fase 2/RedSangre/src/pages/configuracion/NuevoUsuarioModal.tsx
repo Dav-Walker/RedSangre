@@ -103,8 +103,8 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
 
     setCreando(true);
 
-    const { data: { session } } = await supabase!.auth.getSession();
-    const { data, error } = await supabase!.functions.invoke('crear-usuario', {
+    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('crear-usuario', {
       body: {
         nombre: nombre.trim(),
         apellido: apellido.trim(),

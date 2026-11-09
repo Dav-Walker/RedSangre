@@ -7,29 +7,15 @@ import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../contexts/useAuth';
 import { formatearFecha, hoyISO, mesesDesde } from '../../utils/fechas';
 import { tieneFormatoCorreo } from '../../utils/validacionCorreo';
+import type { Donante } from '../../tipos/dominio';
 
 // Comentarios - Regla de espera entre donaciones por sexo
 // Valores permitidos por la columna donante.sexo. Define la espera entre donaciones (3 o 4 meses).
 const OPCIONES_SEXO = ['Femenino', 'Masculino', 'No especifica'];
 
-interface DonanteDetalle {
-  id: string;
-  codigo_donante: string;
-  nombre: string;
-  apellido: string;
-  rut: string;
-  sexo: string | null;
-  correo: string | null;
-  telefono: string | null;
-  grupo_sanguineo: string;
-  fenotipo: string | null;
-  fenotipo_raro: boolean;
-  frecuente_plaquetas: boolean;
-  fecha_ultima_donacion: string | null;
-  ubicacion: string | null;
-  observaciones: string | null;
-  reaccion_adversa_previa?: boolean;
-}
+// Comentarios - Tipos de la base de datos
+// La ficha trabaja con la fila completa de la tabla donante, tal como la define el esquema.
+type DonanteDetalle = Donante;
 
 function calcularUltimaDonacion(fecha: string | null): string {
   if (!fecha) return '-';
@@ -73,10 +59,11 @@ export function DonanteFichaPage() {
 
   useEffect(() => {
     async function cargarDonante() {
+      if (!id) return;
       setCargando(true);
       setError(null);
 
-      const { data, error: err } = await supabase!
+      const { data, error: err } = await supabase
         .from('donante')
         .select('*')
         .eq('codigo_donante', id)
@@ -91,7 +78,7 @@ export function DonanteFichaPage() {
       setDonante(data);
       setDonanteOriginal(data);
 
-      const { data: consent } = await supabase!
+      const { data: consent } = await supabase
         .from('consentimiento')
         .select('acepta_cookies, autoriza_contacto')
         .eq('donante_id', data.id)
@@ -101,7 +88,7 @@ export function DonanteFichaPage() {
 
       setConsentimiento(consent ?? { acepta_cookies: false, autoriza_contacto: false });
 
-      const { data: etiquetasData } = await supabase!
+      const { data: etiquetasData } = await supabase
         .from('etiqueta_donante')
         .select('etiqueta')
         .eq('donante_id', data.id);
@@ -135,7 +122,7 @@ export function DonanteFichaPage() {
 
     const ahora = new Date().toISOString();
 
-    const { error: err } = await supabase!
+    const { error: err } = await supabase
       .from('donante')
       .update({
         nombre: donante.nombre,
@@ -163,7 +150,7 @@ export function DonanteFichaPage() {
       const cookiesCambio = consentimientoEdit.acepta_cookies !== consentimiento?.acepta_cookies;
       const contactoCambio = consentimientoEdit.autoriza_contacto !== consentimiento?.autoriza_contacto;
 
-      const { error: consentErr } = await supabase!
+      const { error: consentErr } = await supabase
         .from('consentimiento')
         .insert({
           donante_id: donante.id,
@@ -187,14 +174,14 @@ export function DonanteFichaPage() {
     // Comentarios - Guardar etiquetas del donante
     // Sincroniza las etiquetas genéricas: borra las existentes y reinserta las seleccionadas.
     // Si alguna operación falla, se avisa y la ficha queda en modo edición para reintentar.
-    const { error: errBorrar } = await supabase!
+    const { error: errBorrar } = await supabase
       .from('etiqueta_donante')
       .delete()
       .eq('donante_id', donante.id)
       .in('etiqueta', ETIQUETAS_GENERICAS);
 
     const { error: errInsertar } = !errBorrar && etiquetasEdit.length > 0
-      ? await supabase!
+      ? await supabase
         .from('etiqueta_donante')
         .insert(etiquetasEdit.map(e => ({ donante_id: donante.id, etiqueta: e })))
       : { error: null };
@@ -233,10 +220,13 @@ export function DonanteFichaPage() {
     // La base calcula desde qué fecha puede volver a donar (3 meses hombres o sin dato, 4 mujeres y "No especifica").
     // Las fechas 'AAAA-MM-DD' se comparan como texto, sin pasar por Date, para no desfasarlas por la zona horaria.
     if (donante.fecha_ultima_donacion) {
-      const { data: fechaPermitida, error: errFecha } = await supabase!.rpc('fn_fecha_proxima_donacion', {
-        p_ultima: donante.fecha_ultima_donacion,
-        p_sexo: donante.sexo,
-      });
+      // Sin sexo registrado se usa la versión de un parámetro, que aplica la regla general.
+      const { data: fechaPermitida, error: errFecha } = await supabase.rpc(
+        'fn_fecha_proxima_donacion',
+        donante.sexo
+          ? { p_ultima: donante.fecha_ultima_donacion, p_sexo: donante.sexo }
+          : { p_ultima: donante.fecha_ultima_donacion },
+      );
 
       if (errFecha || typeof fechaPermitida !== 'string') {
         setRegistrandoDonacion(false);
@@ -254,7 +244,7 @@ export function DonanteFichaPage() {
     // El detalle solo se envía si hubo reacción: la base marca hubo_reaccion cuando recibe un detalle,
     // y eso bloquea al donante. El trigger fn_aplicar_donacion actualiza la fecha de última donación
     // (sin retroceder si se carga una donación antigua) y la marca de reacción adversa.
-    const { error: donacionErr } = await supabase!
+    const { error: donacionErr } = await supabase
       .from('donacion')
       .insert({
         donante_id: donante.id,
@@ -273,7 +263,7 @@ export function DonanteFichaPage() {
 
     // Comentarios - Registrar donación
     // Relee los campos que actualizó el trigger para mostrar los valores reales de la base.
-    const { data: actualizado, error: errReleer } = await supabase!
+    const { data: actualizado, error: errReleer } = await supabase
       .from('donante')
       .select('fecha_ultima_donacion, reaccion_adversa_previa')
       .eq('id', donante.id)

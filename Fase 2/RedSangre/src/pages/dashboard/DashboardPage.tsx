@@ -8,6 +8,7 @@ import { supabase } from '../../utils/supabase';
 import { Badge } from '../../components/common/Badge';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
+import type { Tables } from '../../tipos/database.types';
 
 const COLORES_PIE = ['#00a0df', '#f47c36', '#9b59b6', '#e74c3c', '#2ecc71', '#f1c40f'];
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -19,13 +20,9 @@ interface Totales {
   disponibles: number;
 }
 
-interface SolicitudActiva {
-  id: string;
-  codigo_solicitud: string | null;
-  grupo_sanguineo_requerido: string | null;
-  urgencia: string | null;
-  estado: string | null;
-}
+// Comentarios - Tipos de la base de datos
+// Fila de la vista v_solicitud_activa con las columnas que muestra la tabla del dashboard.
+type SolicitudActiva = Pick<Tables<'v_solicitud_activa'>, 'id' | 'codigo_solicitud' | 'grupo_sanguineo_requerido' | 'urgencia' | 'estado'>;
 
 interface DonanteFenotipo {
   grupo_sanguineo: string | null;
@@ -39,10 +36,11 @@ interface PuntoTendencia {
   solicitudes: number;
 }
 
-// Une donaciones y solicitudes por mes (AAAA-MM), en orden cronológico
+// Une donaciones y solicitudes por mes (AAAA-MM), en orden cronológico.
+// Las vistas pueden devolver null en sus columnas: esas filas se omiten o cuentan como 0.
 function construirTendencia(
-  donaciones: { anio: number; mes: number; total_donaciones: number }[],
-  demanda: { anio: number; mes: number; total_solicitudes: number }[],
+  donaciones: { anio: number | null; mes: number | null; total_donaciones: number | null }[],
+  demanda: { anio: number | null; mes: number | null; total_solicitudes: number | null }[],
 ): PuntoTendencia[] {
   const puntos = new Map<string, PuntoTendencia>();
 
@@ -56,8 +54,12 @@ function construirTendencia(
     return nuevo;
   };
 
-  donaciones.forEach((d) => { obtenerPunto(d.anio, d.mes).donaciones += d.total_donaciones; });
-  demanda.forEach((s) => { obtenerPunto(s.anio, s.mes).solicitudes += s.total_solicitudes; });
+  donaciones.forEach((d) => {
+    if (d.anio !== null && d.mes !== null) obtenerPunto(d.anio, d.mes).donaciones += d.total_donaciones ?? 0;
+  });
+  demanda.forEach((s) => {
+    if (s.anio !== null && s.mes !== null) obtenerPunto(s.anio, s.mes).solicitudes += s.total_solicitudes ?? 0;
+  });
 
   return [...puntos.values()].sort((a, b) => a.clave.localeCompare(b.clave));
 }
@@ -91,7 +93,6 @@ export function DashboardPage() {
 
   useEffect(() => {
     async function cargarDashboard() {
-      if (!supabase) return;
       const [resumen, grupos, activas, donaciones, demanda, donantes] = await Promise.all([
         supabase.from('v_dashboard_resumen').select('*').single(),
         supabase.from('v_dashboard_donantes_por_grupo').select('grupo_sanguineo, disponibles'),
@@ -119,10 +120,10 @@ export function DashboardPage() {
 
       const r = resumen.data;
       setTotales(r ? {
-        donantes: r.donantes_totales,
-        fenotipos: r.fenotipos_raros,
-        plaquetas: r.plaquetas_frecuentes,
-        disponibles: r.disponibles_ahora,
+        donantes: r.donantes_totales ?? 0,
+        fenotipos: r.fenotipos_raros ?? 0,
+        plaquetas: r.plaquetas_frecuentes ?? 0,
+        disponibles: r.disponibles_ahora ?? 0,
       } : null);
 
       setInventario((grupos.data ?? []).map((fila) => ({

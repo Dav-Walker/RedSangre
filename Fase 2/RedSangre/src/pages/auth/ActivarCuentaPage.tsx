@@ -18,7 +18,7 @@ export function ActivarCuentaPage() {
   // Comentarios - Activación de cuenta por correo
   // Valida el token con Auth. Si es correcto, la sesión queda abierta y la aplicación continúa sola.
   const handleActivar = async () => {
-    if (!supabase || !tokenHash || activando) return;
+    if (!tokenHash || activando) return;
 
     setActivando(true);
     setError(null);

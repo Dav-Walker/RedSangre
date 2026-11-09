@@ -4,25 +4,21 @@ import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { supabase } from '../../utils/supabase';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
+import type { Donante, Solicitud } from '../../tipos/dominio';
 import styles from './SolicitudesListPage.module.css';
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
-interface Solicitud {
-  id: string | number;
-  codigo_solicitud?: string;
-  grupo_sanguineo_requerido?: string;
-  fenotipo_requerido?: string;
-  urgencia?: string;
-  estado?: string;
-  donante_asignado_id?: string | null;
-  [key: string]: any;
-}
+// Comentarios - Tipos de la base de datos
+// Solicitud con los datos del donante asignado que trae la consulta (relación donante_asignado_id).
+type SolicitudFila = Solicitud & {
+  donante: Pick<Donante, 'codigo_donante' | 'nombre' | 'apellido'> | null;
+};
 
 export function SolicitudesListPage() {
   const navigate = useNavigate();
 
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudFila[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [grupoFiltro, setGrupoFiltro] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
@@ -36,7 +32,7 @@ export function SolicitudesListPage() {
       setCargando(true);
       setError(null);
 
-      const { data, error: err } = await supabase!
+      const { data, error: err } = await supabase
         .from('solicitud')
         .select('*, donante:donante_asignado_id (codigo_donante, nombre, apellido)');
 

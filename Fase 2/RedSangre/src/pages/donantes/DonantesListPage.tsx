@@ -1,29 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
-import { Badge } from '../../components/common/Badge';
+import { Badge, type ColorBadge } from '../../components/common/Badge';
 import styles from './DonantesListPage.module.css';
 import { supabase } from '../../utils/supabase';
 import { mesesDesde } from '../../utils/fechas';
 import { valorFiltro } from '../../utils/filtrosPostgrest';
+import type { Donante, GrupoSanguineo } from '../../tipos/dominio';
 
 // Comentarios - Búsqueda de donantes
 // Milisegundos que se espera después de la última tecla antes de consultar la base.
 const ESPERA_BUSQUEDA_MS = 350;
 
-interface Donante {
-  id: string;
-  codigo_donante: string;
-  rut: string;
-  nombre: string;
-  apellido: string;
-  grupo_sanguineo: string;
-  fenotipo: string | null;
-  fenotipo_raro: boolean;
-  frecuente_plaquetas: boolean;
-  fecha_ultima_donacion: string | null;
-  observaciones: string | null;
-}
+// Comentarios - Tipos de la base de datos
+// Columnas de donante que muestra el listado.
+type DonanteFila = Pick<Donante, 'id' | 'codigo_donante' | 'rut' | 'nombre' | 'apellido' | 'grupo_sanguineo'
+  | 'fenotipo' | 'fenotipo_raro' | 'frecuente_plaquetas' | 'fecha_ultima_donacion' | 'observaciones'>;
 
 const GRUPOS_SANGUINEOS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 const OPCIONES_POR_PAGINA = [10, 25, 50, 100];
@@ -45,25 +37,88 @@ function calcularUltimaDonacion(fecha: string | null): string {
   return `hace ${meses} meses`;
 }
 
+// Comentarios - Búsqueda de donantes
+// Filtros de una consulta del listado y su resultado.
+interface FiltrosDonantes {
+  pagina: number;
+  porPagina: number;
+  grupo: GrupoSanguineo | '';
+  fenotipo: string;
+  etiqueta: string;
+  busqueda: string;
+}
+
+interface ResultadoDonantes {
+  donantes: DonanteFila[];
+  total: number;
+  error: string | null;
+}
+
+// Comentarios - Búsqueda de donantes
+// Consulta una página de donantes con los filtros indicados. "Fenotipo raro" y "Plaquetas" son columnas
+// booleanas de donante; el resto de las etiquetas están en etiqueta_donante y se filtran por id.
+async function consultarDonantes(f: FiltrosDonantes): Promise<ResultadoDonantes> {
+  let idsConEtiqueta: string[] | null = null;
+  if (f.etiqueta && f.etiqueta !== 'Fenotipo sanguíneo raro' && f.etiqueta !== 'Donante de plaquetas') {
+    const { data: etiquetaData, error: errEtiqueta } = await supabase
+      .from('etiqueta_donante')
+      .select('donante_id')
+      .ilike('etiqueta', `%${f.etiqueta}%`);
+    if (errEtiqueta) return { donantes: [], total: 0, error: 'No se pudieron cargar los donantes.' };
+    idsConEtiqueta = (etiquetaData ?? []).map((e) => e.donante_id);
+    if (idsConEtiqueta.length === 0) return { donantes: [], total: 0, error: null };
+  }
+
+  let query = supabase
+    .from('donante')
+    .select('id, codigo_donante, rut, nombre, apellido, grupo_sanguineo, fenotipo, fenotipo_raro, frecuente_plaquetas, fecha_ultima_donacion, observaciones', { count: 'exact' })
+    .order('codigo_donante', { ascending: false });
+
+  if (f.grupo) query = query.eq('grupo_sanguineo', f.grupo);
+  if (f.fenotipo) query = query.ilike('fenotipo', `%${f.fenotipo}%`);
+  if (f.busqueda) {
+    // Comentarios - Búsqueda segura en filtros .or()
+    // El texto va entre comillas para que comas o paréntesis escritos por el usuario no rompan el filtro.
+    const patron = valorFiltro(`%${f.busqueda}%`);
+    query = query.or(`nombre.ilike.${patron},apellido.ilike.${patron},rut.ilike.${patron}`);
+  }
+  if (f.etiqueta === 'Fenotipo sanguíneo raro') query = query.eq('fenotipo_raro', true);
+  else if (f.etiqueta === 'Donante de plaquetas') query = query.eq('frecuente_plaquetas', true);
+  else if (idsConEtiqueta !== null) query = query.in('id', idsConEtiqueta);
+
+  const desde = (f.pagina - 1) * f.porPagina;
+  const { data, error, count } = await query.range(desde, desde + f.porPagina - 1);
+  if (error) return { donantes: [], total: 0, error: 'No se pudieron cargar los donantes.' };
+  return { donantes: data ?? [], total: count ?? 0, error: null };
+}
+
 export function DonantesListPage() {
   const navigate = useNavigate();
-  const [donantes, setDonantes] = useState<Donante[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState('');
-  const [filtroGrupo, setFiltroGrupo] = useState('');
+  const [filtroGrupo, setFiltroGrupo] = useState<GrupoSanguineo | ''>('');
   const [filtroFenotipo, setFiltroFenotipo] = useState('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [paginaActual, setPaginaActual] = useState(1);
   const [porPagina, setPorPagina] = useState(10);
-  const [totalDonantes, setTotalDonantes] = useState(0);
   // Comentarios - Búsqueda de donantes
   // Textos que realmente se consultan. Se copian desde los campos tras una pausa al escribir,
   // o de inmediato con Enter o la lupa, para no consultar la base en cada tecla.
   const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [fenotipoAplicado, setFenotipoAplicado] = useState('');
-  // Número de la última consulta enviada: una respuesta de una consulta anterior se descarta.
-  const ultimaConsulta = useRef(0);
+
+  // Comentarios - Búsqueda de donantes
+  // Cada combinación de filtros tiene una clave. El resultado guarda la clave con que se pidió:
+  // si no coincide con la actual, la consulta sigue en curso (cargando).
+  const filtros: FiltrosDonantes = {
+    pagina: paginaActual, porPagina, grupo: filtroGrupo,
+    fenotipo: fenotipoAplicado, etiqueta: filtroEtiqueta, busqueda: busquedaAplicada,
+  };
+  const claveConsulta = JSON.stringify(filtros);
+  const [resultado, setResultado] = useState<ResultadoDonantes & { clave: string } | null>(null);
+  const cargando = resultado?.clave !== claveConsulta;
+  const donantes = resultado?.donantes ?? [];
+  const totalDonantes = resultado?.total ?? 0;
+  const error = resultado?.error ?? null;
 
   const totalPaginas = Math.max(1, Math.ceil(totalDonantes / porPagina));
 
@@ -75,69 +130,15 @@ export function DonantesListPage() {
     return () => window.clearTimeout(temporizador);
   }, [textoBusqueda, filtroFenotipo]);
 
-  const cargarDonantes = useCallback(async () => {
-    const consulta = ++ultimaConsulta.current;
-    setCargando(true);
-    setError(null);
-
-    // Si hay filtro por etiqueta de texto libre, primero obtenemos los IDs desde etiqueta_donante
-    let idsConEtiqueta: string[] | null = null;
-    if (filtroEtiqueta && filtroEtiqueta !== 'Fenotipo sanguíneo raro' && filtroEtiqueta !== 'Donante de plaquetas') {
-      const { data: etiquetaData } = await supabase!
-        .from('etiqueta_donante')
-        .select('donante_id')
-        .ilike('etiqueta', `%${filtroEtiqueta}%`);
-      idsConEtiqueta = (etiquetaData || []).map((e: { donante_id: string }) => e.donante_id);
-    }
-
-    let query = supabase!
-      .from('donante')
-      .select('id, codigo_donante, rut, nombre, apellido, grupo_sanguineo, fenotipo, fenotipo_raro, frecuente_plaquetas, fecha_ultima_donacion, observaciones', { count: 'exact' })
-      .order('codigo_donante', { ascending: false });
-
-    if (filtroGrupo) query = query.eq('grupo_sanguineo', filtroGrupo);
-    if (fenotipoAplicado) query = query.ilike('fenotipo', `%${fenotipoAplicado}%`);
-    if (busquedaAplicada) {
-      // Comentarios - Búsqueda segura en filtros .or()
-      // El texto va entre comillas para que comas o paréntesis escritos por el usuario no rompan el filtro.
-      const patron = valorFiltro(`%${busquedaAplicada}%`);
-      query = query.or(`nombre.ilike.${patron},apellido.ilike.${patron},rut.ilike.${patron}`);
-    }
-    if (filtroEtiqueta === 'Fenotipo sanguíneo raro') query = query.eq('fenotipo_raro', true);
-    else if (filtroEtiqueta === 'Donante de plaquetas') query = query.eq('frecuente_plaquetas', true);
-    else if (idsConEtiqueta !== null) {
-      if (idsConEtiqueta.length === 0) {
-        if (consulta !== ultimaConsulta.current) return;
-        setDonantes([]);
-        setTotalDonantes(0);
-        setCargando(false);
-        return;
-      }
-      query = query.in('id', idsConEtiqueta);
-    }
-
-    const from = (paginaActual - 1) * porPagina;
-    const to = from + porPagina - 1;
-    query = query.range(from, to);
-
-    const { data, error: err, count } = await query;
-
-    // Comentarios - Búsqueda de donantes
-    // Si mientras tanto se envió otra consulta, esta respuesta ya no corresponde a los filtros actuales.
-    if (consulta !== ultimaConsulta.current) return;
-
-    if (err) {
-      setError('No se pudieron cargar los donantes.');
-    } else {
-      setDonantes(data || []);
-      setTotalDonantes(count || 0);
-    }
-    setCargando(false);
-  }, [paginaActual, porPagina, filtroGrupo, fenotipoAplicado, filtroEtiqueta, busquedaAplicada]);
-
+  // Comentarios - Búsqueda de donantes
+  // Consulta cuando cambia la clave. "vigente" descarta la respuesta si los filtros cambiaron mientras tanto.
   useEffect(() => {
-    cargarDonantes();
-  }, [cargarDonantes]);
+    let vigente = true;
+    void consultarDonantes(JSON.parse(claveConsulta) as FiltrosDonantes).then((r) => {
+      if (vigente) setResultado({ ...r, clave: claveConsulta });
+    });
+    return () => { vigente = false; };
+  }, [claveConsulta]);
 
   // Comentarios - Búsqueda de donantes
   // Enter o la lupa aplican la búsqueda de inmediato; el efecto de arriba hace la consulta una sola vez.
@@ -185,7 +186,7 @@ export function DonantesListPage() {
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
         <select
           value={filtroGrupo}
-          onChange={(e) => { setFiltroGrupo(e.target.value); setPaginaActual(1); }}
+          onChange={(e) => { setFiltroGrupo(e.target.value as GrupoSanguineo | ''); setPaginaActual(1); }}
           style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', cursor: 'pointer' }}
         >
           <option value="">Todos los grupos</option>
@@ -249,10 +250,10 @@ export function DonantesListPage() {
             ) : (
               donantes.map((donante, index) => {
                 const etiqueta = donante.fenotipo_raro ? 'Fenotipo raro' : donante.frecuente_plaquetas ? 'Plaquetas' : null;
-                const colorEtiqueta = donante.fenotipo_raro ? 'morado' : 'azul';
+                const colorEtiqueta: ColorBadge = donante.fenotipo_raro ? 'morado' : 'azul';
                 return (
                   <tr
-                    key={donante.codigo_donante}
+                    key={donante.id}
                     onClick={() => navigate('/donantes/' + donante.codigo_donante)}
                     className={`${styles.fila} ${index === donantes.length - 1 ? styles.sinBorde : ''}`}
                   >
@@ -263,7 +264,7 @@ export function DonantesListPage() {
                     <td>{donante.fenotipo || '-'}</td>
                     <td>
                       {etiqueta ? (
-                        <Badge texto={etiqueta} color={colorEtiqueta as any} />
+                        <Badge texto={etiqueta} color={colorEtiqueta} />
                       ) : (
                         <span style={{ color: '#aaa' }}>-</span>
                       )}

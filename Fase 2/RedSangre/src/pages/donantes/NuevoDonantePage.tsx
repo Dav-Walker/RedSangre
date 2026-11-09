@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabase';
 import { hoyISO } from '../../utils/fechas';
+import type { GrupoSanguineo } from '../../tipos/dominio';
 import styles from './NuevoDonantePage.module.css';
 
 const REGIONES_CHILE: Record<string, string[]> = {
@@ -110,11 +111,6 @@ export function NuevoDonantePage() {
   };
 
   const handleGuardar = async () => {
-    if (!supabase) {
-      setError('La conexión a la base de datos no está configurada.');
-      return;
-    }
-
     // Comentarios - Registro atómico de donante
     // fn_registrar_donante exige ambos consentimientos; se avisa antes de llamar a la base.
     if (!consentCookies || !consentContacto) {
@@ -148,19 +144,20 @@ export function NuevoDonantePage() {
     // Guarda donante, consentimiento y etiquetas en una sola transacción con fn_registrar_donante:
     // si algo falla, no queda un donante sin consentimiento. La ubicación va como "Comuna, Región";
     // la base deriva de ahí la comuna y las coordenadas para medir la cercanía.
+    // Los campos opcionales vacíos van como undefined: se omiten y la función usa su valor por defecto (NULL).
     const { error: errorRegistro } = await supabase.rpc('fn_registrar_donante', {
       p_nombre: form.nombre.trim(),
       p_apellido: form.apellido.trim(),
       p_rut: form.rut.trim(),
-      p_grupo_sanguineo: form.grupoSanguineo,
+      p_grupo_sanguineo: form.grupoSanguineo as GrupoSanguineo,
       p_telefono: form.telefono.trim(),
       p_fecha_ultima_donacion: form.fechaUltimaDonacion,
       p_acepta_cookies: consentCookies,
       p_autoriza_contacto: consentContacto,
-      p_correo: form.correo.trim() || null,
-      p_fenotipo: fenotipoTexto || null,
+      p_correo: form.correo.trim() || undefined,
+      p_fenotipo: fenotipoTexto || undefined,
       p_ubicacion: `${form.comuna}, ${form.region}`,
-      p_observaciones: form.observaciones.trim() || null,
+      p_observaciones: form.observaciones.trim() || undefined,
       p_fenotipo_raro: etiquetasSeleccionadas.includes('Fenotipo sanguíneo raro'),
       p_frecuente_plaquetas: etiquetasSeleccionadas.includes('Donante de plaquetas'),
       p_reaccion_adversa: reaccionAdversaPrevia,
