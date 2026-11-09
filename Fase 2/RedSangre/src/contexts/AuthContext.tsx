@@ -1,10 +1,29 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../utils/supabase';
 import { AuthContext, type UserProfile } from './auth-context';
 import { DURACION_SESION_MS, obtenerInicioSesion } from '../utils/duracionSesion';
+import { leerClaimsToken } from '../utils/tokenSesion';
 
 const MENSAJE_CUENTA_DESACTIVADA = 'Tu cuenta está desactivada. Contacta al administrador.';
+const MENSAJE_SIN_CONFIGURACION = 'Supabase no está configurado. Revisa las variables del archivo .env.';
+
+// Comentarios - Segundo factor TOTP (RF-36)
+// Traduce los errores de MFA de Supabase Auth a mensajes en español para la pantalla de verificación
+function mensajeErrorDosPasos(codigo: string | undefined): string {
+  switch (codigo) {
+    case 'mfa_verification_failed':
+    case 'mfa_challenge_expired':
+      return 'El código no es correcto o ya cambió. Ingresa el código que muestra ahora la app y revisa que la hora del celular esté en automático.';
+    case 'over_request_rate_limit':
+      return 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+    case 'mfa_totp_enroll_not_enabled':
+    case 'mfa_totp_verify_not_enabled':
+      return 'La verificación en dos pasos no está habilitada en Supabase. Contacta al administrador.';
+    default:
+      return 'No se pudo completar la verificación en dos pasos. Inténtalo nuevamente.';
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -16,6 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Hora de inicio de la sesión actual; es la misma aunque el token se renueve, así el temporizador no se reinicia
   const [sesionExpirada, setSesionExpirada] = useState(false);
   const inicioSesion = session ? obtenerInicioSesion(session.access_token) : null;
+  // Comentarios - Segundo factor TOTP (RF-36)
+  // La sesión queda completa solo cuando el token tiene nivel aal2, es decir, cuando el usuario ingresó el código TOTP
+  const dosPasosCompleto = session ? leerClaimsToken(session.access_token)?.aal === 'aal2' : false;
 
   useEffect(() => {
     if (!supabase) return;
@@ -111,9 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setSession(data.session);
 
-    // La auditoría no debe bloquear el inicio de sesión si falla.
-    await supabase.rpc('fn_registrar_login');
-
     if (data.user) {
       const { data: profile, error: profileError } = await supabase
         .from('usuario')
@@ -160,6 +179,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  // Comentarios - Segundo factor TOTP (RF-36)
+  // Consulta al servidor si el usuario ya tiene una app autenticadora confirmada y devuelve su id (o null si no tiene).
+  // useCallback la mantiene estable entre renders, porque la pantalla de verificación la usa en un useEffect.
+  const obtenerFactorDosPasos = useCallback(async () => {
+    if (!supabase) return { factorId: null, error: MENSAJE_SIN_CONFIGURACION };
+
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) return { factorId: null, error: mensajeErrorDosPasos(error.code) };
+
+    return { factorId: data.totp[0]?.id ?? null, error: null };
+  }, []);
+
+  // Comentarios - Segundo factor TOTP (RF-36)
+  // Genera un QR nuevo para vincular la app autenticadora. Antes borra las configuraciones a medias
+  // (QR generado y nunca confirmado), porque Supabase no permite dos factores con el mismo nombre.
+  const configurarDosPasos = async () => {
+    if (!supabase) return { datos: null, error: MENSAJE_SIN_CONFIGURACION };
+
+    const { data: factores, error: errorFactores } = await supabase.auth.mfa.listFactors();
+    if (errorFactores) return { datos: null, error: mensajeErrorDosPasos(errorFactores.code) };
+
+    const pendientes = factores.all.filter((factor) => factor.factor_type === 'totp' && factor.status === 'unverified');
+    for (const factor of pendientes) {
+      await supabase.auth.mfa.unenroll({ factorId: factor.id });
+    }
+
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'RedSangre', issuer: 'RedSangre' });
+    if (error) return { datos: null, error: mensajeErrorDosPasos(error.code) };
+
+    return { datos: { factorId: data.id, qr: data.totp.qr_code, secreto: data.totp.secret }, error: null };
+  };
+
+  // Comentarios - Segundo factor TOTP (RF-36)
+  // Valida el código de 6 dígitos. Si es correcto, Supabase eleva la sesión a aal2 y la aplicación se desbloquea sola.
+  // El inicio de sesión se registra en auditoría recién aquí; si la auditoría falla, no bloquea el ingreso.
+  const verificarDosPasos = async (factorId: string, codigo: string) => {
+    if (!supabase) return MENSAJE_SIN_CONFIGURACION;
+
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: codigo });
+    if (error) return mensajeErrorDosPasos(error.code);
+
+    await supabase.rpc('fn_registrar_login');
+    return null;
+  };
+
   const signOut = async () => {
     if (!supabase) return 'Supabase no está configurado. Revisa las variables del archivo .env.';
 
@@ -172,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, configured: isSupabaseConfigured, sesionExpirada, signIn, signOut, completarCambioContrasena }}>
+    <AuthContext.Provider value={{ session, user, loading, configured: isSupabaseConfigured, sesionExpirada, signIn, signOut, completarCambioContrasena, dosPasosCompleto, obtenerFactorDosPasos, configurarDosPasos, verificarDosPasos }}>
       {children}
     </AuthContext.Provider>
   );

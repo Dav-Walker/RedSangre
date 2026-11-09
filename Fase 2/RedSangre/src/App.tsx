@@ -11,6 +11,7 @@ import { ConfiguracionPage } from './pages/configuracion/ConfiguracionPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CambiarContrasenaPage } from './pages/auth/CambiarContrasenaPage';
 import { ActivarCuentaPage } from './pages/auth/ActivarCuentaPage';
+import { VerificacionDosPasosPage } from './pages/auth/VerificacionDosPasosPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
@@ -31,7 +32,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
 function LayoutPrincipal() {
   const location = useLocation();
-  const { session, user, loading } = useAuth();
+  const { session, user, loading, dosPasosCompleto } = useAuth();
   // Comentarios - Activación de cuenta por correo
   // /login y /activar son públicas: no llevan menú y se pueden abrir sin sesión.
   const isAuthPage = location.pathname === '/login' || location.pathname === '/activar';
@@ -41,6 +42,11 @@ function LayoutPrincipal() {
 
   if (esLogin && session) return <Navigate to="/dashboard" replace />;
   if (!isAuthPage && !session) return <Navigate to="/login" replace />;
+
+  // Comentarios - Segundo factor TOTP (RF-36)
+  // Toda sesión debe completar el código TOTP (aal2) antes de ver el sistema. Va antes del cambio de contraseña
+  // porque Supabase exige aal2 para cambiar la contraseña de un usuario que ya tiene el segundo factor.
+  if (session && !dosPasosCompleto) return <VerificacionDosPasosPage />;
 
   // Comentarios - Cambio de contraseña obligatorio en el primer inicio de sesión
   // Mientras el perfil tenga debe_cambiar_password, solo se muestra la pantalla de cambio, sin menú ni otras rutas.
