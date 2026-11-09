@@ -7,7 +7,7 @@ Prototipo académico (Portafolio de Título, Duoc UC) que trabaja solo con datos
 
 - React 19, TypeScript y Vite.
 - Supabase: PostgreSQL con RLS, Auth (contraseña, captcha Turnstile y segundo factor TOTP) y Edge Functions (Deno).
-- Correo por Gmail SMTP con nodemailer, desde las Edge Functions.
+- Correo por el SMTP del hosting (`notificaciones@redsangre.cl`) con nodemailer, desde las Edge Functions.
 - Vitest para las pruebas unitarias.
 
 ## Puesta en marcha
@@ -77,12 +77,12 @@ Secretos que usan (se configuran en Supabase → Edge Functions → Secrets):
 | Secreto | Uso |
 |---|---|
 | `APP_URL` | URL pública de la aplicación (`https://redsangre.cl`). Arma los enlaces de activación y el origen permitido por CORS. Es obligatorio. |
-| `GMAIL_USER` y `GMAIL_APP_PASSWORD` | Cuenta y contraseña de aplicación de Gmail para enviar correos. |
+| `SMTP_HOST`, `SMTP_USER` y `SMTP_PASSWORD` | Servidor SMTP del hosting, cuenta (`notificaciones@redsangre.cl`) y su contraseña para enviar correos. Puerto 465 fijo en el código. |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los entrega Supabase automáticamente.
 
-Para probarlas en local, crea `supabase/functions/.env` con `APP_URL=http://localhost:5173` y los secretos de
-Gmail, y ejecuta `npx supabase functions serve`. Para publicar un cambio:
+Para probarlas en local, crea `supabase/functions/.env` con `APP_URL=http://localhost:5173` y los secretos
+SMTP, y ejecuta `npx supabase functions serve`. Para publicar un cambio:
 
 ```sh
 npx supabase functions deploy <nombre>

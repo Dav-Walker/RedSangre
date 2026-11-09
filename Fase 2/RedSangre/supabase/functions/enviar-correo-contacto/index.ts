@@ -6,7 +6,7 @@ import { crearTransporte, remitente } from '../_shared/correo.ts';
 import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
 
-const CONTACTO_BANCO = '+56 9 3640 5976 o al correo redsangre.notificaciones@gmail.com';
+const CONTACTO_BANCO = '+56 9 3640 5976 o al correo notificaciones@redsangre.cl';
 
 function textoCorreo(nombre: string, codigoSolicitud: string, grupo: string, urgencia: string) {
   // Comentarios - Urgencia de la solicitud

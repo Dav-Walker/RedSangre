@@ -36,7 +36,7 @@ export async function generarEnlace(
 }
 
 // Comentarios - Activación de cuenta por correo
-// Envía el correo con el enlace por Gmail SMTP, igual que enviar-correo-contacto. Lanza un error si el envío falla.
+// Envía el correo con el enlace por el SMTP del dominio, igual que enviar-correo-contacto. Lanza un error si el envío falla.
 export async function enviarCorreoActivacion(correo: string, nombre: string, enlace: string) {
   await crearTransporte().sendMail({
     from: remitente(),
