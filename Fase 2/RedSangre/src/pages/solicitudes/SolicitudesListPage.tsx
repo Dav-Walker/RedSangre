@@ -10,6 +10,8 @@ import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
 import { listarSolicitudes, type FiltrosSolicitudes, type ResultadoSolicitudes } from '../../servicios/solicitudes';
 import type { EstadoSolicitudBase, GrupoSanguineo } from '../../tipos/dominio';
 import styles from './SolicitudesListPage.module.css';
+import { useAuth } from '../../contexts/useAuth';
+import { puedeEditar } from '../../utils/roles';
 
 // Comentarios - Listado de solicitudes
 // Pausa tras la última tecla antes de consultar, y cantidades por página (las mismas que en Donantes).
@@ -18,6 +20,10 @@ const OPCIONES_POR_PAGINA = [10, 25, 50, 100];
 
 export function SolicitudesListPage() {
   const navigate = useNavigate();
+  // Comentarios - Perfil TENS solo lectura
+  // TENS ve el listado, pero no el botón para crear solicitudes
+  const { user } = useAuth();
+  const conEscritura = puedeEditar(user?.rol);
 
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [busquedaAplicada, setBusquedaAplicada] = useState('');
@@ -87,7 +93,7 @@ export function SolicitudesListPage() {
           </svg>
         </div>
 
-        <Button texto="+ Nueva solicitud" onClick={() => navigate('/solicitudes/nueva')} />
+        {conEscritura && <Button texto="+ Nueva solicitud" onClick={() => navigate('/solicitudes/nueva')} />}
       </div>
 
       <div className={styles.filtros}>

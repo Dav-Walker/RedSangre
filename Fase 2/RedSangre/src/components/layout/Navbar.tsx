@@ -5,6 +5,7 @@ import { useState } from 'react';
 import styles from './Navbar.module.css';
 import logoIndisa from '../../assets/logo-indisa.jpeg';
 import { useAuth } from '../../contexts/useAuth';
+import { ETIQUETAS_ROL } from '../../utils/roles';
 
 export function Navbar() {
   const location = useLocation();
@@ -49,7 +50,9 @@ export function Navbar() {
         <div className={styles.userActions}>
           <div className={styles.userBadge}>
             {nombreVisible}
-            {user && <span className={styles.rolUsuario}>({user.rol})</span>}
+            {/* Comentarios - Perfil TENS solo lectura */}
+            {/* Muestra el nombre del rol (por ejemplo "TENS") en vez del valor interno del enum */}
+            {user && <span className={styles.rolUsuario}>({ETIQUETAS_ROL[user.rol]})</span>}
           </div>
           {errorCierre && <span role="alert">{errorCierre}</span>}
           <button className={styles.logoutBtn} onClick={handleCerrarSesion}>

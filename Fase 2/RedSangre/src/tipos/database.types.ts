@@ -932,6 +932,7 @@ export type Database = {
       fn_mfa_ok: { Args: never; Returns: boolean }
       fn_nombre_usuario: { Args: { p_id: string }; Returns: string }
       fn_normalizar_rut: { Args: { p_rut: string }; Returns: string }
+      fn_puede_escribir: { Args: never; Returns: boolean }
       fn_registrar_donante: {
         Args: {
           p_acepta_cookies: boolean
@@ -983,7 +984,7 @@ export type Database = {
         | "confirmado"
         | "sin_respuesta"
         | "rechazado"
-      rol_usuario: "administrador" | "tecnologo"
+      rol_usuario: "administrador" | "tecnologo" | "tens"
       tipo_donacion_enum: "sangre_total" | "plaquetas"
       urgencia_enum: "alta" | "media" | "baja"
     }
@@ -1122,7 +1123,7 @@ export const Constants = {
         "sin_respuesta",
         "rechazado",
       ],
-      rol_usuario: ["administrador", "tecnologo"],
+      rol_usuario: ["administrador", "tecnologo", "tens"],
       tipo_donacion_enum: ["sangre_total", "plaquetas"],
       urgencia_enum: ["alta", "media", "baja"],
     },

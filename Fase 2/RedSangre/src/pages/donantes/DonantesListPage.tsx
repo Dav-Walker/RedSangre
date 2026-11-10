@@ -13,6 +13,8 @@ import { ETIQUETAS_DONANTE } from '../../utils/etiquetas';
 import { antigenosElegidos, type ValoresFenotipo } from '../../utils/fenotipo';
 import { consultarDonantes, type FiltrosDonantes, type ResultadoDonantes } from '../../servicios/donantes';
 import type { GrupoSanguineo } from '../../tipos/dominio';
+import { useAuth } from '../../contexts/useAuth';
+import { puedeEditar } from '../../utils/roles';
 
 // Comentarios - Búsqueda de donantes
 // Milisegundos que se espera después de la última tecla antes de consultar la base.
@@ -21,6 +23,10 @@ const OPCIONES_POR_PAGINA = [10, 25, 50, 100];
 
 export function DonantesListPage() {
   const navigate = useNavigate();
+  // Comentarios - Perfil TENS solo lectura
+  // TENS ve el listado, pero no el botón para registrar donantes
+  const { user } = useAuth();
+  const conEscritura = puedeEditar(user?.rol);
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState<GrupoSanguineo | ''>('');
   // Comentarios - Búsqueda por fenotipo
@@ -102,7 +108,7 @@ export function DonantesListPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <Button texto="+ Nuevo donante" onClick={() => navigate('/donantes/nuevo')} />
+        {conEscritura && <Button texto="+ Nuevo donante" onClick={() => navigate('/donantes/nuevo')} />}
       </div>
 
       {/* FILTROS */}

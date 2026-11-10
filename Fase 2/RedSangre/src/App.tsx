@@ -10,6 +10,7 @@ import { VerificacionDosPasosPage } from './pages/auth/VerificacionDosPasosPage'
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
+import { ROLES_CON_ESCRITURA } from './utils/roles';
 import styles from './App.module.css';
 
 // Comentarios - Carga diferida de páginas
@@ -60,10 +61,12 @@ function LayoutPrincipal() {
             <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/donantes" element={<DonantesListPage />} />
-            <Route path="/donantes/nuevo" element={<NuevoDonantePage />} />
+            {/* Comentarios - Perfil TENS solo lectura */}
+            {/* Las pantallas de alta solo se abren con permiso de escritura; TENS vuelve al dashboard */}
+            <Route path="/donantes/nuevo" element={<RoleBasedRoute rolesPermitidos={ROLES_CON_ESCRITURA}><NuevoDonantePage /></RoleBasedRoute>} />
             <Route path="/donantes/:id" element={<DonanteFichaPage />} />
             <Route path="/solicitudes" element={<SolicitudesListPage />} />
-            <Route path="/solicitudes/nueva" element={<NuevaSolicitudPage />} />
+            <Route path="/solicitudes/nueva" element={<RoleBasedRoute rolesPermitidos={ROLES_CON_ESCRITURA}><NuevaSolicitudPage /></RoleBasedRoute>} />
             <Route path="/solicitudes/:id" element={<SolicitudDetallePage />} />
             <Route path="/configuracion" element={<RoleBasedRoute rolesPermitidos={['administrador']}><ConfiguracionPage /></RoleBasedRoute>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

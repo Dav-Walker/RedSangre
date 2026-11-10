@@ -169,6 +169,9 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
             >
               <option value="tecnologo">Tecnólogo</option>
               <option value="administrador">Administrador</option>
+              {/* Comentarios - Perfil TENS solo lectura */}
+              {/* TENS solo consulta datos y llama a los donantes */}
+              <option value="tens">TENS (solo lectura)</option>
             </select>
           </div>
 

@@ -15,6 +15,8 @@ import {
 } from '../../servicios/solicitudes';
 import type { ResultadoContacto } from '../../tipos/dominio';
 import styles from './SolicitudDetallePage.module.css';
+import { useAuth } from '../../contexts/useAuth';
+import { puedeEditar } from '../../utils/roles';
 
 type Mensaje = { tipo: 'ok' | 'error'; texto: string };
 
@@ -51,6 +53,10 @@ function enlaceWhatsapp(telefono: string, mensaje: string): string {
 export function SolicitudDetallePage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  // Comentarios - Perfil TENS solo lectura
+  // TENS ve el estado y la bitácora y puede llamar; no cambia el estado ni contacta por correo o WhatsApp
+  const { user } = useAuth();
+  const conEscritura = puedeEditar(user?.rol);
 
   const [solicitud, setSolicitud] = useState<SolicitudConDonante | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -233,16 +239,18 @@ export function SolicitudDetallePage() {
             <span className={styles.etiquetaDato}>Estado</span>
             <div className={styles.valorEstado}>
               <Badge texto={ESTADOS_SOLICITUD[estadoActual].texto} color={ESTADOS_SOLICITUD[estadoActual].color} />
-              <select
-                className={styles.selectEstado}
-                value={estadoActual}
-                onChange={(e) => handleSeleccionarEstado(e.target.value as EstadoSolicitud)}
-                disabled={cambiandoEstado || esCerrada || confirmandoCierre}
-              >
-                {Object.entries(ESTADOS_SOLICITUD).map(([valor, { texto }]) => (
-                  <option key={valor} value={valor}>{texto}</option>
-                ))}
-              </select>
+              {conEscritura && (
+                <select
+                  className={styles.selectEstado}
+                  value={estadoActual}
+                  onChange={(e) => handleSeleccionarEstado(e.target.value as EstadoSolicitud)}
+                  disabled={cambiandoEstado || esCerrada || confirmandoCierre}
+                >
+                  {Object.entries(ESTADOS_SOLICITUD).map(([valor, { texto }]) => (
+                    <option key={valor} value={valor}>{texto}</option>
+                  ))}
+                </select>
+              )}
               {confirmandoCierre && (
                 <div className={styles.confirmacionCierre} role="alert">
                   <span>¿Cerrar la solicitud? Una vez cerrada no podrá modificarse.</span>
@@ -332,15 +340,17 @@ export function SolicitudDetallePage() {
               )}
             </div>
             <div className={styles.bitacoraCelda}>
-              <button
-                type="button"
-                className={styles.botonCorreo}
-                onClick={handleEnviarCorreo}
-                disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
-              >
-                {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
-              </button>
-              {!solicitud.donante?.correo && (
+              {conEscritura && (
+                <button
+                  type="button"
+                  className={styles.botonCorreo}
+                  onClick={handleEnviarCorreo}
+                  disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
+                >
+                  {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
+                </button>
+              )}
+              {conEscritura && !solicitud.donante?.correo && (
                 <span className={styles.avisoCorreo}>El donante no tiene correo registrado.</span>
               )}
               {mensajeCorreo && (
@@ -361,14 +371,16 @@ export function SolicitudDetallePage() {
               )}
             </div>
             <div className={styles.bitacoraCelda}>
-              <button
-                type="button"
-                className={styles.botonCorreo}
-                onClick={handleAbrirModalWhatsapp}
-                disabled={esCerrada || !telefono}
-              >
-                Mensaje
-              </button>
+              {conEscritura && (
+                <button
+                  type="button"
+                  className={styles.botonCorreo}
+                  onClick={handleAbrirModalWhatsapp}
+                  disabled={esCerrada || !telefono}
+                >
+                  Mensaje
+                </button>
+              )}
               {mensajeWhatsappEstado && (
                 <span className={mensajeWhatsappEstado.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
                   {mensajeWhatsappEstado.texto}

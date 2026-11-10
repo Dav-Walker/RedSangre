@@ -7,6 +7,7 @@ import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import styles from './DonanteFichaPage.module.css';
 import { useAuth } from '../../contexts/useAuth';
+import { puedeEditar } from '../../utils/roles';
 import { formatearFecha, hoyISO, textoMesesDesde } from '../../utils/fechas';
 import { tieneFormatoCorreo } from '../../utils/validacionCorreo';
 import { ETIQUETAS_GENERICAS, esEtiquetaDeColumna } from '../../utils/etiquetas';
@@ -38,6 +39,9 @@ export function DonanteFichaPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  // Comentarios - Perfil TENS solo lectura
+  // TENS ve la ficha completa, pero sin los botones de editar ni registrar donación
+  const conEscritura = puedeEditar(user?.rol);
   const [editando, setEditando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -439,7 +443,7 @@ export function DonanteFichaPage() {
             </button>
             <Button texto={guardando ? 'Guardando...' : 'Guardar cambios'} onClick={handleGuardar} disabled={guardando} />
           </div>
-        ) : (
+        ) : conEscritura && (
           <div className={styles.botonesPie}>
             <button
               className={styles.botonDonacion}

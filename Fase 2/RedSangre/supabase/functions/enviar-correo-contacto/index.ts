@@ -46,6 +46,12 @@ Deno.serve(conCors(async (req) => {
 
   const supabase = clienteUsuario(req);
 
+  // Comentarios - Perfil TENS solo lectura
+  // El correo se envía antes de escribir en la bitácora, así que el permiso de escritura se revisa al inicio
+  const { data: puedeEscribir, error: errPermiso } = await supabase.rpc('fn_puede_escribir');
+  if (errPermiso) return responder({ error: 'No se pudo verificar el permiso' }, 500);
+  if (!puedeEscribir) return responder({ error: 'Tu perfil es de solo lectura: no puede contactar por correo' }, 403);
+
   const { data: solicitud, error: errSolicitud } = await supabase
     .from('solicitud')
     .select('id, codigo_solicitud, estado, grupo_sanguineo_requerido, urgencia, donante:donante_asignado_id (id, nombre, apellido, correo)')

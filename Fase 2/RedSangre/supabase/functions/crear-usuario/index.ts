@@ -8,7 +8,9 @@ import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
 import { correoCanonico, validarCorreo } from '../_shared/validaciones.ts';
 
-const ROLES_VALIDOS = ['administrador', 'tecnologo'];
+// Comentarios - Perfil TENS solo lectura
+// Roles que el administrador puede asignar al crear una cuenta, incluido TENS
+const ROLES_VALIDOS = ['administrador', 'tecnologo', 'tens'];
 
 // Comentarios - Crear usuario
 // Deshace una creación a medias: primero el perfil (la clave foránea lo exige) y luego la cuenta de Auth.

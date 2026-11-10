@@ -3,7 +3,9 @@
 import { createContext } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
-export type UserRole = 'administrador' | 'tecnologo';
+// Comentarios - Perfil TENS solo lectura
+// TENS ve el dashboard, los donantes y las solicitudes, pero no puede crear ni editar
+export type UserRole = 'administrador' | 'tecnologo' | 'tens';
 
 export interface UserProfile {
   id: string;

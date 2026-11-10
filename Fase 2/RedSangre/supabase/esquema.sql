@@ -1,7 +1,11 @@
 /* =============================================================================
    RedSangre — Script completo de base de datos
    Clínica Indisa · Supabase (PostgreSQL 15+)
-   Versión 1.2.0 · 2026-11-09
+   Versión 1.3.0 · 2026-11-10
+
+   CAMBIOS 1.3.0
+     · Perfil TENS de solo lectura: valor 'tens' en rol_usuario y función fn_puede_escribir.
+       Las políticas de INSERT/UPDATE/DELETE usan fn_puede_escribir; las de lectura no cambian.
 
    CAMBIOS 1.2.0 (sincronizado con producción el 2026-11-09)
      · Regla de espera por sexo: columna donante.sexo, parámetro meses_entre_donaciones_mujer,
@@ -92,7 +96,7 @@ DECLARE
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
-      ('rol_usuario',             ARRAY['administrador','tecnologo']),   -- "Coordinador" se modela como administrador (ERS 2.3)
+      ('rol_usuario',             ARRAY['administrador','tecnologo','tens']),   -- "Coordinador" se modela como administrador (ERS 2.3)
       ('grupo_sanguineo_enum',    ARRAY['O+','O-','A+','A-','B+','B-','AB+','AB-']),
       ('urgencia_enum',           ARRAY['alta','media','baja']),
       ('estado_solicitud_enum',   ARRAY['abierta','en_proceso','cerrada']),   -- RF-32
@@ -112,6 +116,10 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- Comentarios - Perfil TENS solo lectura
+-- Agrega el rol TENS en una base que ya tenía el enum creado (el bloque anterior solo crea tipos nuevos)
+ALTER TYPE public.rol_usuario ADD VALUE IF NOT EXISTS 'tens';
 
 
 /* =============================================================================
@@ -570,7 +578,7 @@ AS $$
       OR (SELECT auth.jwt() ->> 'aal') = 'aal2';
 $$;
 
--- fn_es_personal_activo() → boolean   (administrador o tecnólogo, activo)
+-- fn_es_personal_activo() → boolean   (cualquier rol activo: administrador, tecnólogo o TENS)
 -- Comentarios - Segundo factor TOTP para todo el personal
 -- La base exige que la sesión haya completado el código TOTP (aal2), no solo la interfaz
 CREATE OR REPLACE FUNCTION public.fn_es_personal_activo()
@@ -579,6 +587,18 @@ LANGUAGE sql STABLE SET search_path = ''
 AS $$
   SELECT public.fn_rol_actual() IS NOT NULL
      AND (SELECT auth.jwt() ->> 'aal') = 'aal2';
+$$;
+
+-- fn_puede_escribir() → boolean   (personal activo con permiso de escritura)
+-- Comentarios - Perfil TENS solo lectura
+-- Solo administrador y tecnólogo pueden crear, editar o borrar; TENS y cualquier rol futuro quedan en solo lectura.
+-- Se usa una lista de roles permitidos (sin nombrar 'tens') para poder crearla junto con el nuevo valor del enum.
+CREATE OR REPLACE FUNCTION public.fn_puede_escribir()
+RETURNS boolean
+LANGUAGE sql STABLE SET search_path = ''
+AS $$
+  SELECT public.fn_es_personal_activo()
+     AND public.fn_rol_actual() IN ('administrador', 'tecnologo');
 $$;
 
 -- fn_es_admin() → boolean   (administrador activo y, si se exige, con MFA)
@@ -876,7 +896,9 @@ AS $$
 DECLARE
   v_id uuid;
 BEGIN
-  IF NOT public.fn_es_personal_activo() THEN
+  -- Comentarios - Perfil TENS solo lectura
+  -- El alta de donantes exige permiso de escritura: TENS no puede registrar donantes
+  IF NOT public.fn_puede_escribir() THEN
     RAISE EXCEPTION 'No autorizado' USING ERRCODE = '42501';
   END IF;
 
@@ -1121,7 +1143,9 @@ DECLARE
   v_creador  uuid;
   v_sub_prev text;
 BEGIN
-  IF (NEW.raw_app_meta_data ->> 'rol') IN ('administrador', 'tecnologo') THEN
+  -- Comentarios - Perfil TENS solo lectura
+  -- Acepta también el rol TENS cuando viene en app_metadata
+  IF (NEW.raw_app_meta_data ->> 'rol') IN ('administrador', 'tecnologo', 'tens') THEN
     v_rol := (NEW.raw_app_meta_data ->> 'rol')::public.rol_usuario;
   END IF;
 
@@ -1785,37 +1809,39 @@ CREATE POLICY usuario_update_admin ON public.usuario FOR UPDATE TO authenticated
 CREATE POLICY usuario_update_propio ON public.usuario FOR UPDATE TO authenticated
   USING (id = (SELECT auth.uid())) WITH CHECK (id = (SELECT auth.uid()));
 
--- donante: personal activo ve, crea y edita. Sin DELETE.
+-- Comentarios - Perfil TENS solo lectura
+-- Lectura: todo el personal activo (fn_es_personal_activo). Escritura: solo administrador y tecnólogo (fn_puede_escribir)
+-- donante: personal activo ve; administrador y tecnólogo crean y editan. Sin DELETE.
 CREATE POLICY donante_select ON public.donante FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
 CREATE POLICY donante_insert ON public.donante FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_es_personal_activo()));
+  WITH CHECK ((SELECT public.fn_puede_escribir()));
 -- Para blindar RF-17 al 100% cuando el front use fn_registrar_donante, se puede eliminar
 -- la política donante_insert y dejar el alta solo vía RPC.
 CREATE POLICY donante_update ON public.donante FOR UPDATE TO authenticated
-  USING ((SELECT public.fn_es_personal_activo())) WITH CHECK ((SELECT public.fn_es_personal_activo()));
+  USING ((SELECT public.fn_puede_escribir())) WITH CHECK ((SELECT public.fn_puede_escribir()));
 
 -- consentimiento: historial append-only (solo SELECT e INSERT).
 CREATE POLICY consentimiento_select ON public.consentimiento FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
 CREATE POLICY consentimiento_insert ON public.consentimiento FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_es_personal_activo()));
+  WITH CHECK ((SELECT public.fn_puede_escribir()));
 
 -- etiqueta_donante: se pueden agregar y quitar etiquetas libres.
 CREATE POLICY etiqueta_select ON public.etiqueta_donante FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
 CREATE POLICY etiqueta_insert ON public.etiqueta_donante FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_es_personal_activo()));
+  WITH CHECK ((SELECT public.fn_puede_escribir()));
 CREATE POLICY etiqueta_delete ON public.etiqueta_donante FOR DELETE TO authenticated
-  USING ((SELECT public.fn_es_personal_activo()));
+  USING ((SELECT public.fn_puede_escribir()));
 
 -- solicitud: el creador queda registrado y no se puede falsear (creado_por = quien está logueado).
 CREATE POLICY solicitud_select ON public.solicitud FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
 CREATE POLICY solicitud_insert ON public.solicitud FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_es_personal_activo()) AND creado_por = (SELECT auth.uid()));
+  WITH CHECK ((SELECT public.fn_puede_escribir()) AND creado_por = (SELECT auth.uid()));
 CREATE POLICY solicitud_update ON public.solicitud FOR UPDATE TO authenticated
-  USING ((SELECT public.fn_es_personal_activo())) WITH CHECK ((SELECT public.fn_es_personal_activo()));
+  USING ((SELECT public.fn_puede_escribir())) WITH CHECK ((SELECT public.fn_puede_escribir()));
 
 -- seguimiento_contacto: bitácora APPEND-ONLY (solo SELECT e INSERT, igual que la configuración
 -- previa). Un nuevo intento o un nuevo resultado se registra como una fila nueva; quien
@@ -1823,13 +1849,13 @@ CREATE POLICY solicitud_update ON public.solicitud FOR UPDATE TO authenticated
 CREATE POLICY contacto_select ON public.seguimiento_contacto FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
 CREATE POLICY contacto_insert ON public.seguimiento_contacto FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_es_personal_activo()) AND registrado_por = (SELECT auth.uid()));
+  WITH CHECK ((SELECT public.fn_puede_escribir()) AND registrado_por = (SELECT auth.uid()));
 
 -- donacion: historial APPEND-ONLY. Quien registra queda identificado y no se puede falsear.
 CREATE POLICY donacion_select ON public.donacion FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
 CREATE POLICY donacion_insert ON public.donacion FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_es_personal_activo()) AND registrado_por = (SELECT auth.uid()));
+  WITH CHECK ((SELECT public.fn_puede_escribir()) AND registrado_por = (SELECT auth.uid()));
 
 -- auditoria: solo lectura para el administrador. Se escribe únicamente vía triggers/RPC.
 CREATE POLICY auditoria_select_admin ON public.auditoria FOR SELECT TO authenticated
@@ -2117,6 +2143,7 @@ COMMENT ON FUNCTION public.fn_hook_limite_sesion(jsonb) IS 'Hook Customize Acces
 COMMENT ON COLUMN public.donante.sexo IS 'Femenino, Masculino o No especifica. Define los meses de espera entre donaciones.';
 COMMENT ON FUNCTION public.fn_aplicar_donacion() IS 'Trigger: al registrar una donación actualiza la fecha de última donación del donante, su reacción previa y la solicitud asociada.';
 COMMENT ON FUNCTION public.fn_rol_actual() IS 'Rol del usuario autenticado (NULL si inactivo o sin perfil). Base de las políticas RLS.';
+COMMENT ON FUNCTION public.fn_puede_escribir() IS 'Personal activo con permiso de escritura (administrador o tecnólogo). TENS queda en solo lectura.';
 COMMENT ON FUNCTION public.fn_registrar_auditoria() IS 'Trigger de auditoría: registra creaciones y ediciones sin copiar datos personales.';
 COMMENT ON FUNCTION public.fn_manejar_nuevo_usuario_auth() IS 'Crea el perfil en public.usuario al crearse un auth.users. El rol solo se toma de app_metadata.';
 
