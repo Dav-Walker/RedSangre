@@ -1,6 +1,6 @@
 // Comentarios - Rutas de la aplicación
 // Define las rutas y el orden de las pantallas de acceso: login, código TOTP, cambio de contraseña y sistema.
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
 import { LoginPage } from './pages/auth/LoginPage';
@@ -11,6 +11,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import { RoleBasedRoute } from './components/routes/RoleBasedRoute';
 import { ROLES_CON_ESCRITURA } from './utils/roles';
+import { registrarEvento } from './servicios/auditoria';
 import styles from './App.module.css';
 
 // Comentarios - Carga diferida de páginas
@@ -32,6 +33,15 @@ function LayoutPrincipal() {
   // /login y /activar son públicas: no llevan menú y se pueden abrir sin sesión.
   const esPaginaPublica = location.pathname === '/login' || location.pathname === '/activar';
   const esLogin = location.pathname === '/login';
+
+  // Comentarios - Bitácora completa
+  // Cada página interna que abre el usuario queda registrada, una vez que la sesión está completa
+  // (con código TOTP y sin cambio de contraseña pendiente).
+  const sesionCompleta = Boolean(session && user && dosPasosCompleto && !user.debe_cambiar_password);
+  useEffect(() => {
+    if (!sesionCompleta || esPaginaPublica) return;
+    void registrarEvento('VER_PAGINA', { detalle: { ruta: location.pathname } });
+  }, [sesionCompleta, esPaginaPublica, location.pathname]);
 
   if (loading) return <p role="status">Verificando sesión...</p>;
 

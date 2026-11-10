@@ -3,7 +3,8 @@
 // La persona define su propia contraseña desde el enlace. Solo la puede usar un administrador activo.
 import { enviarCorreoActivacion, generarEnlace } from '../_shared/activacion.ts';
 import { verificarAdministrador } from '../_shared/administrador.ts';
-import { clienteAdmin, type ClienteSupabase } from '../_shared/clientes.ts';
+import { auditarAdmin } from '../_shared/auditoria.ts';
+import { clienteAdmin, clienteUsuario, type ClienteSupabase } from '../_shared/clientes.ts';
 import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
 import { correoCanonico, validarCorreo } from '../_shared/validaciones.ts';
@@ -101,7 +102,10 @@ Deno.serve(conCors(async (req) => {
   // 5. El trigger deja el perfil como tecnólogo e inactivo (Auth no entrega el rol al insertar). Se fija aquí el rol
   //    pedido, se activa la cuenta y se marca que la persona aún debe definir su contraseña.
   //    Solo esta función activa cuentas nuevas: un registro hecho por fuera nace sin permisos.
-  const { data: usuarioNuevo, error: errRol } = await supabaseAdmin
+  // Comentarios - Bitácora completa
+  // Este cambio se hace con la sesión del administrador (ya verificado con aal2, la RLS se lo permite), no con la
+  // service role: así el trigger de auditoría registra quién asignó el rol y activó la cuenta.
+  const { data: usuarioNuevo, error: errRol } = await clienteUsuario(req)
     .from('usuario')
     .update({ rol, activo: true, debe_cambiar_password: true })
     .eq('id', enlace.usuarioId)
@@ -124,6 +128,14 @@ Deno.serve(conCors(async (req) => {
     console.error('No se pudo enviar el correo de activación:', errorEnvio);
     correoEnviado = false;
   }
+
+  // Comentarios - Bitácora completa
+  // Registra la creación con el administrador que la hizo, el rol asignado y si el correo de activación salió.
+  await auditarAdmin(req, verificacion.usuarioId, 'CREAR_USUARIO', {
+    tabla: 'usuario',
+    registroId: usuarioNuevo.id,
+    detalle: { rol, correo_enviado: correoEnviado },
+  });
 
   return responder({ ok: true, usuario: usuarioNuevo, correo_enviado: correoEnviado }, 201);
 }));

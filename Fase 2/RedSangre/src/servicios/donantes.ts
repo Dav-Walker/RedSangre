@@ -3,6 +3,7 @@
 // directamente: usan estas funciones. Las escrituras devuelven un mensaje de error o null si todo salió bien.
 import { supabase } from '../utils/supabase';
 import { valorFiltro } from '../utils/filtrosPostgrest';
+import { registrarEvento, registrarRechazo } from './auditoria';
 import { ETIQUETA_FENOTIPO_RARO, ETIQUETA_PLAQUETAS, ETIQUETAS_GENERICAS, esEtiquetaDeColumna } from '../utils/etiquetas';
 import type { Database } from '../tipos/database.types';
 import type { Donante, GrupoSanguineo, TipoDonacion } from '../tipos/dominio';
@@ -80,6 +81,21 @@ export async function consultarDonantes(f: FiltrosDonantes): Promise<ResultadoDo
   const desde = (f.pagina - 1) * f.porPagina;
   const { data, error, count } = await query.range(desde, desde + f.porPagina - 1);
   if (error) return { donantes: [], total: 0, error: ERROR_LISTADO };
+
+  // Comentarios - Bitácora completa
+  // Registra la consulta con sus filtros. El texto buscado no se guarda (puede ser un nombre o un RUT):
+  // solo se anota si hubo búsqueda por texto.
+  void registrarEvento('BUSCAR_DONANTES', {
+    tabla: 'donante',
+    detalle: {
+      pagina: f.pagina,
+      grupo: f.grupo || null,
+      antigenos: f.antigenos,
+      etiqueta: f.etiqueta || null,
+      con_texto: Boolean(f.busqueda),
+      resultados: count ?? 0,
+    },
+  });
   return { donantes: data ?? [], total: count ?? 0, error: null };
 }
 
@@ -89,7 +105,11 @@ export type DatosRegistroDonante = Database['public']['Functions']['fn_registrar
 
 export async function registrarDonante(datos: DatosRegistroDonante): Promise<string | null> {
   const { error } = await supabase.rpc('fn_registrar_donante', datos);
-  return error ? 'Error al guardar el donante: ' + error.message : null;
+  if (error) {
+    registrarRechazo('registrar_donante', error.code);
+    return 'Error al guardar el donante: ' + error.message;
+  }
+  return null;
 }
 
 // Comentarios - Ficha de donante
@@ -112,6 +132,10 @@ export async function obtenerFichaDonante(codigo: string): Promise<FichaDonante 
     .eq('codigo_donante', codigo)
     .single();
   if (error || !donante) return null;
+
+  // Comentarios - Bitácora completa
+  // Abrir la ficha es un acceso a datos personales y de salud: queda registrado quién vio a qué donante
+  void registrarEvento('VER_DONANTE', { tabla: 'donante', registroId: donante.id });
 
   const [{ data: consentimiento }, { data: etiquetas }] = await Promise.all([
     supabase
@@ -151,7 +175,11 @@ export async function actualizarDonante(donante: Donante): Promise<string | null
       updated_at: new Date().toISOString(),
     })
     .eq('id', donante.id);
-  return error ? 'Error al guardar: ' + error.message : null;
+  if (error) {
+    registrarRechazo('editar_donante', error.code, donante.id);
+    return 'Error al guardar: ' + error.message;
+  }
+  return null;
 }
 
 // Comentarios - Ficha de donante
@@ -175,7 +203,11 @@ export async function registrarConsentimiento(
       registrado_por: registradoPor,
       updated_at: ahora,
     });
-  return error ? 'Error al guardar consentimiento: ' + error.message : null;
+  if (error) {
+    registrarRechazo('registrar_consentimiento', error.code, donanteId);
+    return 'Error al guardar consentimiento: ' + error.message;
+  }
+  return null;
 }
 
 // Comentarios - Guardar etiquetas del donante
@@ -187,13 +219,20 @@ export async function reemplazarEtiquetasGenericas(donanteId: string, etiquetas:
     .delete()
     .eq('donante_id', donanteId)
     .in('etiqueta', ETIQUETAS_GENERICAS);
-  if (errBorrar) return errBorrar.message;
+  if (errBorrar) {
+    registrarRechazo('quitar_etiquetas', errBorrar.code, donanteId);
+    return errBorrar.message;
+  }
   if (etiquetas.length === 0) return null;
 
   const { error: errInsertar } = await supabase
     .from('etiqueta_donante')
     .insert(etiquetas.map((etiqueta) => ({ donante_id: donanteId, etiqueta })));
-  return errInsertar ? errInsertar.message : null;
+  if (errInsertar) {
+    registrarRechazo('agregar_etiquetas', errInsertar.code, donanteId);
+    return errInsertar.message;
+  }
+  return null;
 }
 
 // Comentarios - Regla de espera entre donaciones por sexo
@@ -231,7 +270,11 @@ export async function registrarDonacion(d: NuevaDonacion): Promise<string | null
       detalle_reaccion: d.huboReaccion ? d.detalleReaccion.trim() || null : null,
       registrado_por: d.registradoPor,
     });
-  return error ? 'Error al registrar donación: ' + error.message : null;
+  if (error) {
+    registrarRechazo('registrar_donacion', error.code, d.donanteId);
+    return 'Error al registrar donación: ' + error.message;
+  }
+  return null;
 }
 
 // Comentarios - Registrar donación

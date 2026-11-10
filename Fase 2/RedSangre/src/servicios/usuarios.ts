@@ -3,6 +3,7 @@
 // cambiar contraseña, reenviar activación). Las escrituras devuelven un mensaje de error o null si todo salió bien.
 import { supabase } from '../utils/supabase';
 import { leerMensajeError } from '../utils/mensajeErrorFuncion';
+import { registrarEvento, registrarRechazo } from './auditoria';
 import type { RolUsuario, Usuario } from '../tipos/dominio';
 
 // Comentarios - Lista de usuarios
@@ -54,7 +55,17 @@ export async function cambiarEstadoUsuario(usuarioId: string, activo: boolean): 
     .from('usuario')
     .update({ activo })
     .eq('id', usuarioId);
-  return error ? error.message || 'No se pudo cambiar el estado del usuario. Intenta nuevamente.' : null;
+  if (error) {
+    registrarRechazo(activo ? 'activar_usuario' : 'desactivar_usuario', error.code, usuarioId);
+    return error.message || 'No se pudo cambiar el estado del usuario. Intenta nuevamente.';
+  }
+  return null;
+}
+
+// Comentarios - Bitácora completa
+// Abrir el detalle de un usuario en Configuración queda registrado (muestra su correo y su estado)
+export function registrarVistaUsuario(usuarioId: string): void {
+  void registrarEvento('VER_USUARIO', { tabla: 'usuario', registroId: usuarioId });
 }
 
 // Comentarios - Edge Functions de administración

@@ -5,6 +5,7 @@ import { supabase } from '../utils/supabase';
 import { leerMensajeError } from '../utils/mensajeErrorFuncion';
 import { valorFiltro } from '../utils/filtrosPostgrest';
 import { fechaLocal } from '../utils/fechas';
+import { registrarEvento, registrarRechazo } from './auditoria';
 import type { Donante, EstadoSolicitudBase, GrupoSanguineo, ResultadoContacto, Solicitud, Urgencia } from '../tipos/dominio';
 
 // Comentarios - Listado de solicitudes
@@ -61,6 +62,20 @@ export async function listarSolicitudes(f: FiltrosSolicitudes): Promise<Resultad
   const inicio = (f.pagina - 1) * f.porPagina;
   const { data, error, count } = await query.range(inicio, inicio + f.porPagina - 1);
   if (error) return { solicitudes: [], total: 0, error: 'Error al cargar las solicitudes: ' + error.message };
+
+  // Comentarios - Bitácora completa
+  // Registra la consulta con sus filtros; el texto buscado no se guarda, solo si hubo búsqueda por texto
+  void registrarEvento('BUSCAR_SOLICITUDES', {
+    tabla: 'solicitud',
+    detalle: {
+      pagina: f.pagina,
+      grupo: f.grupo || null,
+      estado: f.estado || null,
+      fecha: f.fecha || null,
+      con_texto: Boolean(f.busqueda),
+      resultados: count ?? 0,
+    },
+  });
   return { solicitudes: data ?? [], total: count ?? 0, error: null };
 }
 
@@ -99,6 +114,13 @@ export async function buscarCandidatos(
     p_limite: MAXIMO_CANDIDATOS,
   });
   if (error) return { candidatos: [], error: 'Error al buscar candidatos: ' + error.message };
+
+  // Comentarios - Bitácora completa
+  // Registra la búsqueda de candidatos: grupo, fenotipo pedido y cuántos donantes devolvió
+  void registrarEvento('BUSCAR_CANDIDATOS', {
+    tabla: 'donante',
+    detalle: { grupo, fenotipo: fenotipo.trim() || null, resultados: data?.length ?? 0 },
+  });
   return { candidatos: (data ?? []) as Candidato[], error: null };
 }
 
@@ -117,7 +139,11 @@ export async function crearSolicitud(datos: {
     estado: 'abierta',
     donante_asignado_id: datos.donanteId,
   });
-  return error ? 'Error al crear la solicitud: ' + error.message : null;
+  if (error) {
+    registrarRechazo('crear_solicitud', error.code, datos.donanteId);
+    return 'Error al crear la solicitud: ' + error.message;
+  }
+  return null;
 }
 
 // Comentarios - Detalle de solicitud
@@ -136,7 +162,7 @@ export async function obtenerSolicitud(idOCodigo: string): Promise<SolicitudConD
     .select(COLUMNAS_DETALLE)
     .eq('codigo_solicitud', idOCodigo)
     .maybeSingle();
-  if (porCodigo.data) return porCodigo.data;
+  if (porCodigo.data) return conRegistroDeAcceso(porCodigo.data);
   if (porCodigo.error) return null;
 
   const porId = await supabase
@@ -144,7 +170,14 @@ export async function obtenerSolicitud(idOCodigo: string): Promise<SolicitudConD
     .select(COLUMNAS_DETALLE)
     .eq('id', idOCodigo)
     .maybeSingle();
-  return porId.data ?? null;
+  return porId.data ? conRegistroDeAcceso(porId.data) : null;
+}
+
+// Comentarios - Bitácora completa
+// Abrir el detalle de una solicitud muestra los datos de contacto del donante: queda registrado quién la vio
+function conRegistroDeAcceso(solicitud: SolicitudConDonante): SolicitudConDonante {
+  void registrarEvento('VER_SOLICITUD', { tabla: 'solicitud', registroId: solicitud.id });
+  return solicitud;
 }
 
 // Comentarios - Cambiar estado de solicitud
@@ -160,7 +193,10 @@ export async function cambiarEstadoSolicitud(
     .eq('id', solicitudId)
     .neq('estado', 'cerrada')
     .select('id');
-  if (error) return { error: 'No se pudo cambiar el estado: ' + error.message, yaCerrada: false };
+  if (error) {
+    registrarRechazo('cambiar_estado_solicitud', error.code, solicitudId);
+    return { error: 'No se pudo cambiar el estado: ' + error.message, yaCerrada: false };
+  }
   if (!data || data.length === 0) return { error: 'La solicitud ya está cerrada y no puede modificarse.', yaCerrada: true };
   return { error: null, yaCerrada: false };
 }
@@ -202,5 +238,9 @@ export async function registrarContactoWhatsapp(solicitudId: string, donanteId: 
     canal: 'whatsapp',
     resultado: 'enviado',
   });
-  return error ? error.message : null;
+  if (error) {
+    registrarRechazo('contactar_whatsapp', error.code, solicitudId);
+    return error.message;
+  }
+  return null;
 }

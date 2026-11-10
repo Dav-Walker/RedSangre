@@ -13,6 +13,7 @@ import {
   registrarContactoWhatsapp,
   type SolicitudConDonante,
 } from '../../servicios/solicitudes';
+import { registrarEvento } from '../../servicios/auditoria';
 import type { ResultadoContacto } from '../../tipos/dominio';
 import styles from './SolicitudDetallePage.module.css';
 import { useAuth } from '../../contexts/useAuth';
@@ -184,6 +185,14 @@ export function SolicitudDetallePage() {
   const handleLlamar = () => {
     const telefono = solicitud?.donante?.telefono;
     if (!telefono) return;
+
+    // Comentarios - Bitácora completa
+    // La llamada no pasa por la base, así que se registra aquí: quién llamó (o vio el número) a qué donante
+    void registrarEvento('LLAMAR_DONANTE', {
+      tabla: 'donante',
+      registroId: solicitud?.donante?.id,
+      detalle: { solicitud: solicitud?.codigo_solicitud ?? null },
+    });
 
     const esMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!esMovil) {

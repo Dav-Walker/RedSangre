@@ -3,6 +3,7 @@
 // Solo la puede usar un administrador activo.
 import { enviarCorreoActivacion, generarEnlace } from '../_shared/activacion.ts';
 import { verificarAdministrador } from '../_shared/administrador.ts';
+import { auditarAdmin } from '../_shared/auditoria.ts';
 import { clienteAdmin } from '../_shared/clientes.ts';
 import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
@@ -57,6 +58,14 @@ Deno.serve(conCors(async (req) => {
     console.error('No se pudo reenviar el correo de activación:', errorEnvio);
     return responder({ error: 'No se pudo enviar el correo' }, 502);
   }
+
+  // Comentarios - Bitácora completa
+  // Registra qué administrador reenvió la activación, a qué usuario y con qué tipo de enlace.
+  await auditarAdmin(req, verificacion.usuarioId, 'REENVIAR_ACTIVACION', {
+    tabla: 'usuario',
+    registroId: usuarioId,
+    detalle: { tipo },
+  });
 
   return responder({ ok: true });
 }));

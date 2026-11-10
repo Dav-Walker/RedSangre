@@ -8,6 +8,7 @@ import {
   consultarUltimaConexion,
   escucharPresencia,
   listarUsuarios,
+  registrarVistaUsuario,
   type UsuarioFila,
 } from '../../servicios/usuarios';
 import { UsuarioModal } from './UsuarioModal';
@@ -135,7 +136,12 @@ export function ConfiguracionPage() {
               <tr
                 key={usuario.id}
                 className={styles.fila}
-                onClick={() => setUsuarioSeleccionado(usuario)}
+                onClick={() => {
+                  // Comentarios - Bitácora completa
+                  // Registra que el administrador abrió el detalle de este usuario
+                  registrarVistaUsuario(usuario.id);
+                  setUsuarioSeleccionado(usuario);
+                }}
               >
                 <td className={styles.celdaNombre}>{usuario.nombre} {usuario.apellido}</td>
                 <td className={styles.celdaCorreo}>{usuario.correo}</td>

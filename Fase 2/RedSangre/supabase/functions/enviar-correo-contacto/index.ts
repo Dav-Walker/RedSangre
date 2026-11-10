@@ -50,7 +50,17 @@ Deno.serve(conCors(async (req) => {
   // El correo se envía antes de escribir en la bitácora, así que el permiso de escritura se revisa al inicio
   const { data: puedeEscribir, error: errPermiso } = await supabase.rpc('fn_puede_escribir');
   if (errPermiso) return responder({ error: 'No se pudo verificar el permiso' }, 500);
-  if (!puedeEscribir) return responder({ error: 'Tu perfil es de solo lectura: no puede contactar por correo' }, 403);
+  if (!puedeEscribir) {
+    // Comentarios - Bitácora completa
+    // Un perfil de solo lectura que intenta enviar el correo queda registrado como acceso denegado
+    await supabase.rpc('fn_auditar', {
+      p_accion: 'ACCESO_DENEGADO',
+      p_tabla: 'solicitud',
+      p_registro: solicitudId,
+      p_detalle: { accion: 'enviar correo de contacto', motivo: 'solo_lectura' },
+    });
+    return responder({ error: 'Tu perfil es de solo lectura: no puede contactar por correo' }, 403);
+  }
 
   const { data: solicitud, error: errSolicitud } = await supabase
     .from('solicitud')
@@ -82,6 +92,14 @@ Deno.serve(conCors(async (req) => {
     });
   } catch (errorEnvio) {
     console.error('Error al enviar correo de contacto:', errorEnvio);
+    // Comentarios - Bitácora completa
+    // El intento de envío que falló también queda en la bitácora (el envío exitoso lo registra seguimiento_contacto)
+    await supabase.rpc('fn_auditar', {
+      p_accion: 'CORREO_FALLIDO',
+      p_tabla: 'solicitud',
+      p_registro: solicitud.id,
+      p_detalle: { donante_id: donante.id },
+    });
     return responder({ error: 'No se pudo enviar el correo' }, 502);
   }
 

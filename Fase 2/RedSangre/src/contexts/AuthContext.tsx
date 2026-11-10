@@ -7,6 +7,7 @@ import { AuthContext, type UserProfile } from './auth-context';
 import { DURACION_SESION_MS, obtenerInicioSesion } from '../utils/duracionSesion';
 import { leerClaimsToken } from '../utils/tokenSesion';
 import { traducirErrorAuth } from '../utils/mensajesAuth';
+import { registrarEvento } from '../servicios/auditoria';
 
 const MENSAJE_CUENTA_DESACTIVADA = 'Tu cuenta está desactivada. Contacta al administrador.';
 const MENSAJE_SIN_CONFIGURACION = 'Supabase no está configurado. Revisa las variables del archivo .env.';
@@ -125,8 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSesionExpirada(true);
       setSession(null);
       setUser(null);
+      // Comentarios - Bitácora completa
+      // Registra el cierre por tiempo antes de revocar la sesión, mientras el token todavía es válido.
       // scope 'local' revoca solo esta sesión en el servidor, sin cerrar las de otros equipos del usuario
-      void supabase.auth.signOut({ scope: 'local' });
+      void registrarEvento('SESION_EXPIRADA').finally(() => supabase.auth.signOut({ scope: 'local' }));
     };
 
     const temporizador = window.setTimeout(revisarVencimiento, Math.max(vence - Date.now(), 0));
@@ -222,15 +225,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) return MENSAJE_SIN_CONFIGURACION;
 
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: codigo });
-    if (error) return mensajeErrorDosPasos(error.code);
+    if (error) {
+      // Comentarios - Bitácora completa
+      // Un código TOTP incorrecto queda registrado (la sesión aún es aal1, pero ya tiene usuario)
+      void registrarEvento('LOGIN_TOTP_FALLIDO', { detalle: { codigo: error.code ?? null } });
+      return mensajeErrorDosPasos(error.code);
+    }
 
-    await supabase.rpc('fn_registrar_login');
+    await registrarEvento('LOGIN', { tabla: 'usuario', registroId: userId });
     return null;
   };
 
   const signOut = async () => {
     if (!isSupabaseConfigured) return MENSAJE_SIN_CONFIGURACION;
 
+    // Comentarios - Bitácora completa
+    // El cierre de sesión se registra antes de revocar el token, que es el que identifica al usuario
+    await registrarEvento('LOGOUT');
     const { error } = await supabase.auth.signOut();
     if (error) return 'No se pudo cerrar sesión. Inténtalo nuevamente.';
 

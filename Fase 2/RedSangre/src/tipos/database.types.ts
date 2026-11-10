@@ -16,30 +16,45 @@ export type Database = {
     Tables: {
       auditoria: {
         Row: {
+          aal: string | null
           accion: string
           detalle: Json | null
           fecha: string
           id: string
+          ip: unknown
+          origen: string | null
+          registro_clave: string | null
           registro_id: string | null
           tabla_afectada: string | null
+          user_agent: string | null
           usuario_id: string | null
         }
         Insert: {
+          aal?: string | null
           accion: string
           detalle?: Json | null
           fecha?: string
           id?: string
+          ip?: unknown
+          origen?: string | null
+          registro_clave?: string | null
           registro_id?: string | null
           tabla_afectada?: string | null
+          user_agent?: string | null
           usuario_id?: string | null
         }
         Update: {
+          aal?: string | null
           accion?: string
           detalle?: Json | null
           fecha?: string
           id?: string
+          ip?: unknown
+          origen?: string | null
+          registro_clave?: string | null
           registro_id?: string | null
           tabla_afectada?: string | null
+          user_agent?: string | null
           usuario_id?: string | null
         }
         Relationships: [
@@ -872,6 +887,15 @@ export type Database = {
       }
     }
     Functions: {
+      fn_auditar: {
+        Args: {
+          p_accion: string
+          p_detalle?: Json
+          p_registro?: string
+          p_tabla?: string
+        }
+        Returns: undefined
+      }
       fn_buscar_donantes_compatibles: {
         Args: {
           p_fenotipo_requerido?: string

@@ -1,7 +1,13 @@
 /* =============================================================================
    RedSangre — Script completo de base de datos
    Clínica Indisa · Supabase (PostgreSQL 15+)
-   Versión 1.3.0 · 2026-11-10
+   Versión 1.4.0 · 2026-11-10
+
+   CAMBIOS 1.4.0
+     · Bitácora completa: auditoria guarda origen, nivel de sesión, IP y navegador; los triggers registran
+       también borrados, etiquetas y configuración; fn_auditar (eventos de la app: sesión, navegación,
+       consultas, llamadas y rechazos) y fn_auditar_admin (acciones de las Edge Functions); la bitácora
+       no se puede modificar ni borrar.
 
    CAMBIOS 1.3.0
      · Perfil TENS de solo lectura: valor 'tens' en rol_usuario y función fn_puede_escribir.
@@ -305,18 +311,30 @@ CREATE TABLE IF NOT EXISTS public.donacion (
   CONSTRAINT donacion_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.usuario (id)
 );
 
--- auditoria: bitácora de accesos y operaciones críticas (RNF-02). Append-only.
+-- auditoria: bitácora de accesos y operaciones críticas (RNF-02). Append-only e inalterable.
 CREATE TABLE IF NOT EXISTS public.auditoria (
   id             uuid        NOT NULL DEFAULT gen_random_uuid(),
   usuario_id     uuid,
-  accion         text        NOT NULL,   -- LOGIN | CREAR | EDITAR | CAMBIAR_ESTADO
+  accion         text        NOT NULL,   -- CREAR | EDITAR | CAMBIAR_ESTADO | ELIMINAR | eventos de fn_auditar / fn_auditar_admin
   tabla_afectada text,
   registro_id    uuid,
+  registro_clave text,                   -- registros sin uuid (configuracion.clave)
   detalle        jsonb,
+  origen         text,                   -- app | edge_function | auth | sql
+  aal            text,                   -- nivel de la sesión (aal1 / aal2)
+  ip             inet,
+  user_agent     text,
   fecha          timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT auditoria_pkey           PRIMARY KEY (id),
   CONSTRAINT auditoria_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuario (id)
 );
+-- Comentarios - Bitácora completa
+-- Columnas de contexto para una base que ya tenía la tabla: desde dónde y en qué condiciones ocurrió cada evento
+ALTER TABLE public.auditoria ADD COLUMN IF NOT EXISTS registro_clave text;
+ALTER TABLE public.auditoria ADD COLUMN IF NOT EXISTS origen         text;
+ALTER TABLE public.auditoria ADD COLUMN IF NOT EXISTS aal            text;
+ALTER TABLE public.auditoria ADD COLUMN IF NOT EXISTS ip             inet;
+ALTER TABLE public.auditoria ADD COLUMN IF NOT EXISTS user_agent     text;
 
 
 /* =============================================================================
@@ -935,22 +953,140 @@ BEGIN
   RETURN v_id;
 END $$;
 
+-- Comentarios - Bitácora completa
+-- Única puerta de escritura en auditoria: agrega el contexto de cada evento (origen, nivel de sesión, IP y
+-- navegador). Es interna: la usan los triggers, fn_auditar y fn_auditar_admin; nadie la llama por la API.
+-- El origen sale del rol de la petición: la app (authenticated), una Edge Function (service_role),
+-- Supabase Auth (supabase_auth_admin) o el SQL Editor / un script (sin rol de API).
+CREATE OR REPLACE FUNCTION public.fn_insertar_auditoria(
+  p_usuario    uuid,
+  p_accion     text,
+  p_tabla      text,
+  p_registro   uuid,
+  p_clave      text,
+  p_detalle    jsonb,
+  p_ip         text DEFAULT NULL,
+  p_user_agent text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_headers jsonb;
+  v_ip_txt  text;
+  v_ip      inet;
+BEGIN
+  BEGIN
+    v_headers := NULLIF(current_setting('request.headers', true), '')::jsonb;
+  EXCEPTION WHEN others THEN
+    v_headers := NULL;
+  END;
+
+  v_ip_txt := COALESCE(p_ip, v_headers ->> 'cf-connecting-ip', v_headers ->> 'x-real-ip',
+                       split_part(v_headers ->> 'x-forwarded-for', ',', 1));
+  BEGIN
+    v_ip := NULLIF(btrim(v_ip_txt), '')::inet;
+  EXCEPTION WHEN others THEN
+    v_ip := NULL;   -- valor que no es una IP: se ignora
+  END;
+
+  INSERT INTO public.auditoria (usuario_id, accion, tabla_afectada, registro_id, registro_clave,
+                                detalle, origen, aal, ip, user_agent)
+  VALUES (
+    (SELECT u.id FROM public.usuario u WHERE u.id = p_usuario),   -- solo si tiene perfil (FK)
+    p_accion, p_tabla, p_registro, p_clave, p_detalle,
+    CASE (SELECT auth.role())
+      WHEN 'authenticated' THEN 'app'
+      WHEN 'service_role'  THEN 'edge_function'
+      ELSE CASE WHEN session_user::text = 'supabase_auth_admin' THEN 'auth' ELSE 'sql' END
+    END,
+    (SELECT auth.jwt() ->> 'aal'),
+    v_ip,
+    left(COALESCE(p_user_agent, v_headers ->> 'user-agent'), 300)
+  );
+END $$;
+
+-- Comentarios - Bitácora completa
+-- Registra un evento de la aplicación que no es un cambio en una tabla: sesión, navegación, consultas,
+-- llamadas y operaciones rechazadas. El autor es siempre la sesión actual (no se puede falsificar) y solo
+-- se aceptan acciones conocidas. Evita duplicados de 5 s y limita a 200 eventos por minuto por usuario.
+CREATE OR REPLACE FUNCTION public.fn_auditar(
+  p_accion   text,
+  p_tabla    text  DEFAULT NULL,
+  p_registro uuid  DEFAULT NULL,
+  p_detalle  jsonb DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_uid     uuid  := (SELECT auth.uid());
+  v_detalle jsonb := p_detalle;
+BEGIN
+  IF p_accion NOT IN ('LOGIN', 'LOGIN_TOTP_FALLIDO', 'LOGOUT', 'SESION_EXPIRADA',
+                      'VER_PAGINA', 'VER_DONANTE', 'VER_SOLICITUD', 'VER_USUARIO',
+                      'BUSCAR_DONANTES', 'BUSCAR_SOLICITUDES', 'BUSCAR_CANDIDATOS',
+                      'LLAMAR_DONANTE', 'OPERACION_RECHAZADA', 'ACCESO_DENEGADO', 'CORREO_FALLIDO') THEN
+    RAISE EXCEPTION 'Acción de bitácora no permitida: %', p_accion USING ERRCODE = 'RS006';
+  END IF;
+
+  -- Sin perfil activo no se registra (cuenta inexistente o desactivada)
+  IF v_uid IS NULL OR public.fn_rol_actual() IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- El detalle describe la acción; no se aceptan textos largos
+  IF v_detalle IS NOT NULL AND length(v_detalle::text) > 2000 THEN
+    v_detalle := jsonb_build_object('detalle_recortado', true);
+  END IF;
+
+  -- Evita duplicados (doble clic, doble render) y que alguien llene la bitácora llamando en bucle
+  IF EXISTS (SELECT 1 FROM public.auditoria a
+              WHERE a.usuario_id = v_uid AND a.accion = p_accion
+                AND a.registro_id IS NOT DISTINCT FROM p_registro
+                AND a.detalle IS NOT DISTINCT FROM v_detalle
+                AND a.fecha > now() - interval '5 seconds')
+     OR (SELECT count(*) FROM public.auditoria a
+          WHERE a.usuario_id = v_uid AND a.fecha > now() - interval '1 minute') >= 200 THEN
+    RETURN;
+  END IF;
+
+  PERFORM public.fn_insertar_auditoria(v_uid, p_accion, p_tabla, p_registro, NULL, v_detalle);
+END $$;
+
+-- Comentarios - Bitácora completa
+-- Registra las acciones de administración que ocurren en Supabase Auth (crear usuario, cambiar contraseña,
+-- reenviar activación) y los accesos denegados a esas funciones. Solo la ejecuta service_role, desde las
+-- Edge Functions, que ya verificaron al administrador y envían su id, su IP y su navegador.
+CREATE OR REPLACE FUNCTION public.fn_auditar_admin(
+  p_actor      uuid,
+  p_accion     text,
+  p_tabla      text  DEFAULT NULL,
+  p_registro   uuid  DEFAULT NULL,
+  p_detalle    jsonb DEFAULT NULL,
+  p_ip         text  DEFAULT NULL,
+  p_user_agent text  DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+BEGIN
+  IF p_accion NOT IN ('CREAR_USUARIO', 'CAMBIAR_CONTRASENA', 'REENVIAR_ACTIVACION', 'ACCESO_DENEGADO') THEN
+    RAISE EXCEPTION 'Acción de bitácora no permitida: %', p_accion USING ERRCODE = 'RS006';
+  END IF;
+  PERFORM public.fn_insertar_auditoria(p_actor, p_accion, p_tabla, p_registro, NULL, p_detalle, p_ip, p_user_agent);
+END $$;
+
 -- fn_registrar_login() → void   RPC · RNF-02 (auditoría de inicios de sesión)
---   Qué hace : deja una fila LOGIN en auditoria para el usuario autenticado.
---   Uso      : el front la llama UNA vez después de signInWithPassword / verificación MFA.
---   Nota     : los intentos FALLIDOS no llegan a la BD de la app; Supabase los registra en
---              auth.audit_log_entries (Dashboard → Logs → Auth).
+-- Comentarios - Bitácora completa
+-- Se conserva para las pestañas que aún tengan cargada la versión anterior de la app; ahora registra el
+-- inicio de sesión mediante fn_auditar, con el mismo contexto que el resto de los eventos.
 CREATE OR REPLACE FUNCTION public.fn_registrar_login()
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 BEGIN
-  IF public.fn_rol_actual() IS NULL THEN
-    RETURN;   -- usuario sin perfil o inactivo: no se audita
-  END IF;
-  INSERT INTO public.auditoria (usuario_id, accion, tabla_afectada, registro_id, detalle)
-  VALUES ((SELECT auth.uid()), 'LOGIN', 'usuario', (SELECT auth.uid()),
-          jsonb_build_object('aal', (SELECT auth.jwt() ->> 'aal')));
+  PERFORM public.fn_auditar('LOGIN', 'usuario', (SELECT auth.uid()));
 END $$;
 
 -- fn_siguiente_codigo(tipo, prefijo) → texto   (interna; solo la usan los triggers de código)
@@ -1322,9 +1458,11 @@ BEGIN
   RETURN NULL;
 END $$;
 
--- fn_registrar_auditoria: AFTER INSERT/UPDATE · RNF-02 (auditoría de operaciones críticas)
+-- fn_registrar_auditoria: AFTER INSERT/UPDATE/DELETE · RNF-02 (auditoría de operaciones críticas)
 --   Escribe en auditoria quién, cuándo, qué tabla/registro y qué cambió.
 --   · INSERT → accion 'CREAR' con los valores no sensibles (sin datos personales).
+--   · DELETE → accion 'ELIMINAR' con los valores no sensibles de la fila borrada.
+--   · Las tablas sin columna id (configuracion) se identifican por registro_clave.
 --   · UPDATE → accion 'EDITAR' (o 'CAMBIAR_ESTADO' en solicitud) con antes/después SOLO
 --     de columnas no sensibles; de las sensibles (nombre, RUT, correo, teléfono,
 --     ubicación, observaciones...) registra únicamente el NOMBRE de la columna
@@ -1338,20 +1476,31 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE
   c_sensibles constant text[] := ARRAY['nombre','apellido','rut','correo','telefono','ubicacion','comuna','observaciones','latitud','longitud','detalle_reaccion','sexo'];
-  v_new       jsonb := to_jsonb(NEW);
+  v_new       jsonb;
   v_old       jsonb;
+  v_fila      jsonb;
   v_cambios   jsonb := '{}'::jsonb;
   v_sens_mod  text[] := ARRAY[]::text[];
   v_detalle   jsonb;
   v_accion    text;
-  v_usuario   uuid;
   k           text;
 BEGIN
   IF TG_OP = 'INSERT' THEN
+    v_new     := to_jsonb(NEW);
+    v_fila    := v_new;
     v_accion  := 'CREAR';
     v_detalle := jsonb_build_object('valores', v_new - c_sensibles - ARRAY['created_at','updated_at']);
+  -- Comentarios - Bitácora completa
+  -- Un borrado queda registrado con los valores no sensibles de la fila eliminada
+  ELSIF TG_OP = 'DELETE' THEN
+    v_old     := to_jsonb(OLD);
+    v_fila    := v_old;
+    v_accion  := 'ELIMINAR';
+    v_detalle := jsonb_build_object('valores', v_old - c_sensibles - ARRAY['created_at','updated_at']);
   ELSE
+    v_new    := to_jsonb(NEW);
     v_old    := to_jsonb(OLD);
+    v_fila   := v_new;
     v_accion := 'EDITAR';
     FOR k IN SELECT jsonb_object_keys(v_new) LOOP
       CONTINUE WHEN k = 'updated_at' OR (v_new -> k) IS NOT DISTINCT FROM (v_old -> k);
@@ -1370,13 +1519,27 @@ BEGIN
     v_detalle := jsonb_build_object('cambios', v_cambios, 'campos_sensibles_modificados', to_jsonb(v_sens_mod));
   END IF;
 
-  -- Solo se referencia al usuario si tiene perfil (evita violar la FK cuando actúa el sistema).
-  SELECT u.id INTO v_usuario FROM public.usuario u WHERE u.id = (SELECT auth.uid());
-
-  INSERT INTO public.auditoria (usuario_id, accion, tabla_afectada, registro_id, detalle)
-  VALUES (v_usuario, v_accion, TG_TABLE_NAME, (v_new ->> 'id')::uuid, v_detalle);
+  -- Comentarios - Bitácora completa
+  -- fn_insertar_auditoria agrega el contexto (origen, sesión, IP, navegador) y solo referencia al usuario
+  -- si tiene perfil. Las filas sin id (configuracion) se identifican por su clave.
+  PERFORM public.fn_insertar_auditoria(
+    (SELECT auth.uid()), v_accion, TG_TABLE_NAME,
+    CASE WHEN v_fila ? 'id' THEN (v_fila ->> 'id')::uuid END,
+    CASE WHEN v_fila ? 'id' THEN NULL ELSE v_fila ->> 'clave' END,
+    v_detalle);
 
   RETURN NULL;
+END $$;
+
+-- Comentarios - Bitácora completa
+-- La bitácora es inalterable: nadie puede modificar, borrar ni vaciar filas de auditoria, tampoco
+-- service_role ni el SQL Editor. Solo el dueño de la base podría desactivar este trigger a propósito.
+CREATE OR REPLACE FUNCTION public.fn_auditoria_inmutable()
+RETURNS trigger
+LANGUAGE plpgsql SET search_path = ''
+AS $$
+BEGIN
+  RAISE EXCEPTION 'La bitácora de auditoría no se puede modificar ni borrar' USING ERRCODE = 'RS006';
 END $$;
 
 
@@ -1512,7 +1675,10 @@ CREATE TRIGGER trg_updated_at_usuario  BEFORE UPDATE ON public.usuario
   FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 CREATE TRIGGER trg_validar_usuario     BEFORE INSERT OR UPDATE ON public.usuario
   FOR EACH ROW EXECUTE FUNCTION public.fn_validar_usuario();
-CREATE TRIGGER trg_auditoria_usuario   AFTER INSERT OR UPDATE ON public.usuario
+-- Comentarios - Bitácora completa
+-- Todas las tablas de la app registran altas, ediciones y borrados (los borrados solo son posibles por SQL o
+-- por las tablas que los permiten, como etiqueta_donante, pero igual deben quedar en la bitácora)
+CREATE TRIGGER trg_auditoria_usuario   AFTER INSERT OR UPDATE OR DELETE ON public.usuario
   FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
 
 -- donante
@@ -1522,7 +1688,7 @@ CREATE TRIGGER trg_normalizar_donante  BEFORE INSERT OR UPDATE ON public.donante
   FOR EACH ROW EXECUTE FUNCTION public.fn_normalizar_donante();
 CREATE TRIGGER trg_updated_at_donante  BEFORE UPDATE ON public.donante
   FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
-CREATE TRIGGER trg_auditoria_donante   AFTER INSERT OR UPDATE ON public.donante
+CREATE TRIGGER trg_auditoria_donante   AFTER INSERT OR UPDATE OR DELETE ON public.donante
   FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
 CREATE TRIGGER trg_sincronizar_donacion AFTER INSERT OR UPDATE OF fecha_ultima_donacion ON public.donante
   FOR EACH ROW EXECUTE FUNCTION public.fn_sincronizar_donacion_inicial();
@@ -1532,7 +1698,13 @@ CREATE TRIGGER trg_validar_consentimiento     BEFORE INSERT ON public.consentimi
   FOR EACH ROW EXECUTE FUNCTION public.fn_validar_consentimiento();
 CREATE TRIGGER trg_consentimiento_inmutable   BEFORE UPDATE OR DELETE ON public.consentimiento
   FOR EACH ROW EXECUTE FUNCTION public.fn_consentimiento_inmutable();
-CREATE TRIGGER trg_auditoria_consentimiento   AFTER INSERT ON public.consentimiento
+CREATE TRIGGER trg_auditoria_consentimiento   AFTER INSERT OR UPDATE OR DELETE ON public.consentimiento
+  FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
+
+-- etiqueta_donante
+-- Comentarios - Bitácora completa
+-- Agregar o quitar una etiqueta del donante queda en la bitácora
+CREATE TRIGGER trg_auditoria_etiqueta  AFTER INSERT OR UPDATE OR DELETE ON public.etiqueta_donante
   FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
 
 -- solicitud
@@ -1542,7 +1714,7 @@ CREATE TRIGGER trg_updated_at_solicitud BEFORE UPDATE ON public.solicitud
   FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
 CREATE TRIGGER trg_validar_solicitud   BEFORE INSERT OR UPDATE ON public.solicitud
   FOR EACH ROW EXECUTE FUNCTION public.fn_validar_solicitud();
-CREATE TRIGGER trg_auditoria_solicitud AFTER INSERT OR UPDATE ON public.solicitud
+CREATE TRIGGER trg_auditoria_solicitud AFTER INSERT OR UPDATE OR DELETE ON public.solicitud
   FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
 
 -- seguimiento_contacto
@@ -1550,7 +1722,7 @@ CREATE TRIGGER trg_validar_contacto    BEFORE INSERT ON public.seguimiento_conta
   FOR EACH ROW EXECUTE FUNCTION public.fn_validar_contacto();
 CREATE TRIGGER trg_aplicar_contacto    AFTER INSERT ON public.seguimiento_contacto
   FOR EACH ROW EXECUTE FUNCTION public.fn_aplicar_contacto_a_solicitud();
-CREATE TRIGGER trg_auditoria_contacto  AFTER INSERT OR UPDATE ON public.seguimiento_contacto
+CREATE TRIGGER trg_auditoria_contacto  AFTER INSERT OR UPDATE OR DELETE ON public.seguimiento_contacto
   FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
 
 -- donacion (append-only)
@@ -1560,12 +1732,24 @@ CREATE TRIGGER trg_donacion_inmutable  BEFORE UPDATE OR DELETE ON public.donacio
   FOR EACH ROW EXECUTE FUNCTION public.fn_donacion_inmutable();
 CREATE TRIGGER trg_aplicar_donacion    AFTER INSERT ON public.donacion
   FOR EACH ROW EXECUTE FUNCTION public.fn_aplicar_donacion();
-CREATE TRIGGER trg_auditoria_donacion  AFTER INSERT ON public.donacion
+CREATE TRIGGER trg_auditoria_donacion  AFTER INSERT OR UPDATE OR DELETE ON public.donacion
   FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
 
 -- configuracion
 CREATE TRIGGER trg_updated_at_configuracion BEFORE UPDATE ON public.configuracion
   FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+-- Comentarios - Bitácora completa
+-- Cambiar un parámetro (meses de espera, MFA del administrador, sede) queda con el valor anterior y el nuevo
+CREATE TRIGGER trg_auditoria_configuracion AFTER INSERT OR UPDATE OR DELETE ON public.configuracion
+  FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
+
+-- auditoria
+-- Comentarios - Bitácora completa
+-- La bitácora no admite modificaciones, borrados ni vaciado (TRUNCATE)
+CREATE TRIGGER trg_auditoria_inmutable    BEFORE UPDATE OR DELETE ON public.auditoria
+  FOR EACH ROW EXECUTE FUNCTION public.fn_auditoria_inmutable();
+CREATE TRIGGER trg_auditoria_sin_truncate BEFORE TRUNCATE ON public.auditoria
+  FOR EACH STATEMENT EXECUTE FUNCTION public.fn_auditoria_inmutable();
 
 -- auth.users → crea el perfil en public.usuario (Supabase permite triggers sobre auth.users).
 -- Se conserva el nombre que ya usa el proyecto (trg_nuevo_usuario_auth) y se elimina el
@@ -1927,6 +2111,13 @@ REVOKE EXECUTE ON FUNCTION public.fn_siguiente_codigo(text, text)  FROM authenti
 -- El hook de Auth solo lo ejecuta supabase_auth_admin; ningún usuario puede llamarlo por la API.
 REVOKE EXECUTE ON FUNCTION public.fn_hook_limite_sesion(jsonb) FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.fn_hook_limite_sesion(jsonb) TO supabase_auth_admin;
+-- Comentarios - Bitácora completa
+-- fn_insertar_auditoria es interna. fn_auditar_admin solo la usan las Edge Functions (service_role).
+-- fn_auditar la llama la app con la sesión del usuario.
+REVOKE EXECUTE ON FUNCTION public.fn_insertar_auditoria(uuid, text, text, uuid, text, jsonb, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_auditar_admin(uuid, text, text, uuid, jsonb, text, text) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_auditar_admin(uuid, text, text, uuid, jsonb, text, text) TO service_role;
+GRANT  EXECUTE ON FUNCTION public.fn_auditar(text, text, uuid, jsonb) TO authenticated;
 
 
 /* =============================================================================
@@ -1966,6 +2157,9 @@ CREATE INDEX IF NOT EXISTS idx_solicitud_created_at ON public.solicitud (created
 CREATE INDEX IF NOT EXISTS idx_solicitud_activa     ON public.solicitud (urgencia, created_at DESC)
   WHERE estado <> 'cerrada';                                                                        -- dashboard
 CREATE INDEX IF NOT EXISTS idx_auditoria_registro   ON public.auditoria (tabla_afectada, registro_id); -- historial de un registro
+-- Comentarios - Bitácora completa
+-- Actividad de un usuario por fecha: la usan el control de duplicados de fn_auditar y la consulta de la bitácora
+CREATE INDEX IF NOT EXISTS idx_auditoria_usuario_fecha ON public.auditoria (usuario_id, fecha DESC);
 
 -- Integridad con índices únicos:
 -- Una solicitud no registra dos veces la misma donación del mismo donante (doble clic):
@@ -2099,7 +2293,7 @@ COMMENT ON TABLE public.donacion IS
 COMMENT ON TABLE public.seguimiento_contacto IS
   'Bitácora APPEND-ONLY de intentos de contacto por solicitud (teléfono, correo, WhatsApp). Exige consentimiento de contacto vigente. Un nuevo resultado se registra como una fila nueva.';
 COMMENT ON TABLE public.auditoria IS
-  'Bitácora append-only de accesos y operaciones críticas. No copia datos personales (nombre, RUT, contacto, ubicación): solo registra qué columnas sensibles cambiaron; el afectado se identifica por registro_id.';
+  'Bitácora inalterable de todo lo que hacen los usuarios: sesión, navegación, consultas, cambios en tablas, acciones de administración y rechazos. No copia datos personales (nombre, RUT, contacto, ubicación): solo registra qué columnas sensibles cambiaron; el afectado se identifica por registro_id o registro_clave.';
 COMMENT ON TABLE public.configuracion IS
   'Tabla independiente a propósito (clave/valor, sin relaciones). Parámetros de negocio editables por el administrador: meses entre donaciones, ubicación de la sede, MFA y validación de RUT.';
 COMMENT ON TABLE public.secuencia_codigo IS
@@ -2134,7 +2328,10 @@ COMMENT ON FUNCTION public.fn_buscar_donantes_compatibles(public.grupo_sanguineo
   'Candidatos compatibles priorizados por aptitud, compatibilidad exacta, cercanía y tiempo sin donar.';
 COMMENT ON FUNCTION public.fn_registrar_donante(text, text, text, public.grupo_sanguineo_enum, text, date, boolean, boolean, text, text, text, text, boolean, boolean, boolean, text[], text) IS
   'Alta atómica de donante + consentimiento + etiquetas. Exige ambos consentimientos.';
-COMMENT ON FUNCTION public.fn_registrar_login() IS 'Registra un inicio de sesión en auditoria. Llamar desde el front tras autenticarse.';
+COMMENT ON FUNCTION public.fn_registrar_login() IS 'Compatibilidad con la versión anterior de la app: registra LOGIN mediante fn_auditar.';
+COMMENT ON FUNCTION public.fn_insertar_auditoria(uuid, text, text, uuid, text, jsonb, text, text) IS 'Interna: única escritura en auditoria, con origen, nivel de sesión, IP y navegador.';
+COMMENT ON FUNCTION public.fn_auditar(text, text, uuid, jsonb) IS 'Eventos de la app (sesión, navegación, consultas, llamadas, rechazos). El autor es la sesión actual.';
+COMMENT ON FUNCTION public.fn_auditar_admin(uuid, text, text, uuid, jsonb, text, text) IS 'Acciones de administración hechas desde las Edge Functions. Solo service_role.';
 COMMENT ON FUNCTION public.fn_grupos_compatibles(public.grupo_sanguineo_enum) IS 'Grupos de donante compatibles con el grupo del receptor (ABO/Rh, glóbulos rojos).';
 COMMENT ON FUNCTION public.fn_donante_disponible(date) IS 'Regla de los 3 meses desde la última donación.';
 COMMENT ON FUNCTION public.fn_donante_disponible(date, text) IS 'Disponibilidad según los meses de espera del sexo del donante (fn_meses_espera).';
@@ -2144,7 +2341,7 @@ COMMENT ON COLUMN public.donante.sexo IS 'Femenino, Masculino o No especifica. D
 COMMENT ON FUNCTION public.fn_aplicar_donacion() IS 'Trigger: al registrar una donación actualiza la fecha de última donación del donante, su reacción previa y la solicitud asociada.';
 COMMENT ON FUNCTION public.fn_rol_actual() IS 'Rol del usuario autenticado (NULL si inactivo o sin perfil). Base de las políticas RLS.';
 COMMENT ON FUNCTION public.fn_puede_escribir() IS 'Personal activo con permiso de escritura (administrador o tecnólogo). TENS queda en solo lectura.';
-COMMENT ON FUNCTION public.fn_registrar_auditoria() IS 'Trigger de auditoría: registra creaciones y ediciones sin copiar datos personales.';
+COMMENT ON FUNCTION public.fn_registrar_auditoria() IS 'Trigger de auditoría: registra creaciones, ediciones y borrados sin copiar datos personales.';
 COMMENT ON FUNCTION public.fn_manejar_nuevo_usuario_auth() IS 'Crea el perfil en public.usuario al crearse un auth.users. El rol solo se toma de app_metadata.';
 
 
