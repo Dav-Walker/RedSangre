@@ -41,6 +41,7 @@ Prototipo académico (Portafolio de Título, Duoc UC) que trabaja solo con datos
 | `npm run lint` | ESLint. |
 | `npm test` | Pruebas unitarias de `src/utils` (no tocan la base). |
 | `npm run test:seguridad` | Pruebas de permisos contra Supabase (`scripts/pruebas-seguridad.mjs`). Necesita en el entorno `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `TECNO_EMAIL` y `TECNO_PASSWORD`. |
+| `npm run desplegar` | Compila y sube `dist/` a `public_html` por FTPS (`scripts/desplegar.mjs`). Necesita en `.env` `FTP_HOST`, `FTP_USUARIO` y `FTP_CONTRASENA`. Con `npm run desplegar -- --limpiar` borra además los archivos viejos de `assets/`. |
 | `npm run tipos` | Regenera `src/tipos/database.types.ts` desde el esquema de Supabase (requiere `npx supabase login`). |
 
 ## Estructura
@@ -57,7 +58,7 @@ supabase/
   functions/     Edge Functions: crear-usuario, reenviar-activacion, cambiar-contrasena y enviar-correo-contacto.
     _shared/     Código común: CORS, respuestas, verificación de administrador, correo y validaciones.
   config.toml    Configuración local del CLI de Supabase.
-scripts/         Pruebas de seguridad.
+scripts/         Pruebas de seguridad y despliegue al hosting.
 public/          Archivos estáticos, incluido el .htaccess del hosting (HTTPS y rutas de la SPA).
 ```
 
