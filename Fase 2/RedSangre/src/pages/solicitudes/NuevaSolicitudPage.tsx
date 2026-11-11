@@ -209,16 +209,16 @@ export function NuevaSolicitudPage() {
                       onClick={() => { if (candidato.apto) setCandidatoSeleccionado(candidato.donante_id); }}
                       aria-selected={seleccionado}
                     >
-                      <td className={styles.celdaPrioridad}>{candidato.prioridad}</td>
-                      <td>
+                      <td data-label="Prioridad" className={styles.celdaPrioridad}>{candidato.prioridad}</td>
+                      <td data-label="Donante">
                         <span className={styles.nombreCandidato}>{candidato.nombre_completo}</span>
                         <span className={styles.codigoCandidato}>{candidato.codigo_donante}</span>
                       </td>
-                      <td>{candidato.grupo_sanguineo} ({candidato.compatibilidad})</td>
-                      <td>{candidato.fenotipo || '-'}</td>
-                      <td>{formatearUltimaDonacion(candidato.fecha_ultima_donacion)}</td>
-                      <td>{candidato.distancia_km != null ? `${candidato.distancia_km.toFixed(1)} km` : 'Sin ubicación'}</td>
-                      <td>
+                      <td data-label="Grupo">{candidato.grupo_sanguineo} ({candidato.compatibilidad})</td>
+                      <td data-label="Fenotipo">{candidato.fenotipo || '-'}</td>
+                      <td data-label="Última donación">{formatearUltimaDonacion(candidato.fecha_ultima_donacion)}</td>
+                      <td data-label="Distancia">{candidato.distancia_km != null ? `${candidato.distancia_km.toFixed(1)} km` : 'Sin ubicación'}</td>
+                      <td data-label="Estado">
                         {candidato.apto ? (
                           <span className={styles.badgeDisponible}>{seleccionado ? '✓ Elegido' : 'Disponible'}</span>
                         ) : (

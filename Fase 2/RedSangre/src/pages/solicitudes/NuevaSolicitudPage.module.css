@@ -251,3 +251,122 @@
   font-size: 13px;
   color: #888;
 }
+
+/* RESPONSIVE: CELULAR */
+@media (max-width: 768px) {
+  .contenedor {
+    padding: 16px 12px;
+  }
+
+  /* El título centrado choca con el botón Volver en pantallas angostas */
+  .tituloCentral {
+    display: none;
+  }
+
+  .tituloPrincipal {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .panelBusqueda {
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .filaFormulario {
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  /* Columna vacía que solo servía para alinear en escritorio */
+  .filaFormulario .grupoInput:empty {
+    display: none;
+  }
+
+  .select {
+    font-size: 16px;
+  }
+
+  /* La tabla de candidatos pasa a tarjetas tocables */
+  .tablaContenedor {
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .tabla,
+  .tabla tbody {
+    display: block;
+  }
+
+  .tabla thead {
+    display: none;
+  }
+
+  .tabla tr {
+    display: block;
+  }
+
+  .tabla tr.fila {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    margin-bottom: 12px;
+    padding: 6px 0;
+  }
+
+  .tabla td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 14px;
+    border-bottom: none;
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .tabla td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-weight: bold;
+    font-size: 13px;
+    color: #888;
+    text-align: left;
+  }
+
+  /* Donante: el nombre y el código van uno bajo el otro, a la derecha de la etiqueta */
+  .tabla td[data-label="Donante"] {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 16px;
+  }
+
+  .tabla td[data-label="Donante"]::before {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .tabla td[data-label="Donante"] > span {
+    grid-column: 2;
+  }
+
+  .tabla td.celdaMensaje {
+    display: block;
+    text-align: center;
+  }
+
+  .filaSeleccionada,
+  .filaSeleccionada:hover {
+    box-shadow: inset 4px 0 0 var(--color-marca-azul), 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .botonGuardar,
+  .mensajeError {
+    width: 100%;
+  }
+}

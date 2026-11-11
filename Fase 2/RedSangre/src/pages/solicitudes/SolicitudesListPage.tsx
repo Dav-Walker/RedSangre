@@ -190,15 +190,15 @@ export function SolicitudesListPage() {
                     onClick={() => navigate('/solicitudes/' + idMostrado)}
                     className={styles.fila}
                   >
-                    <td>{idMostrado}</td>
-                    <td className={styles.celdaGrupo}>{sol.grupo_sanguineo_requerido || '-'}</td>
-                    <td>{sol.fenotipo_requerido || '-'}</td>
-                    <td>{sol.urgencia || '-'}</td>
-                    <td className={styles.centrado}>
+                    <td data-label="Id solicitud">{idMostrado}</td>
+                    <td data-label="Tipo requerido" className={styles.celdaGrupo}>{sol.grupo_sanguineo_requerido || '-'}</td>
+                    <td data-label="Fenotipo">{sol.fenotipo_requerido || '-'}</td>
+                    <td data-label="Urgencia">{sol.urgencia || '-'}</td>
+                    <td data-label="Estado" className={styles.centrado}>
                       <Badge texto={estado.texto} color={estado.color} />
                     </td>
-                    <td>{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido}` : 'Sin asignar'}</td>
-                    <td>{sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-CL') : '-'}</td>
+                    <td data-label="Candidato asignado">{sol.donante ? `${sol.donante.nombre} ${sol.donante.apellido}` : 'Sin asignar'}</td>
+                    <td data-label="Fecha de creación">{sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-CL') : '-'}</td>
                   </tr>
                 );
               })
