@@ -182,3 +182,45 @@
   background: none;
   color: #aaa;
 }
+
+/* RESPONSIVE: CELULAR */
+@media (max-width: 768px) {
+  .modal {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    text-align: left;
+  }
+
+  .cabecera {
+    padding: 16px;
+  }
+
+  .cuerpo {
+    padding: 16px;
+  }
+
+  .input,
+  .select {
+    font-size: 16px;
+  }
+
+  .pie {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding: 0 16px 16px;
+  }
+
+  .pie button {
+    width: 100%;
+    padding: 12px;
+  }
+}
+
+/* Nombre y apellido se apilan en pantallas muy angostas */
+@media (max-width: 420px) {
+  .filaDoble {
+    grid-template-columns: 1fr;
+  }
+}

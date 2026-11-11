@@ -143,15 +143,15 @@ export function ConfiguracionPage() {
                   setUsuarioSeleccionado(usuario);
                 }}
               >
-                <td className={styles.celdaNombre}>{usuario.nombre} {usuario.apellido}</td>
-                <td className={styles.celdaCorreo}>{usuario.correo}</td>
-                <td>
+                <td data-label="Usuario" className={styles.celdaNombre}>{usuario.nombre} {usuario.apellido}</td>
+                <td data-label="Correo" className={styles.celdaCorreo}>{usuario.correo}</td>
+                <td data-label="Estado de conexión">
                   <div className={styles.estadoContainer}>
                     <div className={usuario.activo && estaEnLinea(usuario.id) ? styles.puntoVerde : styles.puntoRojo} />
                     <span className={styles.textoEstado}>{textoEstado(usuario)}</span>
                   </div>
                 </td>
-                <td className={styles.celdaRol}>{ETIQUETAS_ROL[usuario.rol]}</td>
+                <td data-label="Rol" className={styles.celdaRol}>{ETIQUETAS_ROL[usuario.rol]}</td>
               </tr>
             ))}
           </tbody>

@@ -114,3 +114,96 @@
 .fila {
   cursor: pointer;
 }
+
+/* RESPONSIVE: CELULAR */
+@media (max-width: 768px) {
+  .contenedor {
+    padding: 16px 12px;
+  }
+
+  .cabeceraSeccion {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .espaciador {
+    display: none;
+  }
+
+  .tituloPrincipal {
+    margin: 0;
+    font-size: 22px;
+    text-align: center;
+  }
+
+  /* La tabla pasa a tarjetas: una por usuario, con cada dato etiquetado */
+  .tablaContenedor {
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .tabla,
+  .tabla tbody {
+    display: block;
+  }
+
+  .tabla thead {
+    display: none;
+  }
+
+  .tabla tr {
+    display: block;
+  }
+
+  .tabla tr.fila {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    margin-bottom: 12px;
+    padding: 6px 0;
+  }
+
+  .tabla td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 14px;
+    border-bottom: none;
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .tabla td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-weight: bold;
+    font-size: 13px;
+    color: #888;
+    text-align: left;
+  }
+
+  .tabla td:not([data-label]) {
+    display: block;
+    text-align: center;
+  }
+
+  .tabla td.celdaNombre {
+    font-size: 16px;
+  }
+
+  .estadoContainer {
+    justify-content: flex-end;
+    text-align: right;
+  }
+
+  .puntoVerde,
+  .puntoRojo {
+    flex-shrink: 0;
+  }
+}
