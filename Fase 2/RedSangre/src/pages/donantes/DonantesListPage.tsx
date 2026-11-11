@@ -182,20 +182,21 @@ export function DonantesListPage() {
                     onClick={() => navigate('/donantes/' + donante.codigo_donante)}
                     className={`${styles.fila} ${index === donantes.length - 1 ? styles.sinBorde : ''}`}
                   >
-                    <td>{donante.codigo_donante}</td>
-                    <td>{donante.rut}</td>
-                    <td className={styles.tdNombre}>{donante.nombre} {donante.apellido}</td>
-                    <td>{donante.grupo_sanguineo}</td>
-                    <td>{donante.fenotipo || '-'}</td>
-                    <td>
+                    <td data-label="Id donante">{donante.codigo_donante}</td>
+                    <td data-label="Rut">{donante.rut}</td>
+                    <td data-label="Nombre" className={styles.tdNombre}>{donante.nombre} {donante.apellido}</td>
+                    <td data-label="Grupo">{donante.grupo_sanguineo}</td>
+                    <td data-label="Fenotipo">{donante.fenotipo || '-'}</td>
+                    <td data-label="Etiqueta">
                       {etiqueta ? (
                         <Badge texto={etiqueta} color={colorEtiqueta} />
                       ) : (
                         <span className={styles.sinDato}>-</span>
                       )}
                     </td>
-                    <td>{donante.fecha_ultima_donacion ? textoMesesDesde(donante.fecha_ultima_donacion) : '-'}</td>
+                    <td data-label="Última donación">{donante.fecha_ultima_donacion ? textoMesesDesde(donante.fecha_ultima_donacion) : '-'}</td>
                     <td
+                      data-label="Comentarios"
                       className={`${styles.celdaObservaciones} ${donante.observaciones ? '' : styles.sinDato}`}
                       title={donante.observaciones || ''}
                     >

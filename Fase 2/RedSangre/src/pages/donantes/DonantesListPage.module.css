@@ -165,3 +165,114 @@ select {
 .celdaObservaciones.sinDato {
   color: #aaa;
 }
+
+/* RESPONSIVE: CELULAR */
+@media (max-width: 768px) {
+  .contenedor {
+    padding: 12px;
+  }
+
+  .cabecera {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .buscadorContenedor {
+    width: 100%;
+  }
+
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros > * {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .controlFiltro,
+  .botonLimpiar {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .contador {
+    margin-left: 0;
+    text-align: center;
+  }
+
+  /* La tabla pasa a tarjetas: una por donante, con cada dato etiquetado */
+  .tablaContenedor {
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .tabla,
+  .tabla tbody {
+    display: block;
+  }
+
+  .tabla thead {
+    display: none;
+  }
+
+  .tabla tr.fila {
+    display: block;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    margin-bottom: 12px;
+    padding: 6px 0;
+  }
+
+  .tabla tr:not(.fila) {
+    display: block;
+  }
+
+  .tabla td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 14px;
+    border-bottom: none;
+    text-align: right;
+  }
+
+  .tabla td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-weight: bold;
+    font-size: 13px;
+    color: #888;
+    text-align: left;
+  }
+
+  .tabla td.tdNombre {
+    text-align: right;
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  .tabla td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .celdaObservaciones {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
+  .tabla td.celdaMensaje {
+    display: block;
+    text-align: center;
+  }
+}

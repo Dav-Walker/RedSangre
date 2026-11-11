@@ -243,3 +243,54 @@
 .opcionReaccionActiva {
   color: var(--color-marca-rojo);
 }
+
+/* RESPONSIVE: CELULAR */
+@media (max-width: 768px) {
+  .contenedor {
+    padding: 16px 12px;
+  }
+
+  .tituloPrincipal {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .layoutPrincipal {
+    flex-direction: column;
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .panelIzquierdo {
+    flex: none;
+    padding: 16px;
+  }
+
+  .filaFormulario {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .input,
+  .textareaObservaciones {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .select {
+    font-size: 16px;
+  }
+
+  .panelDerecho {
+    flex: none;
+    padding-top: 0;
+  }
+
+  .botonGuardar {
+    margin-top: 10px;
+  }
+}

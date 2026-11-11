@@ -41,3 +41,17 @@
 .quitar:hover {
   color: #c0392b;
 }
+
+@media (max-width: 768px) {
+  .contenedor {
+    display: flex;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .campo {
+    padding: 12px 32px 12px 12px;
+    font-size: 15px;
+  }
+}

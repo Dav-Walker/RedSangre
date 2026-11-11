@@ -3,6 +3,7 @@
 // teclado se mantiene dentro mientras está abierta. Al cerrarse, el foco vuelve al elemento que la abrió.
 // El aspecto de la caja lo define cada página con className.
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './Modal.module.css';
 
 interface ModalProps {
@@ -61,11 +62,14 @@ export function Modal({ className, children, onCerrar, cerrarConClicFuera = true
     if (e.target === e.currentTarget && cerrarConClicFuera) onCerrar?.();
   };
 
-  return (
+  // Se dibuja directamente en el body: así la posición del modal no depende del contenedor donde se usa
+  // (por ejemplo, dentro de un filtro o de una fila con estilos propios).
+  return createPortal(
     <div className={styles.fondo} onClick={alHacerClicFondo}>
       <div ref={cajaRef} className={className} role="dialog" aria-modal="true" aria-labelledby={idTitulo}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

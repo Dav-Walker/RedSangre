@@ -162,3 +162,53 @@
   cursor: not-allowed;
   color: #888;
 }
+
+/* RESPONSIVE: CELULAR */
+/* Se mantiene la tabla de 4 columnas; solo se ajustan anchos y espacios para que quepa sin cortarse. */
+@media (max-width: 768px) {
+  .modalContenido {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 92vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 10px;
+    box-sizing: border-box;
+  }
+
+  .tablaCompacta th,
+  .tablaCompacta td {
+    padding: 5px 4px;
+  }
+
+  .tablaCompacta th {
+    font-size: 10px;
+    padding: 5px 2px;
+  }
+
+  .tablaCompacta th:nth-child(odd),
+  .tablaCompacta td:nth-child(odd) {
+    width: 17%;
+  }
+
+  .tablaCompacta th:nth-child(even),
+  .tablaCompacta td:nth-child(even) {
+    width: 33%;
+  }
+
+  .selectCompacto {
+    max-width: none;
+    font-size: 12px;
+    padding: 4px 2px;
+  }
+
+  .modalPie {
+    flex-wrap: wrap;
+  }
+
+  .botonCancelarModal,
+  .botonModoModal,
+  .botonGuardarModal {
+    padding: 10px 14px;
+  }
+}
