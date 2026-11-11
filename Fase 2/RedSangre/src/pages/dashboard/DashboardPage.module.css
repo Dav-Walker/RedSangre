@@ -116,20 +116,36 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  min-width: 450px;
 }
 
 .tabla th {
-  padding: 12px 10px;
+  padding: 12px 6px;
   border-bottom: 2px solid var(--color-marca-azul);
   color: var(--color-marca-azul);
   font-weight: bold;
 }
 
 .tabla td {
-  padding: 15px 10px;
+  padding: 15px 6px;
   color: #555;
   border-bottom: 1px solid #eee;
+}
+
+/* El estado no se parte en dos líneas; el código sí puede bajar para que la tabla quepa sin deslizar */
+.celdaEstado {
+  white-space: nowrap;
+}
+
+/* Cada solicitud activa se puede abrir para ver su detalle */
+.filaSolicitud {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.filaSolicitud:hover,
+.filaSolicitud:focus-visible {
+  background-color: #f0f9ff;
+  outline: none;
 }
 
 .mensajePanel {
@@ -188,6 +204,7 @@
 
   .columnaGraficos {
     width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -202,5 +219,80 @@
     padding: 12px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ========================================== */
+/* SOLICITUDES ACTIVAS EN CELULAR             */
+/* ========================================== */
+/* La tabla deja de ser ancha: cada solicitud es una fila compacta y se ve completa, sin deslizar. */
+@media (max-width: 768px) {
+  .panelSolicitudes {
+    overflow-x: visible;
+  }
+
+  .tabla {
+    min-width: 0;
+    display: block;
+  }
+
+  .tabla thead {
+    display: none;
+  }
+
+  .tabla tbody {
+    display: block;
+  }
+
+  .tabla tr.filaSolicitud {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'codigo estado'
+      'urgencia estado';
+    align-items: center;
+    gap: 4px 12px;
+    padding: 12px 10px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .tabla tr.filaSolicitud:last-child {
+    border-bottom: none;
+  }
+
+  .tabla tr.filaSolicitud td {
+    padding: 0;
+    border-bottom: none;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .celdaCodigo {
+    grid-area: codigo;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .celdaUrgencia {
+    grid-area: urgencia;
+    font-size: 13px;
+    color: #777;
+  }
+
+  .celdaUrgencia::before {
+    content: attr(data-label) ': ';
+  }
+
+  .celdaEstado {
+    grid-area: estado;
+  }
+
+  /* Filas de mensaje (cargando, vacío, error) */
+  .tabla tr:not(.filaSolicitud) {
+    display: block;
+  }
+
+  .tabla td.mensajePanel {
+    display: block;
   }
 }

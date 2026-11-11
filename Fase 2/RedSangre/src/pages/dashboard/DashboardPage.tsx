@@ -1,6 +1,7 @@
 // Comentarios - Dashboard
 // Indicadores, inventario por grupo, fenotipos más frecuentes, tendencia mensual y solicitudes activas.
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend
@@ -10,7 +11,7 @@ import { Badge } from '../../components/common/Badge';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
 import { calcularFenotipos, construirTendencia } from '../../utils/graficosDashboard';
-import { cargarDashboard, type DatosDashboard } from '../../servicios/dashboard';
+import { cargarDashboard, type DatosDashboard, type SolicitudActiva } from '../../servicios/dashboard';
 
 // Comentarios - Dashboard
 // Recharts dibuja en SVG y necesita los colores como texto: no puede leer las variables CSS de la marca.
@@ -19,6 +20,7 @@ const COLORES_PIE = ['#00a0df', '#f47c36', '#9b59b6', '#e74c3c', '#2ecc71', '#f1
 const SIN_ERRORES: DatosDashboard['errores'] = { kpis: false, grupos: false, solicitudes: false, tendencia: false, fenotipos: false };
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   // Comentarios - Dashboard
   // null mientras carga; después, los datos de las vistas (cada panel muestra su propio error si falló).
   const [datos, setDatos] = useState<DatosDashboard | null>(null);
@@ -45,6 +47,13 @@ export function DashboardPage() {
   const solicitudesActivas = datos?.solicitudesActivas ?? null;
   const tendencia = datos ? construirTendencia(datos.donaciones, datos.demanda) : null;
   const donantesFenotipo = datos?.donantes ?? null;
+
+  // Comentarios - Dashboard
+  // Cada solicitud activa abre su detalle, igual que en el listado de Solicitudes (ruta por código, o por id si no tiene).
+  const abrirDetalle = (sol: SolicitudActiva) => {
+    const identificador = sol.codigo_solicitud ?? sol.id;
+    if (identificador) navigate('/solicitudes/' + identificador);
+  };
 
   const mensaje = (texto: string) => <p className={styles.mensajePanel}>{texto}</p>;
 
@@ -173,10 +182,16 @@ export function DashboardPage() {
               ) : solicitudesActivas.map((sol) => {
                 const estado = ESTADOS_SOLICITUD[obtenerEstadoSolicitud(sol.estado)];
                 return (
-                  <tr key={sol.id}>
-                    <td>{sol.codigo_solicitud ?? sol.id} ({sol.grupo_sanguineo_requerido ?? '-'})</td>
-                    <td>{sol.urgencia ?? '-'}</td>
-                    <td><Badge texto={estado.texto} color={estado.color} /></td>
+                  <tr
+                    key={sol.id}
+                    className={styles.filaSolicitud}
+                    onClick={() => abrirDetalle(sol)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalle(sol); } }}
+                    tabIndex={0}
+                  >
+                    <td className={styles.celdaCodigo}>{sol.codigo_solicitud ?? sol.id} ({sol.grupo_sanguineo_requerido ?? '-'})</td>
+                    <td data-label="Urgencia" className={styles.celdaUrgencia}>{sol.urgencia ?? '-'}</td>
+                    <td className={styles.celdaEstado}><Badge texto={estado.texto} color={estado.color} /></td>
                   </tr>
                 );
               })}
