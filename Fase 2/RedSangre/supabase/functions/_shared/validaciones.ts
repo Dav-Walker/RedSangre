@@ -32,17 +32,25 @@ export function correoCanonico(correo: string): string {
   return `${local.split('+')[0].replace(/\./g, '')}@${dominio}`;
 }
 
-// Comentarios - Seguridad de contraseñas
-// Política única: mínimo 8 caracteres con letra, número y un carácter especial (el punto cuenta).
+// Comentarios - Política de contraseñas alineada con Supabase Auth
+// Misma regla que Auth en producción ("lowercase, uppercase letters, digits and symbols", mínimo 10): así el formulario
+// no acepta contraseñas que Auth rechazaría. Los símbolos son los que reconoce Auth; la ñ o un espacio no cuentan.
+// El máximo de 72 es el límite de bcrypt, que Auth también aplica.
+const LARGO_MINIMO_CONTRASENA = 10;
+const LARGO_MAXIMO_CONTRASENA = 72;
+const SIMBOLOS = /[!@#$%^&*()_+\-=[\]{};'\\:"|<>?,./`~]/;
+
 export const MENSAJE_POLITICA_CONTRASENA =
-  'La contraseña debe tener al menos 8 caracteres, una letra, un número y un carácter especial (por ejemplo, un punto).';
+  `La contraseña debe tener entre ${LARGO_MINIMO_CONTRASENA} y ${LARGO_MAXIMO_CONTRASENA} caracteres, una minúscula, una mayúscula, un número y un símbolo (por ejemplo, un punto).`;
 
 // Devuelve el mensaje de error si la contraseña no cumple la política, o null si es válida.
 export function validarContrasena(contrasena: string): string | null {
   const cumple =
-    contrasena.length >= 8 &&
-    /[a-zA-Z]/.test(contrasena) &&
+    contrasena.length >= LARGO_MINIMO_CONTRASENA &&
+    contrasena.length <= LARGO_MAXIMO_CONTRASENA &&
+    /[a-z]/.test(contrasena) &&
+    /[A-Z]/.test(contrasena) &&
     /\d/.test(contrasena) &&
-    /[^a-zA-Z0-9]/.test(contrasena);
+    SIMBOLOS.test(contrasena);
   return cumple ? null : MENSAJE_POLITICA_CONTRASENA;
 }

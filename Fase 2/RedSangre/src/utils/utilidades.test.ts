@@ -47,13 +47,20 @@ describe('tieneFormatoCorreo', () => {
 });
 
 describe('validarContrasena', () => {
-  it('acepta una contraseña con letra, número y carácter especial', () => {
-    expect(validarContrasena('clave.123')).toBeNull();
+  it('acepta una contraseña con minúscula, mayúscula, número y símbolo', () => {
+    expect(validarContrasena('Clave.12345')).toBeNull();
   });
 
-  it('rechaza contraseñas cortas o sin carácter especial', () => {
-    expect(validarContrasena('a.1')).toBe(MENSAJE_POLITICA_CONTRASENA);
-    expect(validarContrasena('clave1234')).toBe(MENSAJE_POLITICA_CONTRASENA);
+  // Comentarios - Política de contraseñas alineada con Supabase Auth
+  // Cada caso falla por una sola regla: largo, mayúscula, minúscula, número, símbolo, ñ no es símbolo y máximo 72
+  it('rechaza contraseñas que Auth también rechazaría', () => {
+    expect(validarContrasena('Cl.1')).toBe(MENSAJE_POLITICA_CONTRASENA);
+    expect(validarContrasena('clave.12345')).toBe(MENSAJE_POLITICA_CONTRASENA);
+    expect(validarContrasena('CLAVE.12345')).toBe(MENSAJE_POLITICA_CONTRASENA);
+    expect(validarContrasena('Clave.clave')).toBe(MENSAJE_POLITICA_CONTRASENA);
+    expect(validarContrasena('Clave123456')).toBe(MENSAJE_POLITICA_CONTRASENA);
+    expect(validarContrasena('Claveñ12345')).toBe(MENSAJE_POLITICA_CONTRASENA);
+    expect(validarContrasena('Cl.1' + 'a'.repeat(69))).toBe(MENSAJE_POLITICA_CONTRASENA);
   });
 });
 
