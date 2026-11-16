@@ -181,7 +181,7 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
                 className={`${styles.input} ${errorForm && validarContrasena(nuevaContrasena) ? styles.inputError : ''}`}
                 value={nuevaContrasena}
                 onChange={(e) => { setNuevaContrasena(e.target.value); setErrorForm(null); setExito(false); }}
-                placeholder="Mínimo 8, con número y símbolo (ej. un punto)"
+                placeholder="Mínimo 10, con mayúscula, minúscula, número y símbolo"
                 autoComplete="new-password"
               />
             </div>

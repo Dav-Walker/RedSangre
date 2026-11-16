@@ -46,7 +46,7 @@ export function CambiarContrasenaPage() {
             className={`${styles.input} ${error ? styles.inputError : ''}`}
             value={nueva}
             onChange={(e) => { setNueva(e.target.value); setError(null); }}
-            placeholder="Mínimo 8, con número y símbolo (ej. un punto)"
+            placeholder="Mínimo 10, con mayúscula, minúscula, número y símbolo"
             autoComplete="new-password"
           />
         </div>
