@@ -7,7 +7,7 @@ import { auditarAdmin } from '../_shared/auditoria.ts';
 import { clienteAdmin, clienteUsuario, type ClienteSupabase } from '../_shared/clientes.ts';
 import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
-import { correoCanonico, validarCorreo } from '../_shared/validaciones.ts';
+import { correoCanonico, LARGO_MAXIMO_NOMBRE, validarCorreo } from '../_shared/validaciones.ts';
 
 // Comentarios - Perfil TENS solo lectura
 // Roles que el administrador puede asignar al crear una cuenta, incluido TENS
@@ -45,6 +45,11 @@ Deno.serve(conCors(async (req) => {
 
   if (!nombre || !apellido || !correo || !rol) {
     return responder({ error: 'Faltan parámetros' }, 400);
+  }
+  // Comentarios - Validación de entrada en las Edge Functions
+  // Mismo largo máximo que acepta la base (ck_usuario_nombre_largo); también limita lo que va en el correo
+  if (nombre.length > LARGO_MAXIMO_NOMBRE || apellido.length > LARGO_MAXIMO_NOMBRE) {
+    return responder({ error: `El nombre y el apellido pueden tener hasta ${LARGO_MAXIMO_NOMBRE} caracteres.` }, 422);
   }
   const errorCorreo = validarCorreo(correo);
   if (errorCorreo) return responder({ error: errorCorreo }, 422);

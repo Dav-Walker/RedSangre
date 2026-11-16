@@ -7,6 +7,7 @@ import { auditarAdmin } from '../_shared/auditoria.ts';
 import { clienteAdmin } from '../_shared/clientes.ts';
 import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
+import { esUuid } from '../_shared/validaciones.ts';
 
 Deno.serve(conCors(async (req) => {
   const respuestaMetodo = revisarMetodo(req);
@@ -19,15 +20,24 @@ Deno.serve(conCors(async (req) => {
 
   // Comentarios - Activación de cuenta por correo
   // 2. Lee el usuario al que se reenvía y comprueba que realmente esté pendiente y activo.
-  let usuarioId: string | undefined;
+  let usuarioId: unknown;
   try {
     ({ usuario_id: usuarioId } = await req.json());
   } catch {
     return responder({ error: 'Cuerpo inválido' }, 400);
   }
   if (!usuarioId) return responder({ error: 'Falta el parámetro usuario_id' }, 400);
+  // Comentarios - Validación de entrada en las Edge Functions
+  // El id debe ser un UUID antes de consultar la base o Auth
+  if (!esUuid(usuarioId)) return responder({ error: 'El usuario no es válido' }, 400);
 
   const supabaseAdmin = clienteAdmin();
+
+  // Comentarios - Límite de reenvíos de activación
+  // RS008 significa que ya se reenvió el máximo de activaciones a este usuario en la última hora
+  const { error: errLimite } = await supabaseAdmin.rpc('fn_verificar_limite_reenvio', { p_usuario_id: usuarioId });
+  if (errLimite?.code === 'RS008') return responder({ error: errLimite.message }, 429);
+  if (errLimite) return responder({ error: 'No se pudo verificar el límite de reenvíos' }, 500);
 
   const { data: destino, error: errDestino } = await supabaseAdmin
     .from('usuario')

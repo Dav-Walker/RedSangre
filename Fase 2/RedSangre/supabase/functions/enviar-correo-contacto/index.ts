@@ -5,6 +5,7 @@ import { clienteUsuario } from '../_shared/clientes.ts';
 import { crearTransporte, remitente } from '../_shared/correo.ts';
 import { conCors } from '../_shared/cors.ts';
 import { responder, revisarMetodo } from '../_shared/respuesta.ts';
+import { esUuid } from '../_shared/validaciones.ts';
 
 const CONTACTO_BANCO = '+56 9 3640 5976 o al correo notificaciones@redsangre.cl';
 
@@ -36,13 +37,16 @@ Deno.serve(conCors(async (req) => {
   const respuestaMetodo = revisarMetodo(req);
   if (respuestaMetodo) return respuestaMetodo;
 
-  let solicitudId: string | undefined;
+  let solicitudId: unknown;
   try {
     ({ solicitud_id: solicitudId } = await req.json());
   } catch {
     return responder({ error: 'Cuerpo inválido' }, 400);
   }
   if (!solicitudId) return responder({ error: 'Falta solicitud_id' }, 400);
+  // Comentarios - Validación de entrada en las Edge Functions
+  // El id de la solicitud debe ser un UUID antes de consultar la base
+  if (!esUuid(solicitudId)) return responder({ error: 'La solicitud no es válida' }, 400);
 
   const supabase = clienteUsuario(req);
 
@@ -82,6 +86,13 @@ Deno.serve(conCors(async (req) => {
     .rpc('fn_donante_puede_contactarse', { p_donante_id: donante.id });
   if (errConsentimiento) return responder({ error: 'No se pudo verificar el consentimiento' }, 500);
   if (!puedeContactar) return responder({ error: 'El donante no autorizó contacto' }, 422);
+
+  // Comentarios - Límite de correos a donantes
+  // Se revisa antes de enviar, porque el trigger de seguimiento_contacto recién lo aplica después del envío.
+  // RS008 significa que se alcanzó el máximo de correos a este donante en la ventana configurada.
+  const { error: errLimite } = await supabase.rpc('fn_verificar_limite_correo', { p_donante_id: donante.id });
+  if (errLimite?.code === 'RS008') return responder({ error: errLimite.message }, 429);
+  if (errLimite) return responder({ error: 'No se pudo verificar el límite de correos' }, 500);
 
   try {
     await crearTransporte().sendMail({

@@ -202,7 +202,15 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
             </div>
 
             {errorForm && <p className={styles.mensajeError}>{errorForm}</p>}
-            {exito && <p className={styles.mensajeExito}>Contraseña actualizada correctamente.</p>}
+            {/* Comentarios - Contraseña fijada por el administrador
+                Si es la contraseña de otra persona, se avisa que deberá cambiarla y que sus sesiones se cerraron */}
+            {exito && (
+              <p className={styles.mensajeExito}>
+                {esPropioUsuario
+                  ? 'Contraseña actualizada correctamente.'
+                  : 'Contraseña actualizada. El usuario deberá cambiarla al ingresar y sus sesiones abiertas se cerraron.'}
+              </p>
+            )}
           </section>
           )}
         </div>

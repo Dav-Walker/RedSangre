@@ -32,6 +32,16 @@ export function correoCanonico(correo: string): string {
   return `${local.split('+')[0].replace(/\./g, '')}@${dominio}`;
 }
 
+// Comentarios - Validación de entrada en las Edge Functions
+// Los ids que llegan en el cuerpo deben ser UUID y los nombres no pueden superar el largo que acepta la base
+// (ck_usuario_nombre_largo). Se rechazan antes de consultar la base o Auth.
+export const LARGO_MAXIMO_NOMBRE = 80;
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function esUuid(valor: unknown): valor is string {
+  return typeof valor === 'string' && FORMATO_UUID.test(valor);
+}
+
 // Comentarios - Política de contraseñas alineada con Supabase Auth
 // Misma regla que Auth en producción ("lowercase, uppercase letters, digits and symbols", mínimo 10): así el formulario
 // no acepta contraseñas que Auth rechazaría. Los símbolos son los que reconoce Auth; la ñ o un espacio no cuentan.

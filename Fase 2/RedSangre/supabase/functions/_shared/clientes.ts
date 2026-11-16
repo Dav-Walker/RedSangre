@@ -1,7 +1,9 @@
 // Comentarios - Clientes de Supabase en las Edge Functions
 // clienteUsuario actúa con el token de quien llama, así que respeta las políticas RLS.
 // clienteAdmin usa la service role y salta RLS: solo se usa después de verificar al administrador.
-import { createClient } from 'npm:@supabase/supabase-js@2';
+// Comentarios - Versiones fijas en las Edge Functions
+// Misma versión exacta que usa el frontend, para que cada deploy no tome la última publicada ese día.
+import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 
 export function clienteUsuario(req: Request) {
   return createClient(
