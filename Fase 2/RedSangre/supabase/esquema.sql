@@ -1,7 +1,13 @@
 /* =============================================================================
    RedSangre — Script completo de base de datos
    Clínica Indisa · Supabase (PostgreSQL 15+)
-   Versión 1.4.0 · 2026-11-10
+   Versión 1.5.0 · 2026-11-16
+
+   CAMBIOS 1.5.0
+     · Seguridad de la capa de código: límite de correos por donante (fn_verificar_limite_correo, también en
+       fn_validar_contacto) y de reenvíos de activación (fn_verificar_limite_reenvio), ambos con RS008 y
+       valores en configuracion; fn_revocar_sesiones para cerrar las sesiones de un usuario al cambiarle la
+       contraseña; largo máximo de 80 en nombre y apellido de usuario y donante.
 
    CAMBIOS 1.4.0
      · Bitácora completa: auditoria guarda origen, nivel de sesión, IP y navegador; los triggers registran
@@ -52,6 +58,7 @@
      RS005  Solicitud cerrada: no admite cambios ni nuevos contactos
      RS006  Operación no permitida (campo protegido, último administrador, etc.)
      RS007  Dato inválido (RUT, fecha futura, campo obligatorio, etc.)   (RF-33)
+     RS008  Límite de envíos alcanzado (correos a un donante, reenvíos de activación)
 
    CONTENIDO
       0. Diagnóstico previo (solo lectura)
@@ -367,6 +374,14 @@ ALTER TABLE public.donante ADD  CONSTRAINT ck_donante_telefono_formato
 ALTER TABLE public.donante DROP CONSTRAINT IF EXISTS ck_donante_nombre_no_vacio;
 ALTER TABLE public.donante ADD  CONSTRAINT ck_donante_nombre_no_vacio
   CHECK (btrim(nombre) <> '' AND btrim(apellido) <> '') NOT VALID;
+-- Comentarios - Largo máximo de nombres
+-- Nombre y apellido de hasta 80 caracteres, igual que valida crear-usuario. Evita textos enormes en la base y en los correos.
+ALTER TABLE public.usuario DROP CONSTRAINT IF EXISTS ck_usuario_nombre_largo;
+ALTER TABLE public.usuario ADD  CONSTRAINT ck_usuario_nombre_largo
+  CHECK (char_length(nombre) <= 80 AND char_length(apellido) <= 80) NOT VALID;
+ALTER TABLE public.donante DROP CONSTRAINT IF EXISTS ck_donante_nombre_largo;
+ALTER TABLE public.donante ADD  CONSTRAINT ck_donante_nombre_largo
+  CHECK (char_length(nombre) <= 80 AND char_length(apellido) <= 80) NOT VALID;
 ALTER TABLE public.donante DROP CONSTRAINT IF EXISTS ck_donante_raro_requiere_fenotipo;
 ALTER TABLE public.donante ADD  CONSTRAINT ck_donante_raro_requiere_fenotipo
   CHECK (NOT fenotipo_raro OR fenotipo IS NOT NULL) NOT VALID;       -- un "fenotipo raro" debe indicar cuál es
@@ -1110,6 +1125,71 @@ BEGIN
   RETURN p_prefijo || v_anio::text || repeat('0', greatest(3 - length(v_n::text), 0)) || v_n::text;
 END $$;
 
+-- Comentarios - Límite de correos a donantes
+-- Lanza RS008 si al donante ya se le enviaron max_correos_donante correos en las últimas ventana_correos_horas horas.
+-- La llama enviar-correo-contacto antes de enviar, y fn_validar_contacto al registrar el contacto, así el límite se
+-- cumple aunque alguien escriba directo en seguimiento_contacto. SECURITY DEFINER para contar todos los envíos al
+-- donante, no solo los que la RLS deja ver a quien llama.
+CREATE OR REPLACE FUNCTION public.fn_verificar_limite_correo(p_donante_id uuid)
+RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_maximo   integer := COALESCE(NULLIF(public.fn_config('max_correos_donante'), '')::integer, 3);
+  v_horas    integer := COALESCE(NULLIF(public.fn_config('ventana_correos_horas'), '')::integer, 24);
+  v_enviados integer;
+BEGIN
+  SELECT count(*) INTO v_enviados
+    FROM public.seguimiento_contacto sc
+   WHERE sc.donante_id = p_donante_id
+     AND sc.canal = 'correo'
+     AND sc.fecha > now() - make_interval(hours => v_horas);
+
+  IF v_enviados >= v_maximo THEN
+    RAISE EXCEPTION 'Se alcanzó el límite de % correos a este donante en % horas. Inténtalo más tarde.', v_maximo, v_horas
+      USING ERRCODE = 'RS008';
+  END IF;
+END $$;
+
+-- Comentarios - Límite de reenvíos de activación
+-- Lanza RS008 si al usuario ya se le reenviaron max_reenvios_activacion_hora activaciones en la última hora.
+-- Cuenta los REENVIAR_ACTIVACION de la bitácora. Solo la usa la Edge Function reenviar-activacion (service_role).
+CREATE OR REPLACE FUNCTION public.fn_verificar_limite_reenvio(p_usuario_id uuid)
+RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_maximo   integer := COALESCE(NULLIF(public.fn_config('max_reenvios_activacion_hora'), '')::integer, 3);
+  v_reenvios integer;
+BEGIN
+  SELECT count(*) INTO v_reenvios
+    FROM public.auditoria a
+   WHERE a.accion = 'REENVIAR_ACTIVACION'
+     AND a.registro_id = p_usuario_id
+     AND a.fecha > now() - interval '1 hour';
+
+  IF v_reenvios >= v_maximo THEN
+    RAISE EXCEPTION 'Ya se reenviaron % activaciones a este usuario en la última hora. Inténtalo más tarde.', v_maximo
+      USING ERRCODE = 'RS008';
+  END IF;
+END $$;
+
+-- Comentarios - Revocar sesiones al cambiar la contraseña
+-- Borra las sesiones del usuario en Auth (sus refresh tokens se borran en cascada), así ninguna sesión abierta
+-- se puede renovar. El access token ya entregado sigue válido hasta que vence. Devuelve cuántas sesiones cerró.
+-- Solo la usa la Edge Function cambiar-contrasena (service_role).
+CREATE OR REPLACE FUNCTION public.fn_revocar_sesiones(p_usuario_id uuid)
+RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_total integer;
+BEGIN
+  DELETE FROM auth.sessions s WHERE s.user_id = p_usuario_id;
+  GET DIAGNOSTICS v_total = ROW_COUNT;
+  RETURN v_total;
+END $$;
+
 
 /* =============================================================================
    8. FUNCIONES DE TRIGGER
@@ -1415,6 +1495,7 @@ END $$;
 -- fn_validar_contacto: BEFORE INSERT en seguimiento_contacto · RF-31 / ERS 3.4.2
 --   · No se registran contactos en solicitudes cerradas (RS005).
 --   · No se puede contactar a un donante sin autorización de contacto vigente (RS002).
+--   · Límite de correos por donante (RS008).
 CREATE OR REPLACE FUNCTION public.fn_validar_contacto()
 RETURNS trigger
 LANGUAGE plpgsql SET search_path = ''
@@ -1431,6 +1512,11 @@ BEGIN
   END IF;
   IF NOT public.fn_donante_puede_contactarse(NEW.donante_id) THEN
     RAISE EXCEPTION 'El donante no tiene autorización de contacto vigente' USING ERRCODE = 'RS002';
+  END IF;
+  -- Comentarios - Límite de correos a donantes
+  -- Un correo registrado por fuera de enviar-correo-contacto también respeta el límite
+  IF NEW.canal = 'correo' THEN
+    PERFORM public.fn_verificar_limite_correo(NEW.donante_id);
   END IF;
   RETURN NEW;
 END $$;
@@ -2118,6 +2204,13 @@ REVOKE EXECUTE ON FUNCTION public.fn_insertar_auditoria(uuid, text, text, uuid, 
 REVOKE EXECUTE ON FUNCTION public.fn_auditar_admin(uuid, text, text, uuid, jsonb, text, text) FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.fn_auditar_admin(uuid, text, text, uuid, jsonb, text, text) TO service_role;
 GRANT  EXECUTE ON FUNCTION public.fn_auditar(text, text, uuid, jsonb) TO authenticated;
+-- Comentarios - Límites de envío y revocar sesiones
+-- fn_verificar_limite_correo la usa la app (enviar-correo-contacto con la sesión del usuario y el trigger de contactos).
+-- fn_verificar_limite_reenvio y fn_revocar_sesiones solo las usan las Edge Functions de administración (service_role).
+REVOKE EXECUTE ON FUNCTION public.fn_verificar_limite_reenvio(uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_verificar_limite_reenvio(uuid) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.fn_revocar_sesiones(uuid)         FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.fn_revocar_sesiones(uuid)         TO service_role;
 
 
 /* =============================================================================
@@ -2193,7 +2286,15 @@ INSERT INTO public.configuracion (clave, valor, descripcion) VALUES
   ('exigir_mfa_admin', 'true',
    'true = las acciones de administrador exigen sesión MFA (aal2). El front ya implementa TOTP: debe quedar en true.'),
   ('validar_dv_rut', 'false',
-   'true = valida el dígito verificador (módulo 11) del RUT. Dejar en false mientras se usen datos simulados.')
+   'true = valida el dígito verificador (módulo 11) del RUT. Dejar en false mientras se usen datos simulados.'),
+  -- Comentarios - Límites de envío
+  -- Valores ajustables por el administrador sin tocar código
+  ('max_correos_donante', '3',
+   'Máximo de correos de contacto a un mismo donante dentro de ventana_correos_horas (fn_verificar_limite_correo).'),
+  ('ventana_correos_horas', '24',
+   'Horas que se miran hacia atrás para contar los correos enviados a un donante (fn_verificar_limite_correo).'),
+  ('max_reenvios_activacion_hora', '3',
+   'Máximo de reenvíos del correo de activación a un mismo usuario en una hora (fn_verificar_limite_reenvio).')
 ON CONFLICT (clave) DO NOTHING;
 
 -- Comunas de la Región Metropolitana (52). Coordenadas = centroide APROXIMADO.
@@ -2332,6 +2433,9 @@ COMMENT ON FUNCTION public.fn_registrar_login() IS 'Compatibilidad con la versi�
 COMMENT ON FUNCTION public.fn_insertar_auditoria(uuid, text, text, uuid, text, jsonb, text, text) IS 'Interna: única escritura en auditoria, con origen, nivel de sesión, IP y navegador.';
 COMMENT ON FUNCTION public.fn_auditar(text, text, uuid, jsonb) IS 'Eventos de la app (sesión, navegación, consultas, llamadas, rechazos). El autor es la sesión actual.';
 COMMENT ON FUNCTION public.fn_auditar_admin(uuid, text, text, uuid, jsonb, text, text) IS 'Acciones de administración hechas desde las Edge Functions. Solo service_role.';
+COMMENT ON FUNCTION public.fn_verificar_limite_correo(uuid)  IS 'RS008 si se superó el máximo de correos a un donante en la ventana configurada.';
+COMMENT ON FUNCTION public.fn_verificar_limite_reenvio(uuid) IS 'RS008 si se superó el máximo de reenvíos de activación en la última hora. Solo service_role.';
+COMMENT ON FUNCTION public.fn_revocar_sesiones(uuid)         IS 'Cierra todas las sesiones de Auth de un usuario. Solo service_role.';
 COMMENT ON FUNCTION public.fn_grupos_compatibles(public.grupo_sanguineo_enum) IS 'Grupos de donante compatibles con el grupo del receptor (ABO/Rh, glóbulos rojos).';
 COMMENT ON FUNCTION public.fn_donante_disponible(date) IS 'Regla de los 3 meses desde la última donación.';
 COMMENT ON FUNCTION public.fn_donante_disponible(date, text) IS 'Disponibilidad según los meses de espera del sexo del donante (fn_meses_espera).';
