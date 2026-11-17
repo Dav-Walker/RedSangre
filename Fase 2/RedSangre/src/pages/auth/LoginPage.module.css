@@ -219,18 +219,59 @@
 
   .panelIzquierdo {
     width: 100%;
-    padding: 30px 20px;
-    min-height: 250px;
+    padding: 16px 20px;
+    min-height: unset;
+  }
+
+  .espaciador {
+    display: none;
+  }
+
+  .logoContainer {
+    flex: unset;
+    padding: 0;
+  }
+
+  .logoImg {
+    max-width: 110px;
+    margin-bottom: 10px;
+  }
+
+  .textoInferiorAzul {
+    font-size: 12px;
   }
 
   .panelDerecho {
     width: 100%;
-    padding: 30px 20px;
-    min-height: calc(100vh - 250px);
+    padding: 20px 20px;
+    flex: 1;
   }
 
-  .logoImg {
-    max-width: 160px;
+  .subtituloApp {
+    margin-bottom: 20px;
+  }
+
+  .grupoInput {
+    margin-bottom: 12px;
+  }
+
+  .input {
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .captcha {
+    margin-bottom: 12px;
+  }
+
+  .botonLogin {
+    padding: 11px;
+    font-size: 15px;
+    margin-top: 4px;
+  }
+
+  .textosAyuda {
+    margin-top: 16px;
   }
 }
 
