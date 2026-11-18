@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge, type ColorBadge } from '../../components/common/Badge';
 import { Paginacion } from '../../components/common/Paginacion';
+import { AvisoError } from '../../components/common/AvisoError';
 import { CampoFenotipo } from '../../components/donantes/CampoFenotipo';
 import styles from './DonantesListPage.module.css';
 import { textoMesesDesde } from '../../utils/fechas';
@@ -49,6 +50,7 @@ export function DonantesListPage() {
   };
   const claveConsulta = JSON.stringify(filtros);
   const [resultado, setResultado] = useState<ResultadoDonantes & { clave: string } | null>(null);
+  const [intento, setIntento] = useState(0);
   const cargando = resultado?.clave !== claveConsulta;
   const donantes = resultado?.donantes ?? [];
   const totalDonantes = resultado?.total ?? 0;
@@ -63,13 +65,28 @@ export function DonantesListPage() {
 
   // Comentarios - Búsqueda de donantes
   // Consulta cuando cambia la clave. "vigente" descarta la respuesta si los filtros cambiaron mientras tanto.
+  // Comentarios - Manejo de errores y excepciones
+  // Una excepción inesperada se muestra como error de carga (no queda "Cargando..." para siempre). Si la página
+  // pedida ya no existe, se vuelve a la primera. "intento" repite la consulta con el botón Reintentar.
   useEffect(() => {
     let vigente = true;
-    void consultarDonantes(JSON.parse(claveConsulta) as FiltrosDonantes).then((r) => {
-      if (vigente) setResultado({ ...r, clave: claveConsulta });
-    });
+    const consulta = JSON.parse(claveConsulta) as FiltrosDonantes;
+    consultarDonantes(consulta)
+      .then((r) => {
+        if (!vigente) return;
+        if (r.fueraDeRango && consulta.pagina > 1) setPaginaActual(1);
+        else setResultado({ ...r, clave: claveConsulta });
+      })
+      .catch(() => {
+        if (vigente) setResultado({ donantes: [], total: 0, error: 'No se pudieron cargar los donantes.', clave: claveConsulta });
+      });
     return () => { vigente = false; };
-  }, [claveConsulta]);
+  }, [claveConsulta, intento]);
+
+  const reintentar = () => {
+    setResultado(null);
+    setIntento((n) => n + 1);
+  };
 
   // Comentarios - Búsqueda de donantes
   // Enter o la lupa aplican la búsqueda de inmediato; el efecto de arriba hace la consulta una sola vez.
@@ -150,7 +167,7 @@ export function DonantesListPage() {
         </span>
       </div>
 
-      {error && <p className={styles.mensajeError} role="alert">{error}</p>}
+      {error && <AvisoError mensaje={error} onReintentar={reintentar} />}
 
       {/* TABLA */}
       <div className={styles.tablaContenedor}>
@@ -170,6 +187,8 @@ export function DonantesListPage() {
           <tbody>
             {cargando ? (
               <tr><td colSpan={8} className={styles.celdaMensaje}>Cargando donantes...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={8} className={styles.celdaMensaje}>-</td></tr>
             ) : donantes.length === 0 ? (
               <tr><td colSpan={8} className={styles.celdaMensaje}>No se encontraron donantes</td></tr>
             ) : (

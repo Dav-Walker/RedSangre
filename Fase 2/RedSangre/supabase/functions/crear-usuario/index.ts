@@ -6,7 +6,7 @@ import { verificarAdministrador } from '../_shared/administrador.ts';
 import { auditarAdmin } from '../_shared/auditoria.ts';
 import { clienteAdmin, clienteUsuario, type ClienteSupabase } from '../_shared/clientes.ts';
 import { conCors } from '../_shared/cors.ts';
-import { responder, revisarMetodo } from '../_shared/respuesta.ts';
+import { leerCuerpo, MENSAJE_SOLICITUD_INVALIDA, responder, revisarMetodo } from '../_shared/respuesta.ts';
 import { correoCanonico, LARGO_MAXIMO_NOMBRE, validarCorreo } from '../_shared/validaciones.ts';
 
 // Comentarios - Perfil TENS solo lectura
@@ -16,8 +16,12 @@ const ROLES_VALIDOS = ['administrador', 'tecnologo', 'tens'];
 // Comentarios - Crear usuario
 // Deshace una creación a medias: primero el perfil (la clave foránea lo exige) y luego la cuenta de Auth.
 async function deshacerCreacion(supabaseAdmin: ClienteSupabase, id: string) {
-  await supabaseAdmin.from('usuario').delete().eq('id', id);
-  await supabaseAdmin.auth.admin.deleteUser(id);
+  // Comentarios - Manejo de errores y excepciones
+  // Si no se puede deshacer, queda anotado en el log con el id para revisar la cuenta a mano.
+  const { error: errPerfil } = await supabaseAdmin.from('usuario').delete().eq('id', id);
+  if (errPerfil) console.error('No se pudo borrar el perfil a medias de', id, errPerfil.message);
+  const { error: errAuth } = await supabaseAdmin.auth.admin.deleteUser(id);
+  if (errAuth) console.error('No se pudo borrar la cuenta de Auth a medias de', id, errAuth.message);
 }
 
 Deno.serve(conCors(async (req) => {
@@ -31,12 +35,10 @@ Deno.serve(conCors(async (req) => {
 
   // Comentarios - Crear usuario
   // 2. Lee y valida los datos recibidos. La validación del formulario no se confía: se repite aquí.
-  let cuerpo: Record<string, unknown>;
-  try {
-    cuerpo = await req.json();
-  } catch {
-    return responder({ error: 'Cuerpo inválido' }, 400);
-  }
+  // Comentarios - Manejo de errores y excepciones
+  // Un cuerpo que no es un objeto JSON (por ejemplo "null") se rechaza aquí, antes de leer sus campos.
+  const cuerpo = await leerCuerpo(req);
+  if (!cuerpo) return responder({ error: MENSAJE_SOLICITUD_INVALIDA }, 400);
 
   const nombre = typeof cuerpo.nombre === 'string' ? cuerpo.nombre.trim() : '';
   const apellido = typeof cuerpo.apellido === 'string' ? cuerpo.apellido.trim() : '';
@@ -44,7 +46,7 @@ Deno.serve(conCors(async (req) => {
   const rol = typeof cuerpo.rol === 'string' ? cuerpo.rol : '';
 
   if (!nombre || !apellido || !correo || !rol) {
-    return responder({ error: 'Faltan parámetros' }, 400);
+    return responder({ error: 'Completa el nombre, el apellido, el correo y el rol.' }, 400);
   }
   // Comentarios - Validación de entrada en las Edge Functions
   // Mismo largo máximo que acepta la base (ck_usuario_nombre_largo); también limita lo que va en el correo
@@ -53,7 +55,7 @@ Deno.serve(conCors(async (req) => {
   }
   const errorCorreo = validarCorreo(correo);
   if (errorCorreo) return responder({ error: errorCorreo }, 422);
-  if (!ROLES_VALIDOS.includes(rol)) return responder({ error: 'El rol no es válido' }, 422);
+  if (!ROLES_VALIDOS.includes(rol)) return responder({ error: 'El rol no es válido.' }, 422);
 
   // Comentarios - Validar correo duplicado y correo real (RF-07)
   // Busca duplicados entre todos los usuarios del mismo dominio, activos o desactivados, con la forma canónica.
@@ -66,7 +68,7 @@ Deno.serve(conCors(async (req) => {
     .ilike('correo', `%@${dominioCorreo}`);
   if (errBusqueda) {
     console.error('Error al buscar correos duplicados:', errBusqueda.message);
-    return responder({ error: 'No se pudo verificar si el correo ya existe' }, 500);
+    return responder({ error: 'No se pudo verificar si el correo ya existe. Inténtalo nuevamente.' }, 500);
   }
 
   const existente = delDominio?.find((u) => correoCanonico(u.correo) === correoCanonico(correo));
@@ -85,7 +87,7 @@ Deno.serve(conCors(async (req) => {
     if (/already|registered|exists/i.test(enlace.error)) {
       return responder({ error: 'Ya existe un usuario con ese correo.' }, 409);
     }
-    return responder({ error: 'No se pudo crear el usuario' }, 500);
+    return responder({ error: 'No se pudo crear el usuario. Inténtalo nuevamente.' }, 500);
   }
 
   // Comentarios - Crear usuario
@@ -100,7 +102,7 @@ Deno.serve(conCors(async (req) => {
   if (errUsuario || !perfilCreado) {
     console.error('El perfil no se creó para', enlace.usuarioId, errUsuario?.message);
     await deshacerCreacion(supabaseAdmin, enlace.usuarioId);
-    return responder({ error: 'No se pudo crear el perfil del usuario' }, 500);
+    return responder({ error: 'No se pudo crear el perfil del usuario. Inténtalo nuevamente.' }, 500);
   }
 
   // Comentarios - Crear usuario
@@ -120,7 +122,7 @@ Deno.serve(conCors(async (req) => {
   if (errRol || !usuarioNuevo) {
     console.error('No se pudo asignar el rol a', enlace.usuarioId, errRol?.message);
     await deshacerCreacion(supabaseAdmin, enlace.usuarioId);
-    return responder({ error: 'No se pudo asignar el rol del usuario' }, 500);
+    return responder({ error: 'No se pudo asignar el rol del usuario. Inténtalo nuevamente.' }, 500);
   }
 
   // Comentarios - Crear usuario

@@ -28,7 +28,17 @@ export function DashboardPage() {
 
   useEffect(() => {
     let vigente = true;
-    void cargarDashboard().then((resultado) => { if (vigente) setDatos(resultado); });
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada marca todos los paneles con error, en vez de dejarlos cargando para siempre.
+    cargarDashboard()
+      .then((resultado) => { if (vigente) setDatos(resultado); })
+      .catch(() => {
+        if (!vigente) return;
+        setDatos({
+          resumen: null, porGrupo: [], solicitudesActivas: [], donaciones: [], demanda: [], donantes: [],
+          errores: { kpis: true, grupos: true, solicitudes: true, tendencia: true, fenotipos: true },
+        });
+      });
     return () => { vigente = false; };
   }, []);
 

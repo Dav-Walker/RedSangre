@@ -29,8 +29,10 @@ export function Navbar() {
         return;
       }
       navigate('/', { replace: true });
-    } catch (error) {
-      setErrorCierre(error instanceof Error ? error.message : 'No se pudo cerrar sesión.');
+    } catch {
+      // Comentarios - Manejo de errores y excepciones
+      // Una excepción inesperada no muestra su texto original: se da un mensaje general.
+      setErrorCierre('No se pudo cerrar sesión. Inténtalo nuevamente.');
     }
   };
 

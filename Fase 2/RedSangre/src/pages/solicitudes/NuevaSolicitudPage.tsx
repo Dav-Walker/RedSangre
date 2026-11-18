@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Paginacion } from '../../components/common/Paginacion';
+import { AvisoError } from '../../components/common/AvisoError';
 import { CampoFenotipo } from '../../components/donantes/CampoFenotipo';
 import { textoMesesDesde } from '../../utils/fechas';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
@@ -57,7 +58,10 @@ export function NuevaSolicitudPage() {
   const [resultado, setResultado] = useState<ResultadoCandidatos | null>(null);
   const cargandoCandidatos = resultado?.clave !== claveConsulta;
   const candidatos = cargandoCandidatos ? [] : resultado.candidatos;
-  const error = errorCreacion ?? (cargandoCandidatos ? null : resultado.error);
+  // Comentarios - Manejo de errores y excepciones
+  // El error de búsqueda se muestra con botón Reintentar; el de creación, como mensaje sobre el formulario.
+  const errorCandidatos = cargandoCandidatos ? null : resultado.error;
+  const [intento, setIntento] = useState(0);
   const totalPaginas = Math.max(1, Math.ceil(candidatos.length / porPagina));
   const candidatosPagina = candidatos.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
 
@@ -66,11 +70,22 @@ export function NuevaSolicitudPage() {
   useEffect(() => {
     let vigente = true;
     const [grupo, fenotipo] = JSON.parse(claveConsulta) as [GrupoSanguineo, string];
-    void buscarCandidatos(grupo, fenotipo).then((r) => {
-      if (vigente) setResultado({ clave: claveConsulta, ...r });
-    });
+    buscarCandidatos(grupo, fenotipo)
+      .then((r) => {
+        if (vigente) setResultado({ clave: claveConsulta, ...r });
+      })
+      // Comentarios - Manejo de errores y excepciones
+      // Una excepción inesperada se muestra como error de búsqueda, no deja la tabla cargando para siempre.
+      .catch(() => {
+        if (vigente) setResultado({ clave: claveConsulta, candidatos: [], error: 'No se pudieron buscar donantes compatibles. Inténtalo nuevamente.' });
+      });
     return () => { vigente = false; };
-  }, [claveConsulta]);
+  }, [claveConsulta, intento]);
+
+  const reintentarBusqueda = () => {
+    setResultado(null);
+    setIntento((n) => n + 1);
+  };
 
   // Comentarios - Búsqueda de candidatos
   // Al cambiar la búsqueda se vuelve a la primera página y se quita el candidato elegido.
@@ -86,12 +101,14 @@ export function NuevaSolicitudPage() {
     setGuardando(true);
     setErrorCreacion(null);
 
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada libera el botón y muestra un mensaje general.
     const errorAlCrear = await crearSolicitud({
       grupo: grupoSanguineo,
       fenotipo: fenotipoRequerido,
       urgencia,
       donanteId: candidatoSeleccionado,
-    });
+    }).catch(() => 'No se pudo crear la solicitud. Inténtalo nuevamente.');
 
     setGuardando(false);
 
@@ -115,7 +132,8 @@ export function NuevaSolicitudPage() {
 
       <h1 className={styles.tituloPrincipal}>Buscar donante compatible</h1>
 
-      {error && <div className={styles.mensajeError} role="alert">{error}</div>}
+      {errorCreacion && <div className={styles.mensajeError} role="alert">{errorCreacion}</div>}
+      {errorCandidatos && <AvisoError mensaje={errorCandidatos} onReintentar={reintentarBusqueda} />}
 
       <div className={styles.panelBusqueda}>
 

@@ -14,11 +14,24 @@ const ORIGENES_PERMITIDOS = [ORIGEN_PRODUCCION, ORIGEN_LOCAL];
 const origenDeLaPeticion = new AsyncLocalStorage<string>();
 
 // Envuelve el manejador de Deno.serve para que cabeceras() sepa a qué petición responde.
+// Comentarios - Manejo de errores y excepciones
+// También captura cualquier excepción no controlada: queda en el log de la función y el navegador recibe un
+// mensaje general con las cabeceras CORS (sin ellas, la aplicación solo vería un error de red).
 export function conCors(manejador: (req: Request) => Response | Promise<Response>) {
   return (req: Request) => {
     const origen = req.headers.get('origin') ?? '';
     const permitido = ORIGENES_PERMITIDOS.includes(origen) ? origen : ORIGEN_PRODUCCION;
-    return origenDeLaPeticion.run(permitido, () => manejador(req));
+    return origenDeLaPeticion.run(permitido, async () => {
+      try {
+        return await manejador(req);
+      } catch (error) {
+        console.error('Error no controlado en la función:', error);
+        return new Response(JSON.stringify({ error: 'Ocurrió un error inesperado. Inténtalo nuevamente.' }), {
+          status: 500,
+          headers: { ...cabeceras(), 'Content-Type': 'application/json' },
+        });
+      }
+    });
   };
 }
 

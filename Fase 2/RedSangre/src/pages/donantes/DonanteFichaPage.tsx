@@ -5,6 +5,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
+import { AvisoError } from '../../components/common/AvisoError';
+import {
+  LARGO_MAXIMO_CORREO,
+  LARGO_MAXIMO_NOMBRE,
+  LARGO_MAXIMO_OBSERVACIONES,
+  LARGO_MAXIMO_TELEFONO,
+  MENSAJE_NOMBRE_LARGO,
+  MENSAJE_TELEFONO_INVALIDO,
+  telefonoTieneFormatoValido,
+} from '../../utils/validacionDonante';
 import styles from './DonanteFichaPage.module.css';
 import { useAuth } from '../../contexts/useAuth';
 import { puedeEditar } from '../../utils/roles';
@@ -58,6 +68,13 @@ export function DonanteFichaPage() {
   const [huboReaccion, setHuboReaccion] = useState(false);
   const [detalleReaccion, setDetalleReaccion] = useState('');
   const [registrandoDonacion, setRegistrandoDonacion] = useState(false);
+  // Comentarios - Manejo de errores y excepciones
+  // errorCarga: la ficha no se pudo leer. noEncontrado: el donante no existe (sin botón Reintentar).
+  // etiquetasNoDisponibles: las etiquetas no se pudieron leer, así que no se pueden editar sin perder datos.
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [noEncontrado, setNoEncontrado] = useState(false);
+  const [etiquetasNoDisponibles, setEtiquetasNoDisponibles] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   // Comentarios - Ficha de donante
   // Carga el donante de la ruta (/donantes/:codigo) con su consentimiento vigente y sus etiquetas.
@@ -66,22 +83,39 @@ export function DonanteFichaPage() {
     if (!id) return;
     let vigente = true;
 
-    void obtenerFichaDonante(id).then((ficha) => {
-      if (!vigente) return;
-      if (ficha) {
-        setDonante(ficha.donante);
-        setDonanteOriginal(ficha.donante);
-        setConsentimiento(ficha.consentimiento);
-        setEtiquetas(ficha.etiquetas);
-        setError(null);
-      } else {
-        setError('No se encontró el donante.');
-      }
-      setCargando(false);
-    });
+    // Comentarios - Manejo de errores y excepciones
+    // Distingue "no existe" de una falla al leer (con Reintentar). Si el consentimiento o las etiquetas no se
+    // pudieron leer, la ficha se muestra igual pero lo avisa, en vez de presentar valores vacíos como reales.
+    obtenerFichaDonante(id)
+      .then((resultado) => {
+        if (!vigente) return;
+        if (resultado.ficha) {
+          setDonante(resultado.ficha.donante);
+          setDonanteOriginal(resultado.ficha.donante);
+          setConsentimiento(resultado.ficha.consentimiento);
+          setEtiquetas(resultado.ficha.etiquetas ?? []);
+          setEtiquetasNoDisponibles(resultado.ficha.etiquetas === null);
+          setErrorCarga(null);
+        } else {
+          setNoEncontrado(resultado.error === 'No se encontró el donante.');
+          setErrorCarga(resultado.error);
+        }
+        setCargando(false);
+      })
+      .catch(() => {
+        if (!vigente) return;
+        setErrorCarga('No se pudo cargar la ficha del donante.');
+        setCargando(false);
+      });
 
     return () => { vigente = false; };
-  }, [id]);
+  }, [id, intento]);
+
+  const reintentarCarga = () => {
+    setCargando(true);
+    setErrorCarga(null);
+    setIntento((n) => n + 1);
+  };
 
   const handleCancelar = () => {
     setDonante(donanteOriginal);
@@ -93,7 +127,9 @@ export function DonanteFichaPage() {
 
   const handleEditar = () => {
     setEditando(true);
-    setConsentimientoEdit(consentimiento ?? SIN_CONSENTIMIENTO);
+    // Comentarios - Manejo de errores y excepciones
+    // Si el consentimiento no se pudo leer (null), no se ofrece editarlo: se compararía contra un valor falso.
+    setConsentimientoEdit(consentimiento);
     setEtiquetasEdit(etiquetas.filter((e) => ETIQUETAS_GENERICAS.includes(e)));
   };
 
@@ -110,10 +146,29 @@ export function DonanteFichaPage() {
       return;
     }
 
+    // Comentarios - Manejo de errores y excepciones
+    // Repite las reglas de la base para los datos editables: nombre obligatorio y largo, y formato del teléfono.
+    if (!donante.nombre.trim() || !donante.apellido.trim()) {
+      setError('Ingresa el nombre y el apellido del donante.');
+      return;
+    }
+    if (donante.nombre.trim().length > LARGO_MAXIMO_NOMBRE || donante.apellido.trim().length > LARGO_MAXIMO_NOMBRE) {
+      setError(MENSAJE_NOMBRE_LARGO);
+      return;
+    }
+    if (donante.telefono?.trim() && !telefonoTieneFormatoValido(donante.telefono)) {
+      setError(MENSAJE_TELEFONO_INVALIDO);
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
-    const errorDonante = await actualizarDonante(donante);
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada en cualquiera de los pasos libera el botón y muestra un mensaje general.
+    const fallaInesperada = () => 'No se pudieron guardar los cambios. Inténtalo nuevamente.';
+
+    const errorDonante = await actualizarDonante(donante).catch(fallaInesperada);
     if (errorDonante) {
       setGuardando(false);
       setError(errorDonante);
@@ -125,23 +180,30 @@ export function DonanteFichaPage() {
       consentimientoEdit.acepta_cookies !== anterior.acepta_cookies ||
       consentimientoEdit.autoriza_contacto !== anterior.autoriza_contacto
     )) {
-      const errorConsentimiento = await registrarConsentimiento(donante.id, consentimientoEdit, anterior, user?.id ?? null);
+      const errorConsentimiento = await registrarConsentimiento(donante.id, consentimientoEdit, anterior, user?.id ?? null)
+        .catch(fallaInesperada);
       if (errorConsentimiento) {
         setGuardando(false);
-        setError(errorConsentimiento);
+        setDonanteOriginal(donante);
+        setError(`Los datos del donante se guardaron. ${errorConsentimiento}`);
         return;
       }
       setConsentimiento(consentimientoEdit);
     }
 
-    const errorEtiquetas = await reemplazarEtiquetasGenericas(donante.id, etiquetasEdit);
-    if (errorEtiquetas) {
-      setGuardando(false);
-      setError('Los datos se guardaron, pero no se pudieron actualizar las etiquetas: ' + errorEtiquetas);
-      return;
+    // Comentarios - Manejo de errores y excepciones
+    // Si las etiquetas no se pudieron leer al abrir la ficha, no se reemplazan: se borrarían las que tiene.
+    if (!etiquetasNoDisponibles) {
+      const errorEtiquetas = await reemplazarEtiquetasGenericas(donante.id, etiquetasEdit).catch(fallaInesperada);
+      if (errorEtiquetas) {
+        setGuardando(false);
+        setDonanteOriginal(donante);
+        setError(`Los datos del donante se guardaron. ${errorEtiquetas}`);
+        return;
+      }
+      setEtiquetas([...etiquetas.filter((e) => !ETIQUETAS_GENERICAS.includes(e)), ...etiquetasEdit]);
     }
 
-    setEtiquetas([...etiquetas.filter((e) => !ETIQUETAS_GENERICAS.includes(e)), ...etiquetasEdit]);
     setGuardando(false);
     setDonanteOriginal(donante);
     setConsentimientoEdit(null);
@@ -163,17 +225,35 @@ export function DonanteFichaPage() {
   const handleRegistrarDonacion = async () => {
     if (!donante || donante.reaccion_adversa_previa) return;
     setError(null);
-    setRegistrandoDonacion(true);
 
+    // Comentarios - Manejo de errores y excepciones
+    // La fecha no puede ser futura (la base también lo revisa); el calendario lo limita, pero se puede escribir a mano.
+    if (fechaDonacion > hoyISO()) {
+      setError('La fecha de la donación no puede ser futura.');
+      return;
+    }
+
+    setRegistrandoDonacion(true);
+    try {
+      await registrarDonacionValidada(donante);
+    } catch {
+      setError('No se pudo registrar la donación. Inténtalo nuevamente.');
+    } finally {
+      setRegistrandoDonacion(false);
+    }
+  };
+
+  // Comentarios - Manejo de errores y excepciones
+  // Pasos del registro de una donación. Va aparte para que handleRegistrarDonacion capture cualquier excepción
+  // y siempre libere el botón.
+  const registrarDonacionValidada = async (donante: Donante) => {
     if (donante.fecha_ultima_donacion) {
       const fechaPermitida = await fechaProximaDonacion(donante.fecha_ultima_donacion, donante.sexo);
       if (!fechaPermitida) {
-        setRegistrandoDonacion(false);
         setError('No se pudo verificar la regla de espera entre donaciones. Intenta nuevamente.');
         return;
       }
       if (fechaDonacion < fechaPermitida) {
-        setRegistrandoDonacion(false);
         setError(`No se puede registrar la donación. Según la regla de espera (${donante.sexo ?? 'sexo no registrado'}), el donante puede volver a donar desde el ${formatearFecha(fechaPermitida)}.`);
         return;
       }
@@ -188,13 +268,13 @@ export function DonanteFichaPage() {
       registradoPor: user?.id ?? null,
     });
     if (errorDonacion) {
-      setRegistrandoDonacion(false);
       setError(errorDonacion);
       return;
     }
 
-    const actualizado = await leerEstadoDonacion(donante.id);
-    setRegistrandoDonacion(false);
+    // Comentarios - Manejo de errores y excepciones
+    // La donación ya quedó registrada: si la relectura falla por cualquier motivo, se avisa eso y no un error de registro.
+    const actualizado = await leerEstadoDonacion(donante.id).catch(() => null);
     if (!actualizado) {
       setError('Donación registrada, pero no se pudo actualizar la ficha. Recarga la página.');
       return;
@@ -207,7 +287,21 @@ export function DonanteFichaPage() {
   };
 
   if (cargando) return <p className={styles.mensajePagina}>Cargando donante...</p>;
-  if (!donante) return <p className={`${styles.mensajePagina} ${styles.textoError}`} role="alert">{error ?? 'No se encontró el donante.'}</p>;
+  // Comentarios - Manejo de errores y excepciones
+  // Donante inexistente: solo el aviso. Falla al leer: aviso con Reintentar.
+  if (!donante) {
+    return (
+      <div className={styles.contenedor}>
+        <button onClick={() => navigate('/donantes')} className={styles.botonVolver}>
+          ← Volver a donantes
+        </button>
+        <AvisoError
+          mensaje={errorCarga ?? 'No se encontró el donante.'}
+          onReintentar={noEncontrado ? undefined : reintentarCarga}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.contenedor}>
@@ -224,12 +318,14 @@ export function DonanteFichaPage() {
           <input
             className={`${styles.inputEdit} ${styles.inputNombre}`}
             value={donante.nombre}
+            maxLength={LARGO_MAXIMO_NOMBRE}
             onChange={(e) => setDonante({ ...donante, nombre: e.target.value })}
             placeholder="Nombre"
           />
           <input
             className={`${styles.inputEdit} ${styles.inputNombre}`}
             value={donante.apellido}
+            maxLength={LARGO_MAXIMO_NOMBRE}
             onChange={(e) => setDonante({ ...donante, apellido: e.target.value })}
             placeholder="Apellido"
           />
@@ -238,7 +334,19 @@ export function DonanteFichaPage() {
         <h1 className={styles.nombreDonante}>{donante.nombre} {donante.apellido}</h1>
       )}
 
-      {error && <div className={styles.mensajeError}>{error}</div>}
+      {error && <div className={styles.mensajeError} role="alert">{error}</div>}
+
+      {/* Comentarios - Manejo de errores y excepciones */}
+      {/* Aviso cuando parte de la ficha no se pudo leer: esos datos se muestran como "No disponible" y no se editan */}
+      {(consentimiento === null || etiquetasNoDisponibles) && (
+        <div className={styles.mensajeError} role="alert">
+          {consentimiento === null && etiquetasNoDisponibles
+            ? 'No se pudieron cargar el consentimiento ni las etiquetas. Recarga la página para editarlos.'
+            : consentimiento === null
+              ? 'No se pudo cargar el consentimiento. Recarga la página para verlo o editarlo.'
+              : 'No se pudieron cargar las etiquetas. Recarga la página para verlas o editarlas.'}
+        </div>
+      )}
 
       {donante.reaccion_adversa_previa && (
         <div className={styles.mensajeError}>
@@ -306,7 +414,7 @@ export function DonanteFichaPage() {
               ) : (
                 donante.frecuente_plaquetas && <Badge texto="Plaquetas" color="azul" />
               )}
-              {editando ? (
+              {editando && !etiquetasNoDisponibles ? (
                 <div className={styles.listaEtiquetasEdit}>
                   {ETIQUETAS_GENERICAS.map(e => (
                     <label key={e} className={styles.checkboxEdit}>
@@ -342,6 +450,7 @@ export function DonanteFichaPage() {
               <textarea
                 className={`${styles.inputEdit} ${styles.textareaObservaciones}`}
                 value={donante.observaciones || ''}
+                maxLength={LARGO_MAXIMO_OBSERVACIONES}
                 onChange={(e) => setDonante({ ...donante, observaciones: e.target.value })}
               />
             ) : (
@@ -361,6 +470,7 @@ export function DonanteFichaPage() {
                 type="email"
                 className={styles.inputEdit}
                 value={donante.correo || ''}
+                maxLength={LARGO_MAXIMO_CORREO}
                 onChange={(e) => setDonante({ ...donante, correo: e.target.value })}
               />
             ) : (
@@ -375,6 +485,7 @@ export function DonanteFichaPage() {
                 type="text"
                 className={styles.inputEdit}
                 value={donante.telefono || ''}
+                maxLength={LARGO_MAXIMO_TELEFONO}
                 onChange={(e) => setDonante({ ...donante, telefono: e.target.value })}
               />
             ) : (
@@ -408,8 +519,10 @@ export function DonanteFichaPage() {
                   />
                   {consentimientoEdit.acepta_cookies ? 'Sí' : 'No'}
                 </label>
+              ) : consentimiento === null ? (
+                <Badge texto="No disponible" color="gris" />
               ) : (
-                <Badge texto={consentimiento?.acepta_cookies ? 'Sí' : 'No'} color={consentimiento?.acepta_cookies ? 'verde' : 'gris'} />
+                <Badge texto={consentimiento.acepta_cookies ? 'Sí' : 'No'} color={consentimiento.acepta_cookies ? 'verde' : 'gris'} />
               )}
             </div>
           </div>
@@ -426,8 +539,10 @@ export function DonanteFichaPage() {
                   />
                   {consentimientoEdit.autoriza_contacto ? 'Sí' : 'No'}
                 </label>
+              ) : consentimiento === null ? (
+                <Badge texto="No disponible" color="gris" />
               ) : (
-                <Badge texto={consentimiento?.autoriza_contacto ? 'Sí' : 'No'} color={consentimiento?.autoriza_contacto ? 'verde' : 'gris'} />
+                <Badge texto={consentimiento.autoriza_contacto ? 'Sí' : 'No'} color={consentimiento.autoriza_contacto ? 'verde' : 'gris'} />
               )}
             </div>
           </div>

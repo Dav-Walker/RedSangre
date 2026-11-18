@@ -2,6 +2,7 @@
 // Página de administración: lista de usuarios con su conexión en línea, creación de usuarios y acceso al detalle.
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/common/Button';
+import { AvisoError } from '../../components/common/AvisoError';
 import { useAuth } from '../../contexts/useAuth';
 import { ETIQUETAS_ROL } from '../../utils/roles';
 import {
@@ -15,7 +16,10 @@ import { UsuarioModal } from './UsuarioModal';
 import { NuevoUsuarioModal } from './NuevoUsuarioModal';
 import styles from './ConfiguracionPage.module.css';
 
-function formatearUltimaConexion(fecha: string | null): string {
+function formatearUltimaConexion(fecha: string | null | 'no_disponible'): string {
+  // Comentarios - Manejo de errores y excepciones
+  // Si la consulta falló no se afirma que nunca se conectó
+  if (fecha === 'no_disponible') return 'Última conexión no disponible';
   if (!fecha) return 'Sin conexiones registradas';
   const d = new Date(fecha);
   const dia = d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -29,7 +33,11 @@ export function ConfiguracionPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usuariosEnLinea, setUsuariosEnLinea] = useState<string[]>([]);
-  const [ultimaConexion, setUltimaConexion] = useState<Record<string, string | null>>({});
+  const [ultimaConexion, setUltimaConexion] = useState<Record<string, string | null | 'no_disponible'>>({});
+  // Comentarios - Manejo de errores y excepciones
+  // Usuarios cuyo canal de presencia falló (no se sabe si están conectados) y contador para reintentar la carga.
+  const [presenciaDesconocida, setPresenciaDesconocida] = useState<string[]>([]);
+  const [intento, setIntento] = useState(0);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<UsuarioFila | null>(null);
   const [creandoUsuario, setCreandoUsuario] = useState(false);
   const [avisoCreado, setAvisoCreado] = useState<string | null>(null);
@@ -39,24 +47,39 @@ export function ConfiguracionPage() {
   useEffect(() => {
     let vigente = true;
 
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada se muestra como error de carga (con Reintentar), no deja la tabla cargando.
     void (async () => {
-      const lista = await listarUsuarios();
-      if (!vigente) return;
-      if (!lista) {
+      try {
+        const lista = await listarUsuarios();
+        if (!vigente) return;
+        if (!lista) {
+          setError('No se pudieron cargar los usuarios.');
+          setCargando(false);
+          return;
+        }
+
+        const ultimas = await Promise.all(lista.map((u) => consultarUltimaConexion(u.id)));
+        if (!vigente) return;
+        setUsuarios(lista);
+        setUltimaConexion(Object.fromEntries(lista.map((u, i) => [u.id, ultimas[i]])));
+        setError(null);
+        setCargando(false);
+      } catch {
+        if (!vigente) return;
         setError('No se pudieron cargar los usuarios.');
         setCargando(false);
-        return;
       }
-
-      const ultimas = await Promise.all(lista.map((u) => consultarUltimaConexion(u.id)));
-      if (!vigente) return;
-      setUsuarios(lista);
-      setUltimaConexion(Object.fromEntries(lista.map((u, i) => [u.id, ultimas[i]])));
-      setCargando(false);
     })();
 
     return () => { vigente = false; };
-  }, []);
+  }, [intento]);
+
+  const reintentarCarga = () => {
+    setError(null);
+    setCargando(true);
+    setIntento((n) => n + 1);
+  };
 
   const idsOtros = usuarios.filter((u) => u.id !== user?.id).map((u) => u.id).join(',');
 
@@ -66,17 +89,29 @@ export function ConfiguracionPage() {
   useEffect(() => {
     if (!idsOtros) return;
     const enLinea = new Set<string>();
+    const desconocidos = new Set<string>();
 
     const cerrarCanales = idsOtros.split(',').map((id) => escucharPresencia(id, (conectado) => {
+      // Comentarios - Manejo de errores y excepciones
+      // null: el canal falló; se marca como estado desconocido en vez de mostrarlo desconectado.
+      if (conectado === null) {
+        desconocidos.add(id);
+        setPresenciaDesconocida([...desconocidos]);
+        return;
+      }
+      if (desconocidos.delete(id)) setPresenciaDesconocida([...desconocidos]);
+
       const estaba = enLinea.has(id);
       if (conectado) enLinea.add(id);
       else enLinea.delete(id);
       setUsuariosEnLinea([...enLinea]);
 
       if (estaba && !conectado) {
-        void consultarUltimaConexion(id).then((fecha) => {
-          setUltimaConexion((prev) => ({ ...prev, [id]: fecha }));
-        });
+        void consultarUltimaConexion(id)
+          .catch((): 'no_disponible' => 'no_disponible')
+          .then((fecha) => {
+            setUltimaConexion((prev) => ({ ...prev, [id]: fecha }));
+          });
       }
     }));
 
@@ -97,11 +132,13 @@ export function ConfiguracionPage() {
   };
 
   const estaEnLinea = (id: string) => id === user?.id || usuariosEnLinea.includes(id);
+  const presenciaNoDisponible = (id: string) => id !== user?.id && presenciaDesconocida.includes(id);
 
   const textoEstado = (u: UsuarioFila) => {
     if (!u.activo) return 'Cuenta desactivada';
     if (u.debe_cambiar_password) return 'Pendiente de activación';
     if (estaEnLinea(u.id)) return 'Conectado ahora';
+    if (presenciaNoDisponible(u.id)) return 'Estado de conexión no disponible';
     return formatearUltimaConexion(ultimaConexion[u.id] ?? null);
   };
 
@@ -116,7 +153,7 @@ export function ConfiguracionPage() {
 
       {avisoCreado && <p role="status" className={styles.mensajeExito}>{avisoCreado}</p>}
 
-      {error && <p role="alert" className={styles.mensajeError}>{error}</p>}
+      {error && <AvisoError mensaje={error} onReintentar={reintentarCarga} />}
 
       <div className={styles.tablaContenedor}>
         <table className={styles.tabla}>
@@ -147,7 +184,8 @@ export function ConfiguracionPage() {
                 <td data-label="Correo" className={styles.celdaCorreo}>{usuario.correo}</td>
                 <td data-label="Estado de conexión">
                   <div className={styles.estadoContainer}>
-                    <div className={usuario.activo && estaEnLinea(usuario.id) ? styles.puntoVerde : styles.puntoRojo} />
+                    <div className={usuario.activo && estaEnLinea(usuario.id) ? styles.puntoVerde
+                      : usuario.activo && presenciaNoDisponible(usuario.id) ? styles.puntoGris : styles.puntoRojo} />
                     <span className={styles.textoEstado}>{textoEstado(usuario)}</span>
                   </div>
                 </td>

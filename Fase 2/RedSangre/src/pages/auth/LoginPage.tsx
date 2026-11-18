@@ -5,15 +5,30 @@ import { useNavigate } from 'react-router-dom';
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import styles from './LoginPage.module.css';
 import { useAuth } from '../../contexts/useAuth';
+import type { MotivoCierre } from '../../contexts/auth-context';
 import logoIndisa from '../../assets/cl_nica_indisa_logo_2.jpg';
 
 // Comentarios - Captcha en inicio de sesión
 // Site key pública de Cloudflare Turnstile; si no está definida, el login se muestra sin captcha
 const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim();
 
+// Comentarios - Manejo de errores y excepciones
+// Aviso del login según por qué se cerró la sesión anterior (sin que el usuario lo pidiera).
+const AVISOS_CIERRE: Record<MotivoCierre, string> = {
+  expirada: 'Tu sesión expiró después de 1 hora. Vuelve a iniciar sesión.',
+  cerrada: 'Tu sesión se cerró. Vuelve a iniciar sesión.',
+  desactivada: 'Tu cuenta está desactivada. Contacta al administrador.',
+};
+
+// Comentarios - Manejo de errores y excepciones
+// El detalle de configuración (.env) solo se muestra en desarrollo; en producción, un aviso general.
+const MENSAJE_SIN_CONFIGURACION = import.meta.env.DEV
+  ? 'Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY en el archivo .env.'
+  : 'El sistema no está disponible en este momento. Contacta al administrador.';
+
 export function LoginPage() {
   const navigate = useNavigate();
-  const { signIn, configured, sesionExpirada } = useAuth();
+  const { signIn, configured, motivoCierre } = useAuth();
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [mensajeError, setMensajeError] = useState('');
@@ -46,8 +61,10 @@ export function LoginPage() {
       }
 
       navigate('/dashboard', { replace: true });
-    } catch (error) {
-      setMensajeError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+    } catch {
+      // Comentarios - Manejo de errores y excepciones
+      // Una excepción inesperada no muestra su texto original: se da un mensaje general.
+      setMensajeError('No se pudo iniciar sesión. Revisa tu conexión e inténtalo nuevamente.');
       reiniciarCaptcha();
     } finally {
       setEnviando(false);
@@ -77,9 +94,9 @@ export function LoginPage() {
 
           {/* Comentarios - Límite de sesión de 1 hora */}
           {/* Avisa que la sesión anterior se cerró por tiempo; se oculta si aparece otro error */}
-          {sesionExpirada && !mensajeError && (
+          {motivoCierre && !mensajeError && (
             <div className={styles.mensajeAviso} role="status">
-              Tu sesión expiró después de 1 hora. Vuelve a iniciar sesión.
+              {AVISOS_CIERRE[motivoCierre]}
             </div>
           )}
 
@@ -150,7 +167,7 @@ export function LoginPage() {
             </button>
             {!configured && (
               <div className={styles.mensajeError} role="alert">
-                Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY en el archivo .env.
+                {MENSAJE_SIN_CONFIGURACION}
               </div>
             )}
 

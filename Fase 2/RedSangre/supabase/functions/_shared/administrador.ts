@@ -4,7 +4,7 @@
 import { auditarAdmin } from './auditoria.ts';
 import { clienteUsuario } from './clientes.ts';
 import { MENSAJE_SIN_DOS_PASOS, tieneDosPasos } from './dosPasos.ts';
-import { responder } from './respuesta.ts';
+import { MENSAJE_SESION_EXPIRADA, responder } from './respuesta.ts';
 
 export async function verificarAdministrador(
   req: Request,
@@ -13,7 +13,7 @@ export async function verificarAdministrador(
   const supabaseUsuario = clienteUsuario(req);
 
   const { data: { user: usuarioActual }, error: errAuth } = await supabaseUsuario.auth.getUser();
-  if (errAuth || !usuarioActual) return { respuesta: responder({ error: 'No autenticado' }, 401) };
+  if (errAuth || !usuarioActual) return { respuesta: responder({ error: MENSAJE_SESION_EXPIRADA }, 401) };
 
   // Comentarios - Bitácora completa
   // Un usuario autenticado que intenta una acción de administración sin cumplir los requisitos queda
@@ -34,9 +34,13 @@ export async function verificarAdministrador(
     .eq('id', usuarioActual.id)
     .maybeSingle();
 
-  if (errPerfil || !perfil) return denegar('sin_perfil', responder({ error: 'No se pudo verificar el rol' }, 403));
+  // Comentarios - Manejo de errores y excepciones
+  // Mensajes para la persona: no nombran la tabla ni el campo que se consultó.
+  if (errPerfil || !perfil) {
+    return denegar('sin_perfil', responder({ error: 'No se pudieron verificar tus permisos. Inténtalo nuevamente.' }, 403));
+  }
   if (perfil.rol !== 'administrador' || !perfil.activo) {
-    return denegar('no_es_administrador', responder({ error: `Solo administradores activos pueden ${accion}` }, 403));
+    return denegar('no_es_administrador', responder({ error: `Solo los administradores activos pueden ${accion}.` }, 403));
   }
 
   return { usuarioId: usuarioActual.id };

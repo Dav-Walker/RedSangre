@@ -3,6 +3,7 @@
 // Supabase directamente. Las escrituras devuelven un mensaje de error o null si todo salió bien.
 import { supabase } from '../utils/supabase';
 import { leerMensajeError } from '../utils/mensajeErrorFuncion';
+import { mensajeError } from '../utils/mensajesError';
 import { valorFiltro } from '../utils/filtrosPostgrest';
 import { fechaLocal } from '../utils/fechas';
 import { registrarEvento, registrarRechazo } from './auditoria';
@@ -29,6 +30,9 @@ export interface ResultadoSolicitudes {
   solicitudes: SolicitudFila[];
   total: number;
   error: string | null;
+  // Comentarios - Manejo de errores y excepciones
+  // La página pedida ya no existe (por ejemplo, se borraron registros): la página vuelve a la primera
+  fueraDeRango?: boolean;
 }
 
 // Comentarios - Listado de solicitudes
@@ -61,7 +65,10 @@ export async function listarSolicitudes(f: FiltrosSolicitudes): Promise<Resultad
 
   const inicio = (f.pagina - 1) * f.porPagina;
   const { data, error, count } = await query.range(inicio, inicio + f.porPagina - 1);
-  if (error) return { solicitudes: [], total: 0, error: 'Error al cargar las solicitudes: ' + error.message };
+  // Comentarios - Manejo de errores y excepciones
+  // PGRST103: la página pedida quedó fuera del total. No es un error para el usuario: se vuelve a la primera.
+  if (error?.code === 'PGRST103') return { solicitudes: [], total: 0, error: null, fueraDeRango: true };
+  if (error) return { solicitudes: [], total: 0, error: mensajeError(error, 'No se pudieron cargar las solicitudes.') };
 
   // Comentarios - Bitácora completa
   // Registra la consulta con sus filtros; el texto buscado no se guarda, solo si hubo búsqueda por texto
@@ -113,7 +120,9 @@ export async function buscarCandidatos(
     p_fenotipo_requerido: fenotipo.trim() || undefined,
     p_limite: MAXIMO_CANDIDATOS,
   });
-  if (error) return { candidatos: [], error: 'Error al buscar candidatos: ' + error.message };
+  if (error) {
+    return { candidatos: [], error: mensajeError(error, 'No se pudieron buscar donantes compatibles. Inténtalo nuevamente.') };
+  }
 
   // Comentarios - Bitácora completa
   // Registra la búsqueda de candidatos: grupo, fenotipo pedido y cuántos donantes devolvió
@@ -141,7 +150,16 @@ export async function crearSolicitud(datos: {
   });
   if (error) {
     registrarRechazo('crear_solicitud', error.code, datos.donanteId);
-    return 'Error al crear la solicitud: ' + error.message;
+    // Comentarios - Manejo de errores y excepciones
+    // El candidato salió de la búsqueda de la base, así que estos rechazos ocurren cuando el donante cambió
+    // (donó, lo asignaron a otra solicitud) entre la búsqueda y el guardado.
+    return mensajeError(error, 'No se pudo crear la solicitud. Inténtalo nuevamente.', {
+      uq_solicitud_donante_activa: 'El donante ya está asignado a otra solicitud activa. Elige otro candidato.',
+      RS003: 'El donante elegido ya no está disponible (donó recientemente o tiene otra solicitud activa). Elige otro candidato.',
+      RS004: 'El donante elegido no es compatible con el grupo o fenotipo requerido. Actualiza la búsqueda.',
+      RS007: 'El donante elegido ya no está disponible. Actualiza la búsqueda.',
+      '42501': 'No tienes permiso para crear solicitudes.',
+    });
   }
   return null;
 }
@@ -156,21 +174,33 @@ const COLUMNAS_DETALLE = '*, donante:donante_asignado_id (id, rut, nombre, apell
 
 // Comentarios - Detalle de solicitud
 // La ruta usa el código de la solicitud (S2026002); si no se encuentra, se intenta con el id (solicitudes sin código).
-export async function obtenerSolicitud(idOCodigo: string): Promise<SolicitudConDonante | null> {
+// Comentarios - Manejo de errores y excepciones
+// Distingue "no existe" de una falla al leer. El id solo se busca si tiene forma de UUID: otro texto haría
+// que la base respondiera con un error de formato en vez de "no encontrada".
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ERROR_CARGA_SOLICITUD = 'No se pudo cargar la solicitud.';
+const SOLICITUD_NO_EXISTE = 'La solicitud no existe.';
+
+export async function obtenerSolicitud(
+  idOCodigo: string,
+): Promise<{ solicitud: SolicitudConDonante; error: null } | { solicitud: null; error: string }> {
   const porCodigo = await supabase
     .from('solicitud')
     .select(COLUMNAS_DETALLE)
     .eq('codigo_solicitud', idOCodigo)
     .maybeSingle();
-  if (porCodigo.data) return conRegistroDeAcceso(porCodigo.data);
-  if (porCodigo.error) return null;
+  if (porCodigo.data) return { solicitud: conRegistroDeAcceso(porCodigo.data), error: null };
+  if (porCodigo.error) return { solicitud: null, error: mensajeError(porCodigo.error, ERROR_CARGA_SOLICITUD) };
+  if (!FORMATO_UUID.test(idOCodigo)) return { solicitud: null, error: SOLICITUD_NO_EXISTE };
 
   const porId = await supabase
     .from('solicitud')
     .select(COLUMNAS_DETALLE)
     .eq('id', idOCodigo)
     .maybeSingle();
-  return porId.data ? conRegistroDeAcceso(porId.data) : null;
+  if (porId.error) return { solicitud: null, error: mensajeError(porId.error, ERROR_CARGA_SOLICITUD) };
+  if (!porId.data) return { solicitud: null, error: SOLICITUD_NO_EXISTE };
+  return { solicitud: conRegistroDeAcceso(porId.data), error: null };
 }
 
 // Comentarios - Bitácora completa
@@ -195,7 +225,12 @@ export async function cambiarEstadoSolicitud(
     .select('id');
   if (error) {
     registrarRechazo('cambiar_estado_solicitud', error.code, solicitudId);
-    return { error: 'No se pudo cambiar el estado: ' + error.message, yaCerrada: false };
+    const mensaje = mensajeError(error, 'No se pudo cambiar el estado. Inténtalo nuevamente.', {
+      RS005: 'La solicitud está cerrada y no admite cambios.',
+      RS006: 'Esta solicitud no se puede modificar.',
+      '42501': 'No tienes permiso para cambiar el estado de la solicitud.',
+    });
+    return { error: mensaje, yaCerrada: error.code === 'RS005' };
   }
   if (!data || data.length === 0) return { error: 'La solicitud ya está cerrada y no puede modificarse.', yaCerrada: true };
   return { error: null, yaCerrada: false };
@@ -203,11 +238,13 @@ export async function cambiarEstadoSolicitud(
 
 // Comentarios - Bitácora de contacto
 // Resultado del último contacto registrado por un canal, o null si aún no hay ninguno.
+// Comentarios - Manejo de errores y excepciones
+// Si la consulta falla devuelve 'no_disponible', para no mostrar "Sin enviar" cuando sí se pudo haber enviado.
 export async function consultarUltimoContacto(
   solicitudId: string,
   canal: 'correo' | 'whatsapp',
-): Promise<ResultadoContacto | null> {
-  const { data } = await supabase
+): Promise<ResultadoContacto | null | 'no_disponible'> {
+  const { data, error } = await supabase
     .from('seguimiento_contacto')
     .select('resultado')
     .eq('solicitud_id', solicitudId)
@@ -215,6 +252,7 @@ export async function consultarUltimoContacto(
     .order('fecha', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) return 'no_disponible';
   return data?.resultado ?? null;
 }
 
@@ -240,7 +278,13 @@ export async function registrarContactoWhatsapp(solicitudId: string, donanteId: 
   });
   if (error) {
     registrarRechazo('contactar_whatsapp', error.code, solicitudId);
-    return error.message;
+    return mensajeError(error, 'No se pudo registrar el contacto. Inténtalo nuevamente.', {
+      RS002: 'El donante no autorizó ser contactado.',
+      RS005: 'La solicitud está cerrada: no admite nuevos contactos.',
+      RS007: 'La solicitud ya no existe.',
+      RS008: 'Se alcanzó el límite de contactos a este donante. Inténtalo más tarde.',
+      '42501': 'No tienes permiso para contactar donantes.',
+    });
   }
   return null;
 }

@@ -33,7 +33,9 @@ export async function registrarEvento(accion: AccionBitacora, datos: DatosEvento
     p_registro: datos.registroId,
     p_detalle: datos.detalle,
   });
-  if (error) console.warn('No se pudo registrar en la bitácora:', accion, error.code);
+  // Comentarios - Manejo de errores y excepciones
+  // La falla se anota en la consola solo en desarrollo, y solo con el código: en producción no se muestra nada.
+  if (error && import.meta.env.DEV) console.warn('No se pudo registrar en la bitácora:', accion, error.code);
 }
 
 // Comentarios - Bitácora completa

@@ -24,16 +24,24 @@ export function VerificacionDosPasosPage() {
   useEffect(() => {
     let cancelado = false;
 
-    obtenerFactorDosPasos().then((resultado) => {
-      if (cancelado) return;
-      if (resultado.error) {
-        setError(resultado.error);
+    obtenerFactorDosPasos()
+      .then((resultado) => {
+        if (cancelado) return;
+        if (resultado.error) {
+          setError(resultado.error);
+          setEtapa('errorCarga');
+          return;
+        }
+        setFactorId(resultado.factorId);
+        setEtapa(resultado.factorId ? 'verificar' : 'introduccion');
+      })
+      // Comentarios - Manejo de errores y excepciones
+      // Una excepción inesperada no deja la pantalla en "Revisando tu configuración...": se avisa y se ofrece salir.
+      .catch(() => {
+        if (cancelado) return;
+        setError('No se pudo cargar la verificación en dos pasos. Inténtalo nuevamente.');
         setEtapa('errorCarga');
-        return;
-      }
-      setFactorId(resultado.factorId);
-      setEtapa(resultado.factorId ? 'verificar' : 'introduccion');
-    });
+      });
 
     return () => {
       cancelado = true;
@@ -47,15 +55,21 @@ export function VerificacionDosPasosPage() {
 
     setProcesando(true);
     setError(null);
-    const resultado = await configurarDosPasos();
-    setProcesando(false);
-
-    if (resultado.error || !resultado.datos) {
-      setError(resultado.error ?? 'No se pudo generar el código QR.');
-      return;
+    // Comentarios - Manejo de errores y excepciones
+    // Si algo lanza una excepción, el botón se libera igual (finally) y se muestra un mensaje general.
+    try {
+      const resultado = await configurarDosPasos();
+      if (resultado.error || !resultado.datos) {
+        setError(resultado.error ?? 'No se pudo generar el código QR.');
+        return;
+      }
+      setConfiguracion(resultado.datos);
+      setEtapa('escanear');
+    } catch {
+      setError('No se pudo generar el código QR. Inténtalo nuevamente.');
+    } finally {
+      setProcesando(false);
     }
-    setConfiguracion(resultado.datos);
-    setEtapa('escanear');
   };
 
   // Comentarios - Segundo factor TOTP (RF-36)
@@ -67,7 +81,14 @@ export function VerificacionDosPasosPage() {
 
     setProcesando(true);
     setError(null);
-    const errorVerificacion = await verificarDosPasos(idFactor, codigo);
+    // Comentarios - Manejo de errores y excepciones
+    // Si algo lanza una excepción, se libera el botón y se pide reintentar en vez de quedar en "Verificando...".
+    let errorVerificacion: string | null;
+    try {
+      errorVerificacion = await verificarDosPasos(idFactor, codigo);
+    } catch {
+      errorVerificacion = 'No se pudo verificar el código. Inténtalo nuevamente.';
+    }
 
     if (errorVerificacion) {
       setError(errorVerificacion);
