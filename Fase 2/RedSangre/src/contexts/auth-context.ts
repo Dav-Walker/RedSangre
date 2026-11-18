@@ -25,14 +25,27 @@ export interface ConfiguracionDosPasos {
   secreto: string;
 }
 
+// Comentarios - Manejo de errores y excepciones
+// Motivo de un cierre de sesión que el usuario no pidió: cumplió 1 hora, la sesión se cerró desde fuera
+// (token revocado o vencido) o la cuenta está desactivada. El login muestra el aviso que corresponde.
+export type MotivoCierre = 'expirada' | 'cerrada' | 'desactivada';
+
+// Comentarios - Manejo de errores y excepciones
+// Problema al cargar el perfil: la cuenta no tiene perfil o la lectura falló.
+export type ErrorPerfil = 'sin_perfil' | 'error';
+
 export interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   configured: boolean;
   user: UserProfile | null;
-  // Comentarios - Límite de sesión de 1 hora
-  // Indica que la última sesión se cerró por cumplir 1 hora, para avisarlo en la pantalla de login
-  sesionExpirada: boolean;
+  // Comentarios - Manejo de errores y excepciones
+  // Motivo del último cierre de sesión no pedido, para avisarlo en la pantalla de login (null si no hay aviso)
+  motivoCierre: MotivoCierre | null;
+  // Comentarios - Manejo de errores y excepciones
+  // Error al cargar el perfil y la función para volver a intentarlo
+  errorPerfil: ErrorPerfil | null;
+  reintentarPerfil: () => void;
   // Comentarios - Captcha en inicio de sesión
   // captchaToken es el token de Cloudflare Turnstile; Supabase Auth lo valida cuando el captcha está activo
   signIn: (email: string, password: string, captchaToken?: string) => Promise<string | null>;

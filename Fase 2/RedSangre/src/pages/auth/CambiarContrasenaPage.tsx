@@ -24,10 +24,16 @@ export function CambiarContrasenaPage() {
     if (nueva !== confirmar) return setError('Las contraseñas no coinciden.');
 
     setGuardando(true);
-    const errorCambio = await completarCambioContrasena(nueva);
-    setGuardando(false);
-
-    if (errorCambio) setError(errorCambio);
+    // Comentarios - Manejo de errores y excepciones
+    // Si algo lanza una excepción, se libera el botón y se muestra un mensaje general.
+    try {
+      const errorCambio = await completarCambioContrasena(nueva);
+      if (errorCambio) setError(errorCambio);
+    } catch {
+      setError('No se pudo cambiar la contraseña. Inténtalo nuevamente.');
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (

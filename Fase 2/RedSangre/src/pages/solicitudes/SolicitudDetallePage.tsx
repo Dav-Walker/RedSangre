@@ -23,12 +23,22 @@ type Mensaje = { tipo: 'ok' | 'error'; texto: string };
 
 // Comentarios - Bitácora de contacto
 // Badge que se muestra según el resultado del último contacto registrado.
-const BADGES_CONTACTO: Record<ResultadoContacto, { texto: string; color: ColorBadge }> = {
+// Comentarios - Manejo de errores y excepciones
+// 'no_disponible': la consulta del último contacto falló, así que no se afirma que esté "Sin enviar".
+const BADGES_CONTACTO: Record<ResultadoContacto | 'no_disponible', { texto: string; color: ColorBadge }> = {
   enviado: { texto: 'Enviado', color: 'rojo' },
   confirmado: { texto: 'Confirmado', color: 'verde' },
   sin_respuesta: { texto: 'Sin respuesta', color: 'gris' },
   rechazado: { texto: 'Rechazado', color: 'gris' },
+  no_disponible: { texto: 'No disponible', color: 'gris' },
 };
+
+type UltimoContacto = ResultadoContacto | null | 'no_disponible';
+
+// Comentarios - Manejo de errores y excepciones
+// Mensajes generales cuando algo lanza una excepción inesperada en las acciones de la página.
+const SOLICITUD_NO_EXISTE = 'La solicitud no existe.';
+const ERROR_CARGA = 'No se pudo cargar la solicitud.';
 
 // Comentarios - Contactar donante por WhatsApp
 // Mensaje inicial que el usuario puede editar antes de abrir WhatsApp.
@@ -64,8 +74,9 @@ export function SolicitudDetallePage() {
   const [error, setError] = useState<string | null>(null);
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [mensajeCorreo, setMensajeCorreo] = useState<Mensaje | null>(null);
-  const [ultimoCorreo, setUltimoCorreo] = useState<ResultadoContacto | null>(null);
-  const [ultimoWhatsapp, setUltimoWhatsapp] = useState<ResultadoContacto | null>(null);
+  const [ultimoCorreo, setUltimoCorreo] = useState<UltimoContacto>(null);
+  const [ultimoWhatsapp, setUltimoWhatsapp] = useState<UltimoContacto>(null);
+  const [intento, setIntento] = useState(0);
   const [mensajeWhatsappEstado, setMensajeWhatsappEstado] = useState<Mensaje | null>(null);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [mensajeEstado, setMensajeEstado] = useState<Mensaje | null>(null);
@@ -81,34 +92,58 @@ export function SolicitudDetallePage() {
     if (!id) return;
     let vigente = true;
 
+    // Comentarios - Manejo de errores y excepciones
+    // Distingue "no existe" de una falla al leer (con Reintentar). Una excepción inesperada no deja la página
+    // cargando para siempre. El último contacto que no se pueda leer se muestra como "No disponible".
     void (async () => {
-      const datos = await obtenerSolicitud(id);
-      if (!vigente) return;
-      if (!datos) {
-        setError('No se pudo encontrar la solicitud en la base de datos.');
+      try {
+        const resultado = await obtenerSolicitud(id);
+        if (!vigente) return;
+        if (!resultado.solicitud) {
+          setError(resultado.error);
+          setCargando(false);
+          return;
+        }
+        const [correo, whatsapp] = await Promise.all([
+          consultarUltimoContacto(resultado.solicitud.id, 'correo'),
+          consultarUltimoContacto(resultado.solicitud.id, 'whatsapp'),
+        ]);
+        if (!vigente) return;
+        setSolicitud(resultado.solicitud);
+        setUltimoCorreo(correo);
+        setUltimoWhatsapp(whatsapp);
+        setError(null);
         setCargando(false);
-        return;
+      } catch {
+        if (!vigente) return;
+        setError(ERROR_CARGA);
+        setCargando(false);
       }
-      const [correo, whatsapp] = await Promise.all([
-        consultarUltimoContacto(datos.id, 'correo'),
-        consultarUltimoContacto(datos.id, 'whatsapp'),
-      ]);
-      if (!vigente) return;
-      setSolicitud(datos);
-      setUltimoCorreo(correo);
-      setUltimoWhatsapp(whatsapp);
-      setCargando(false);
     })();
 
     return () => { vigente = false; };
-  }, [id]);
+  }, [id, intento]);
+
+  const reintentarCarga = () => {
+    setCargando(true);
+    setError(null);
+    setIntento((n) => n + 1);
+  };
+
+  // Comentarios - Manejo de errores y excepciones
+  // Relee el último contacto de un canal; si falla por una excepción queda como "No disponible".
+  const releerUltimoContacto = (solicitudId: string, canal: 'correo' | 'whatsapp') =>
+    consultarUltimoContacto(solicitudId, canal).catch((): UltimoContacto => 'no_disponible');
 
   const handleEnviarCorreo = async () => {
     if (!solicitud) return;
     setEnviandoCorreo(true);
     setMensajeCorreo(null);
 
-    const errorEnvio = await enviarCorreoContacto(solicitud.id);
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada libera el botón y muestra un mensaje general.
+    const errorEnvio = await enviarCorreoContacto(solicitud.id)
+      .catch(() => 'No se pudo enviar el correo. Inténtalo nuevamente.');
     setEnviandoCorreo(false);
 
     if (errorEnvio) {
@@ -116,7 +151,7 @@ export function SolicitudDetallePage() {
       return;
     }
     setMensajeCorreo({ tipo: 'ok', texto: 'Correo enviado y registrado en la bitácora.' });
-    setUltimoCorreo(await consultarUltimoContacto(solicitud.id, 'correo'));
+    setUltimoCorreo(await releerUltimoContacto(solicitud.id, 'correo'));
   };
 
   // Comentarios - Cambiar estado de solicitud
@@ -135,7 +170,10 @@ export function SolicitudDetallePage() {
     setCambiandoEstado(true);
     setMensajeEstado(null);
 
-    const resultado = await cambiarEstadoSolicitud(solicitud.id, nuevoEstado);
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada libera el selector y muestra un mensaje general.
+    const resultado = await cambiarEstadoSolicitud(solicitud.id, nuevoEstado)
+      .catch(() => ({ error: 'No se pudo cambiar el estado. Inténtalo nuevamente.', yaCerrada: false }));
     setCambiandoEstado(false);
 
     if (resultado.error) {
@@ -164,20 +202,28 @@ export function SolicitudDetallePage() {
     if (!solicitud || !donante?.telefono) return;
 
     const pestana = window.open('', '_blank');
-    const errorRegistro = await registrarContactoWhatsapp(solicitud.id, donante.id);
+    // Comentarios - Manejo de errores y excepciones
+    // El mensaje de error ya viene traducido por el servicio; una excepción inesperada da un mensaje general.
+    const errorRegistro = await registrarContactoWhatsapp(solicitud.id, donante.id)
+      .catch(() => 'No se pudo registrar el contacto. Inténtalo nuevamente.');
     setModalWhatsappAbierto(false);
 
     if (errorRegistro) {
       pestana?.close();
-      setMensajeWhatsappEstado({ tipo: 'error', texto: 'No se pudo registrar el contacto: ' + errorRegistro });
+      setMensajeWhatsappEstado({ tipo: 'error', texto: `${errorRegistro} No se abrió WhatsApp.` });
       return;
     }
 
+    // Comentarios - Manejo de errores y excepciones
+    // Si el navegador bloqueó la ventana, el contacto ya quedó registrado: se avisa cómo permitirla.
     const url = enlaceWhatsapp(donante.telefono, mensajeWhatsapp);
+    let abierta = true;
     if (pestana) pestana.location.href = url;
-    else window.open(url, '_blank');
-    setMensajeWhatsappEstado({ tipo: 'ok', texto: 'Contacto registrado en la bitácora.' });
-    setUltimoWhatsapp(await consultarUltimoContacto(solicitud.id, 'whatsapp'));
+    else abierta = Boolean(window.open(url, '_blank'));
+    setMensajeWhatsappEstado(abierta
+      ? { tipo: 'ok', texto: 'Contacto registrado en la bitácora.' }
+      : { tipo: 'error', texto: 'Contacto registrado, pero tu navegador bloqueó la ventana de WhatsApp. Permite las ventanas emergentes para este sitio.' });
+    setUltimoWhatsapp(await releerUltimoContacto(solicitud.id, 'whatsapp'));
   };
 
   // Comentarios - Llamar al donante
@@ -213,7 +259,14 @@ export function SolicitudDetallePage() {
   if (error || !solicitud) {
     return (
       <div className={`${styles.contenedor} ${styles.estadoPagina}`}>
-        <h2 className={styles.tituloError}>{error || 'Solicitud no encontrada'}</h2>
+        <h2 className={styles.tituloError}>{error || SOLICITUD_NO_EXISTE}</h2>
+        {/* Comentarios - Manejo de errores y excepciones */}
+        {/* Si la falla fue al leer (no "no existe"), se ofrece reintentar */}
+        {error && error !== SOLICITUD_NO_EXISTE && (
+          <button className={`${styles.botonVolver} ${styles.botonVolverError}`} onClick={reintentarCarga}>
+            Reintentar
+          </button>
+        )}
         <button className={`${styles.botonVolver} ${styles.botonVolverError}`} onClick={() => navigate('/solicitudes')}>
           ← Volver a solicitudes
         </button>
@@ -373,6 +426,8 @@ export function SolicitudDetallePage() {
           <div className={styles.bitacoraFila}>
             <span className={styles.bitacoraEtiqueta}>WhatsApp</span>
             <div className={styles.bitacoraCelda}>
+              {/* Comentarios - Manejo de errores y excepciones */}
+              {/* 'no_disponible' también cae aquí: muestra "No disponible" en vez de afirmar que no hubo contacto */}
               {ultimoWhatsapp ? (
                 <Badge texto={BADGES_CONTACTO[ultimoWhatsapp].texto} color={BADGES_CONTACTO[ultimoWhatsapp].color} />
               ) : (

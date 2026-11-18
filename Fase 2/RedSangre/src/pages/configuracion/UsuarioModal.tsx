@@ -57,7 +57,10 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
 
     setGuardando(true);
 
-    const errorCambio = await cambiarContrasenaUsuario(usuario.id, nuevaContrasena);
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada libera el botón y muestra un mensaje general.
+    const errorCambio = await cambiarContrasenaUsuario(usuario.id, nuevaContrasena)
+      .catch(() => 'No se pudo actualizar la contraseña. Inténtalo nuevamente.');
     setGuardando(false);
 
     if (errorCambio) {
@@ -74,7 +77,8 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setErrorEstado(null);
 
     const nuevoEstado = !usuario.activo;
-    const errorEstadoUsuario = await cambiarEstadoUsuario(usuario.id, nuevoEstado);
+    const errorEstadoUsuario = await cambiarEstadoUsuario(usuario.id, nuevoEstado)
+      .catch(() => 'No se pudo cambiar el estado del usuario. Inténtalo nuevamente.');
 
     setCambiandoEstado(false);
     setConfirmandoCambio(false);
@@ -92,7 +96,8 @@ export function UsuarioModal({ usuario, estaEnLinea, textoEstado, usuarioActualI
     setReenviando(true);
     setAvisoReenvio(null);
 
-    const errorReenvio = await reenviarActivacion(usuario.id);
+    const errorReenvio = await reenviarActivacion(usuario.id)
+      .catch(() => 'No se pudo reenviar el correo. Inténtalo nuevamente.');
     setReenviando(false);
 
     if (errorReenvio) {

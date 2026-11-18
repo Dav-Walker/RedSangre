@@ -1,0 +1,67 @@
+/* Comentarios - Manejo de errores y excepciones */
+/* Pantalla de error: tarjeta blanca centrada con el mensaje y los botones. Fija fondo y color por el modo oscuro. */
+.contenedor {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: var(--color-fondo);
+}
+
+.tarjeta {
+  width: 100%;
+  max-width: 460px;
+  padding: 32px;
+  background-color: #ffffff;
+  color: var(--color-texto);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.titulo {
+  margin: 0 0 12px;
+  font-size: 24px;
+  color: var(--color-marca-rojo);
+}
+
+.mensaje {
+  margin: 0 0 24px;
+  color: var(--color-texto);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.botonPrincipal,
+.botonSecundario {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.botonPrincipal {
+  background-color: var(--color-marca-rojo);
+  color: #ffffff;
+  border: none;
+}
+
+.botonPrincipal:hover {
+  background-color: var(--color-marca-rojo-oscuro);
+}
+
+.botonSecundario {
+  background-color: #ffffff;
+  color: var(--color-texto);
+  border: 1px solid var(--color-borde);
+}
+
+.botonSecundario:hover {
+  background-color: var(--color-fondo);
+}

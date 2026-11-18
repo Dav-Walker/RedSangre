@@ -3,6 +3,8 @@
 // directamente: usan estas funciones. Las escrituras devuelven un mensaje de error o null si todo salió bien.
 import { supabase } from '../utils/supabase';
 import { valorFiltro } from '../utils/filtrosPostgrest';
+import { mensajeError } from '../utils/mensajesError';
+import { MENSAJE_NOMBRE_LARGO, MENSAJE_TELEFONO_INVALIDO } from '../utils/validacionDonante';
 import { registrarEvento, registrarRechazo } from './auditoria';
 import { ETIQUETA_FENOTIPO_RARO, ETIQUETA_PLAQUETAS, ETIQUETAS_GENERICAS, esEtiquetaDeColumna } from '../utils/etiquetas';
 import type { Database } from '../tipos/database.types';
@@ -26,9 +28,28 @@ export interface ResultadoDonantes {
   donantes: DonanteFila[];
   total: number;
   error: string | null;
+  // Comentarios - Manejo de errores y excepciones
+  // La página pedida ya no existe (por ejemplo, se borraron registros): la página vuelve a la primera
+  fueraDeRango?: boolean;
 }
 
 const ERROR_LISTADO = 'No se pudieron cargar los donantes.';
+
+// Comentarios - Manejo de errores y excepciones
+// Mensajes para los datos del donante que rechazan las restricciones de la base, al registrar y al editar.
+const ERRORES_DATOS_DONANTE: Record<string, string> = {
+  donante_rut_key: 'Ya existe un donante registrado con ese RUT.',
+  ck_donante_rut_formato: 'El RUT no tiene un formato válido. Ejemplo: 12345678-9.',
+  ck_donante_telefono_formato: MENSAJE_TELEFONO_INVALIDO,
+  ck_donante_correo_formato: 'El correo del donante no tiene un formato válido.',
+  ck_donante_nombre_largo: MENSAJE_NOMBRE_LARGO,
+  ck_donante_nombre_no_vacio: 'Ingresa el nombre y el apellido del donante.',
+  ck_donante_raro_requiere_fenotipo: 'Un donante con fenotipo raro debe tener su fenotipo registrado.',
+  donante_comuna_fkey: 'La comuna seleccionada no es válida.',
+  donante_sexo_check: 'El sexo seleccionado no es válido.',
+  ck_etiqueta_largo: 'Las etiquetas admiten hasta 50 caracteres.',
+  uq_etiqueta_donante_unica: 'Una de las etiquetas está repetida.',
+};
 
 // Comentarios - Búsqueda por fenotipo
 // Condición para que el fenotipo del donante ("C+, E-, K+") incluya un antígeno exacto: como fenotipo
@@ -51,7 +72,7 @@ export async function consultarDonantes(f: FiltrosDonantes): Promise<ResultadoDo
       .from('etiqueta_donante')
       .select('donante_id')
       .ilike('etiqueta', `%${f.etiqueta}%`);
-    if (errEtiqueta) return { donantes: [], total: 0, error: ERROR_LISTADO };
+    if (errEtiqueta) return { donantes: [], total: 0, error: mensajeError(errEtiqueta, ERROR_LISTADO) };
     idsConEtiqueta = (etiquetaData ?? []).map((e) => e.donante_id);
     if (idsConEtiqueta.length === 0) return { donantes: [], total: 0, error: null };
   }
@@ -80,7 +101,10 @@ export async function consultarDonantes(f: FiltrosDonantes): Promise<ResultadoDo
 
   const desde = (f.pagina - 1) * f.porPagina;
   const { data, error, count } = await query.range(desde, desde + f.porPagina - 1);
-  if (error) return { donantes: [], total: 0, error: ERROR_LISTADO };
+  // Comentarios - Manejo de errores y excepciones
+  // PGRST103: la página pedida quedó fuera del total. No es un error para el usuario: se vuelve a la primera.
+  if (error?.code === 'PGRST103') return { donantes: [], total: 0, error: null, fueraDeRango: true };
+  if (error) return { donantes: [], total: 0, error: mensajeError(error, ERROR_LISTADO) };
 
   // Comentarios - Bitácora completa
   // Registra la consulta con sus filtros. El texto buscado no se guarda (puede ser un nombre o un RUT):
@@ -107,7 +131,15 @@ export async function registrarDonante(datos: DatosRegistroDonante): Promise<str
   const { error } = await supabase.rpc('fn_registrar_donante', datos);
   if (error) {
     registrarRechazo('registrar_donante', error.code);
-    return 'Error al guardar el donante: ' + error.message;
+    // Comentarios - Manejo de errores y excepciones
+    // El formulario ya valida formato de RUT, fecha y obligatorios; el RS007 que llegue igual suele ser el
+    // dígito verificador (cuando la base lo exige) o un dato que cambió entre la validación y el guardado.
+    return mensajeError(error, 'No se pudo guardar el donante. Inténtalo nuevamente.', {
+      ...ERRORES_DATOS_DONANTE,
+      RS001: 'Debe aceptar el tratamiento de datos y la autorización de contacto para registrar al donante.',
+      RS007: 'Revisa el RUT (número y dígito verificador), la fecha de última donación y los datos obligatorios.',
+      '42501': 'No tienes permiso para registrar donantes.',
+    });
   }
   return null;
 }
@@ -119,25 +151,33 @@ export interface Consentimiento {
   autoriza_contacto: boolean;
 }
 
+// Comentarios - Manejo de errores y excepciones
+// consentimiento y etiquetas quedan en null si no se pudieron leer: la ficha avisa en vez de mostrar
+// "no autoriza contacto" o "sin etiquetas" como si fueran datos reales.
 export interface FichaDonante {
   donante: Donante;
-  consentimiento: Consentimiento;
-  etiquetas: string[];
+  consentimiento: Consentimiento | null;
+  etiquetas: string[] | null;
 }
 
-export async function obtenerFichaDonante(codigo: string): Promise<FichaDonante | null> {
+export async function obtenerFichaDonante(
+  codigo: string,
+): Promise<{ ficha: FichaDonante; error: null } | { ficha: null; error: string }> {
+  // Comentarios - Manejo de errores y excepciones
+  // maybeSingle distingue "no existe" (sin error y sin datos) de una falla al leer (error).
   const { data: donante, error } = await supabase
     .from('donante')
     .select('*')
     .eq('codigo_donante', codigo)
-    .single();
-  if (error || !donante) return null;
+    .maybeSingle();
+  if (error) return { ficha: null, error: mensajeError(error, 'No se pudo cargar la ficha del donante.') };
+  if (!donante) return { ficha: null, error: 'No se encontró el donante.' };
 
   // Comentarios - Bitácora completa
   // Abrir la ficha es un acceso a datos personales y de salud: queda registrado quién vio a qué donante
   void registrarEvento('VER_DONANTE', { tabla: 'donante', registroId: donante.id });
 
-  const [{ data: consentimiento }, { data: etiquetas }] = await Promise.all([
+  const [lecturaConsentimiento, lecturaEtiquetas] = await Promise.all([
     supabase
       .from('consentimiento')
       .select('acepta_cookies, autoriza_contacto')
@@ -151,17 +191,24 @@ export async function obtenerFichaDonante(codigo: string): Promise<FichaDonante 
       .eq('donante_id', donante.id),
   ]);
 
+  // Comentarios - Manejo de errores y excepciones
+  // Sin filas de consentimiento el donante no autorizó nada (false). Si la lectura falló, queda en null.
   return {
-    donante,
-    consentimiento: consentimiento ?? { acepta_cookies: false, autoriza_contacto: false },
-    etiquetas: (etiquetas ?? []).map((fila) => fila.etiqueta),
+    ficha: {
+      donante,
+      consentimiento: lecturaConsentimiento.error
+        ? null
+        : lecturaConsentimiento.data ?? { acepta_cookies: false, autoriza_contacto: false },
+      etiquetas: lecturaEtiquetas.error ? null : (lecturaEtiquetas.data ?? []).map((fila) => fila.etiqueta),
+    },
+    error: null,
   };
 }
 
 // Comentarios - Ficha de donante
 // Guarda los datos editables del donante. Los datos clínicos (RUT, grupo, fenotipo) no se editan desde la ficha.
 export async function actualizarDonante(donante: Donante): Promise<string | null> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('donante')
     .update({
       nombre: donante.nombre,
@@ -174,11 +221,18 @@ export async function actualizarDonante(donante: Donante): Promise<string | null
       frecuente_plaquetas: donante.frecuente_plaquetas,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', donante.id);
+    .eq('id', donante.id)
+    .select('id');
   if (error) {
     registrarRechazo('editar_donante', error.code, donante.id);
-    return 'Error al guardar: ' + error.message;
+    return mensajeError(error, 'No se pudieron guardar los datos del donante. Inténtalo nuevamente.', {
+      ...ERRORES_DATOS_DONANTE,
+      '42501': 'No tienes permiso para editar donantes.',
+    });
   }
+  // Comentarios - Manejo de errores y excepciones
+  // Si RLS no deja editar, la base no da error: simplemente no actualiza filas. Se avisa en vez de dar por guardado.
+  if (!data || data.length === 0) return 'No se pudieron guardar los datos: no tienes permiso o el donante ya no existe.';
   return null;
 }
 
@@ -205,7 +259,10 @@ export async function registrarConsentimiento(
     });
   if (error) {
     registrarRechazo('registrar_consentimiento', error.code, donanteId);
-    return 'Error al guardar consentimiento: ' + error.message;
+    return mensajeError(error, 'No se pudo registrar el cambio de consentimiento. Inténtalo nuevamente.', {
+      RS006: 'El historial de consentimientos no se puede modificar: se registra un consentimiento nuevo.',
+      '42501': 'No tienes permiso para cambiar el consentimiento.',
+    });
   }
   return null;
 }
@@ -221,7 +278,7 @@ export async function reemplazarEtiquetasGenericas(donanteId: string, etiquetas:
     .in('etiqueta', ETIQUETAS_GENERICAS);
   if (errBorrar) {
     registrarRechazo('quitar_etiquetas', errBorrar.code, donanteId);
-    return errBorrar.message;
+    return mensajeError(errBorrar, ERROR_ETIQUETAS, { ...ERRORES_DATOS_DONANTE, '42501': 'No tienes permiso para cambiar etiquetas.' });
   }
   if (etiquetas.length === 0) return null;
 
@@ -230,10 +287,14 @@ export async function reemplazarEtiquetasGenericas(donanteId: string, etiquetas:
     .insert(etiquetas.map((etiqueta) => ({ donante_id: donanteId, etiqueta })));
   if (errInsertar) {
     registrarRechazo('agregar_etiquetas', errInsertar.code, donanteId);
-    return errInsertar.message;
+    return mensajeError(errInsertar, ERROR_ETIQUETAS, { ...ERRORES_DATOS_DONANTE, '42501': 'No tienes permiso para cambiar etiquetas.' });
   }
   return null;
 }
+
+// Comentarios - Manejo de errores y excepciones
+// Mensaje por defecto cuando falla el cambio de etiquetas (al quitar o al agregar)
+const ERROR_ETIQUETAS = 'No se pudieron actualizar las etiquetas. Inténtalo nuevamente.';
 
 // Comentarios - Regla de espera entre donaciones por sexo
 // Fecha 'AAAA-MM-DD' desde la que el donante puede volver a donar, calculada por la base según su sexo.
@@ -272,7 +333,15 @@ export async function registrarDonacion(d: NuevaDonacion): Promise<string | null
     });
   if (error) {
     registrarRechazo('registrar_donacion', error.code, d.donanteId);
-    return 'Error al registrar donación: ' + error.message;
+    // Comentarios - Manejo de errores y excepciones
+    // La fecha futura ya la frena el formulario; el RS007 restante es un donante o solicitud que no corresponde.
+    return mensajeError(error, 'No se pudo registrar la donación. Inténtalo nuevamente.', {
+      uq_donacion_solicitud_donante: 'Esta donación ya fue registrada.',
+      ck_donacion_reaccion: 'El detalle de la reacción solo se registra si hubo reacción.',
+      RS006: 'Las donaciones registradas no se pueden modificar.',
+      RS007: 'No se pudo registrar la donación: revisa la fecha (no puede ser futura) y los datos del donante.',
+      '42501': 'No tienes permiso para registrar donaciones.',
+    });
   }
   return null;
 }

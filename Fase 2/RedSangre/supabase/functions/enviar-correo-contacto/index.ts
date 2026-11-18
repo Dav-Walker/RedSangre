@@ -4,7 +4,7 @@
 import { clienteUsuario } from '../_shared/clientes.ts';
 import { crearTransporte, remitente } from '../_shared/correo.ts';
 import { conCors } from '../_shared/cors.ts';
-import { responder, revisarMetodo } from '../_shared/respuesta.ts';
+import { leerCuerpo, MENSAJE_SOLICITUD_INVALIDA, responder, revisarMetodo } from '../_shared/respuesta.ts';
 import { esUuid } from '../_shared/validaciones.ts';
 
 const CONTACTO_BANCO = '+56 9 3640 5976 o al correo notificaciones@redsangre.cl';
@@ -37,23 +37,21 @@ Deno.serve(conCors(async (req) => {
   const respuestaMetodo = revisarMetodo(req);
   if (respuestaMetodo) return respuestaMetodo;
 
-  let solicitudId: unknown;
-  try {
-    ({ solicitud_id: solicitudId } = await req.json());
-  } catch {
-    return responder({ error: 'Cuerpo inválido' }, 400);
-  }
-  if (!solicitudId) return responder({ error: 'Falta solicitud_id' }, 400);
+  // Comentarios - Manejo de errores y excepciones
+  // Cuerpo mal formado o incompleto: mensaje para la persona, sin nombrar los parámetros.
+  const cuerpo = await leerCuerpo(req);
+  const solicitudId = cuerpo?.solicitud_id;
+  if (!solicitudId) return responder({ error: MENSAJE_SOLICITUD_INVALIDA }, 400);
   // Comentarios - Validación de entrada en las Edge Functions
   // El id de la solicitud debe ser un UUID antes de consultar la base
-  if (!esUuid(solicitudId)) return responder({ error: 'La solicitud no es válida' }, 400);
+  if (!esUuid(solicitudId)) return responder({ error: 'La solicitud no es válida.' }, 400);
 
   const supabase = clienteUsuario(req);
 
   // Comentarios - Perfil TENS solo lectura
   // El correo se envía antes de escribir en la bitácora, así que el permiso de escritura se revisa al inicio
   const { data: puedeEscribir, error: errPermiso } = await supabase.rpc('fn_puede_escribir');
-  if (errPermiso) return responder({ error: 'No se pudo verificar el permiso' }, 500);
+  if (errPermiso) return responder({ error: 'No se pudieron verificar tus permisos. Inténtalo nuevamente.' }, 500);
   if (!puedeEscribir) {
     // Comentarios - Bitácora completa
     // Un perfil de solo lectura que intenta enviar el correo queda registrado como acceso denegado
@@ -63,7 +61,7 @@ Deno.serve(conCors(async (req) => {
       p_registro: solicitudId,
       p_detalle: { accion: 'enviar correo de contacto', motivo: 'solo_lectura' },
     });
-    return responder({ error: 'Tu perfil es de solo lectura: no puede contactar por correo' }, 403);
+    return responder({ error: 'Tu perfil es de solo lectura: no puedes contactar por correo.' }, 403);
   }
 
   const { data: solicitud, error: errSolicitud } = await supabase
@@ -72,27 +70,37 @@ Deno.serve(conCors(async (req) => {
     .eq('id', solicitudId)
     .maybeSingle();
 
-  if (errSolicitud || !solicitud) return responder({ error: 'Solicitud no encontrada o sin acceso' }, 404);
-  if (solicitud.estado === 'cerrada') return responder({ error: 'La solicitud está cerrada' }, 409);
+  // Comentarios - Manejo de errores y excepciones
+  // Distingue una falla al leer (reintentar) de una solicitud que no existe o que el usuario no puede ver.
+  if (errSolicitud) {
+    console.error('Error al leer la solicitud:', errSolicitud.message);
+    return responder({ error: 'No se pudo leer la solicitud. Inténtalo nuevamente.' }, 500);
+  }
+  if (!solicitud) return responder({ error: 'La solicitud no existe o no tienes acceso a ella.' }, 404);
+  if (solicitud.estado === 'cerrada') return responder({ error: 'La solicitud está cerrada: no admite nuevos contactos.' }, 409);
 
   // Comentarios - Contactar donante por correo
   // donante_asignado_id apunta a un solo donante, así que PostgREST devuelve un objeto. El cliente sin esquema
   // tipado lo infiere como lista; por eso se convierte pasando por unknown.
   const donante = solicitud.donante as unknown as { id: string; nombre: string; apellido: string; correo: string | null } | null;
-  if (!donante) return responder({ error: 'La solicitud no tiene donante asignado' }, 422);
-  if (!donante.correo) return responder({ error: 'El donante no tiene correo registrado' }, 422);
+  if (!donante) return responder({ error: 'La solicitud no tiene donante asignado.' }, 422);
+  if (!donante.correo) return responder({ error: 'El donante no tiene correo registrado.' }, 422);
 
   const { data: puedeContactar, error: errConsentimiento } = await supabase
     .rpc('fn_donante_puede_contactarse', { p_donante_id: donante.id });
-  if (errConsentimiento) return responder({ error: 'No se pudo verificar el consentimiento' }, 500);
-  if (!puedeContactar) return responder({ error: 'El donante no autorizó contacto' }, 422);
+  if (errConsentimiento) return responder({ error: 'No se pudo verificar el consentimiento del donante. Inténtalo nuevamente.' }, 500);
+  if (!puedeContactar) return responder({ error: 'El donante no autorizó ser contactado.' }, 422);
 
   // Comentarios - Límite de correos a donantes
   // Se revisa antes de enviar, porque el trigger de seguimiento_contacto recién lo aplica después del envío.
   // RS008 significa que se alcanzó el máximo de correos a este donante en la ventana configurada.
   const { error: errLimite } = await supabase.rpc('fn_verificar_limite_correo', { p_donante_id: donante.id });
-  if (errLimite?.code === 'RS008') return responder({ error: errLimite.message }, 429);
-  if (errLimite) return responder({ error: 'No se pudo verificar el límite de correos' }, 500);
+  // Comentarios - Manejo de errores y excepciones
+  // El texto es fijo: no se reenvía el mensaje de la base al navegador.
+  if (errLimite?.code === 'RS008') {
+    return responder({ error: 'Ya se enviaron varios correos a este donante. Espera antes de volver a escribirle.' }, 429);
+  }
+  if (errLimite) return responder({ error: 'No se pudo verificar el límite de correos. Inténtalo nuevamente.' }, 500);
 
   try {
     await crearTransporte().sendMail({
@@ -111,7 +119,7 @@ Deno.serve(conCors(async (req) => {
       p_registro: solicitud.id,
       p_detalle: { donante_id: donante.id },
     });
-    return responder({ error: 'No se pudo enviar el correo' }, 502);
+    return responder({ error: 'No se pudo enviar el correo. Inténtalo nuevamente.' }, 502);
   }
 
   const { error: errRegistro } = await supabase.from('seguimiento_contacto').insert({
@@ -120,7 +128,10 @@ Deno.serve(conCors(async (req) => {
     canal: 'correo',
     resultado: 'enviado',
   });
-  if (errRegistro) return responder({ error: 'Correo enviado, pero no se registró en la bitácora' }, 500);
+  if (errRegistro) {
+    console.error('Correo enviado sin registro en la bitácora:', errRegistro.code);
+    return responder({ error: 'El correo se envió, pero no quedó registrado en la bitácora.' }, 500);
+  }
 
   return responder({ ok: true });
 }));

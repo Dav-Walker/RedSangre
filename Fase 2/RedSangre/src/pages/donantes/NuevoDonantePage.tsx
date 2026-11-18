@@ -8,6 +8,19 @@ import { ModalFenotipo } from '../../components/donantes/ModalFenotipo';
 import { textoFenotipo, type ValoresFenotipo } from '../../utils/fenotipo';
 import { ETIQUETA_FENOTIPO_RARO, ETIQUETA_PLAQUETAS, ETIQUETAS_DONANTE } from '../../utils/etiquetas';
 import { registrarDonante } from '../../servicios/donantes';
+import { tieneFormatoCorreo } from '../../utils/validacionCorreo';
+import {
+  LARGO_MAXIMO_CORREO,
+  LARGO_MAXIMO_NOMBRE,
+  LARGO_MAXIMO_OBSERVACIONES,
+  LARGO_MAXIMO_RUT,
+  LARGO_MAXIMO_TELEFONO,
+  MENSAJE_NOMBRE_LARGO,
+  MENSAJE_RUT_INVALIDO,
+  MENSAJE_TELEFONO_INVALIDO,
+  rutTieneFormatoValido,
+  telefonoTieneFormatoValido,
+} from '../../utils/validacionDonante';
 import styles from './NuevoDonantePage.module.css';
 
 const REGIONES_CHILE: Record<string, string[]> = {
@@ -107,6 +120,20 @@ export function NuevoDonantePage() {
       return;
     }
 
+    // Comentarios - Manejo de errores y excepciones
+    // Repite en el formulario las reglas que la base revisa al guardar (formato de RUT, teléfono y correo, largo
+    // de nombres y fecha no futura), para avisar el problema concreto antes de enviar.
+    const errorFormato = !rutTieneFormatoValido(form.rut) ? MENSAJE_RUT_INVALIDO
+      : !telefonoTieneFormatoValido(form.telefono) ? MENSAJE_TELEFONO_INVALIDO
+      : form.correo.trim() && !tieneFormatoCorreo(form.correo) ? 'El correo del donante no tiene un formato válido.'
+      : form.nombre.trim().length > LARGO_MAXIMO_NOMBRE || form.apellido.trim().length > LARGO_MAXIMO_NOMBRE ? MENSAJE_NOMBRE_LARGO
+      : form.fechaUltimaDonacion > hoyISO() ? 'La fecha de última donación no puede ser futura.'
+      : null;
+    if (errorFormato) {
+      setError(errorFormato);
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
@@ -133,7 +160,7 @@ export function NuevoDonantePage() {
       p_reaccion_adversa: reaccionAdversaPrevia,
       p_etiquetas: etiquetasSeleccionadas,
       p_sexo: form.sexo,
-    });
+    }).catch(() => 'No se pudo guardar el donante. Inténtalo nuevamente.');
 
     setGuardando(false);
     if (errorRegistro) {
@@ -169,6 +196,7 @@ export function NuevoDonantePage() {
             <input
               type="text"
               name="nombre"
+              maxLength={LARGO_MAXIMO_NOMBRE}
               className={styles.input}
               placeholder="Ej: María"
               value={form.nombre}
@@ -181,6 +209,7 @@ export function NuevoDonantePage() {
             <input
               type="text"
               name="apellido"
+              maxLength={LARGO_MAXIMO_NOMBRE}
               className={styles.input}
               placeholder="Ej: Fernández Soto"
               value={form.apellido}
@@ -193,6 +222,7 @@ export function NuevoDonantePage() {
             <input
               type="email"
               name="correo"
+              maxLength={LARGO_MAXIMO_CORREO}
               className={styles.input}
               placeholder="ejemplo@correo.com"
               value={form.correo}
@@ -205,6 +235,7 @@ export function NuevoDonantePage() {
             <input
               type="tel"
               name="telefono"
+              maxLength={LARGO_MAXIMO_TELEFONO}
               className={styles.input}
               placeholder="+56 9 1234 5678"
               value={form.telefono}
@@ -218,6 +249,7 @@ export function NuevoDonantePage() {
               <input
                 type="text"
                 name="rut"
+                maxLength={LARGO_MAXIMO_RUT}
                 className={styles.input}
                 placeholder="12345678-9"
                 value={form.rut}
@@ -368,6 +400,7 @@ export function NuevoDonantePage() {
               name="observaciones"
               placeholder="Ej: Donó sin problemas, se desmayó brevemente, requirió hidratación..."
               rows={4}
+              maxLength={LARGO_MAXIMO_OBSERVACIONES}
               value={form.observaciones}
               onChange={handleChange}
               className={`${styles.input} ${styles.textareaObservaciones}`}

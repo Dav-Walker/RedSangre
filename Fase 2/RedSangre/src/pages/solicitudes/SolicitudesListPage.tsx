@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { Paginacion } from '../../components/common/Paginacion';
+import { AvisoError } from '../../components/common/AvisoError';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud } from '../../utils/estadosSolicitud';
 import { GRUPOS_SANGUINEOS } from '../../utils/gruposSanguineos';
 import { listarSolicitudes, type FiltrosSolicitudes, type ResultadoSolicitudes } from '../../servicios/solicitudes';
@@ -43,6 +44,7 @@ export function SolicitudesListPage() {
   };
   const claveConsulta = JSON.stringify(filtros);
   const [resultado, setResultado] = useState<ResultadoSolicitudes & { clave: string } | null>(null);
+  const [intento, setIntento] = useState(0);
   const cargando = resultado?.clave !== claveConsulta;
   const solicitudes = resultado?.solicitudes ?? [];
   const totalSolicitudes = resultado?.total ?? 0;
@@ -56,13 +58,28 @@ export function SolicitudesListPage() {
 
   // Comentarios - Listado de solicitudes
   // Consulta cuando cambia la clave. "vigente" descarta la respuesta si los filtros cambiaron mientras tanto.
+  // Comentarios - Manejo de errores y excepciones
+  // Una excepción inesperada se muestra como error de carga (no queda "Cargando..." para siempre). Si la página
+  // pedida ya no existe, se vuelve a la primera. "intento" repite la consulta con el botón Reintentar.
   useEffect(() => {
     let vigente = true;
-    void listarSolicitudes(JSON.parse(claveConsulta) as FiltrosSolicitudes).then((r) => {
-      if (vigente) setResultado({ ...r, clave: claveConsulta });
-    });
+    const consulta = JSON.parse(claveConsulta) as FiltrosSolicitudes;
+    listarSolicitudes(consulta)
+      .then((r) => {
+        if (!vigente) return;
+        if (r.fueraDeRango && consulta.pagina > 1) setPaginaActual(1);
+        else setResultado({ ...r, clave: claveConsulta });
+      })
+      .catch(() => {
+        if (vigente) setResultado({ solicitudes: [], total: 0, error: 'No se pudieron cargar las solicitudes.', clave: claveConsulta });
+      });
     return () => { vigente = false; };
-  }, [claveConsulta]);
+  }, [claveConsulta, intento]);
+
+  const reintentar = () => {
+    setResultado(null);
+    setIntento((n) => n + 1);
+  };
 
   const handleLimpiarFiltros = () => {
     setTextoBusqueda('');
@@ -151,7 +168,7 @@ export function SolicitudesListPage() {
         </span>
       </div>
 
-      {error && <div className={styles.mensajeError} role="alert">{error}</div>}
+      {error && <AvisoError mensaje={error} onReintentar={reintentar} />}
 
       <div className={styles.tablaContenedor}>
         <table className={styles.tabla}>
@@ -173,6 +190,8 @@ export function SolicitudesListPage() {
                   Cargando solicitudes desde la base de datos...
                 </td>
               </tr>
+            ) : error ? (
+              <tr><td colSpan={7} className={styles.celdaMensaje}>-</td></tr>
             ) : solicitudes.length === 0 ? (
               <tr>
                 <td colSpan={7} className={styles.celdaMensaje}>

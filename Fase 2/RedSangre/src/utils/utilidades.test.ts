@@ -10,6 +10,17 @@ import { calcularFenotipos, construirTendencia } from './graficosDashboard';
 import { traducirErrorAuth } from './mensajesAuth';
 import { esEtiquetaDeColumna } from './etiquetas';
 import { antigenosElegidos, textoFenotipo } from './fenotipo';
+import { AuthRetryableFetchError } from '@supabase/supabase-js';
+import { mensajeErrorAuth } from './mensajesAuth';
+import {
+  EVENTO_SESION_EXPIRADA,
+  MENSAJE_SESION_EXPIRADA,
+  MENSAJE_SIN_CONEXION,
+  MENSAJE_SIN_PERMISO,
+  mensajeError,
+  restriccionDelError,
+} from './mensajesError';
+import { rutTieneFormatoValido, telefonoTieneFormatoValido } from './validacionDonante';
 
 describe('validarCorreo', () => {
   it('acepta correos de los dominios permitidos', () => {
@@ -150,5 +161,76 @@ describe('fenotipo', () => {
 
   it('devuelve texto vacío si no se eligió ningún antígeno', () => {
     expect(textoFenotipo({ C: '', K: '' })).toBe('');
+  });
+});
+
+// Comentarios - Manejo de errores y excepciones
+// El traductor nunca debe devolver el texto original de la base: siempre un mensaje fijo en español.
+describe('mensajeError', () => {
+  const PALABRAS_INTERNAS = /constraint|violates|relation|policy|PGRST|function|column|duplicate|JWT|TypeError|_key|ck_|fn_/i;
+
+  it('elige el mensaje propio de la operación por el nombre de la restricción', () => {
+    const error = { code: '23505', message: 'duplicate key value violates unique constraint "donante_rut_key"' };
+    expect(restriccionDelError(error)).toBe('donante_rut_key');
+    expect(mensajeError(error, 'Por defecto', { donante_rut_key: 'Ya existe un donante registrado con ese RUT.' }))
+      .toBe('Ya existe un donante registrado con ese RUT.');
+  });
+
+  it('usa el mensaje general del código cuando la operación no tiene uno propio', () => {
+    const error = { code: '42501', message: 'new row violates row-level security policy for table "solicitud"' };
+    expect(mensajeError(error, 'Por defecto')).toBe(MENSAJE_SIN_PERMISO);
+  });
+
+  it('reconoce la falta de conexión', () => {
+    expect(mensajeError({ code: '', message: 'TypeError: Failed to fetch' }, 'Por defecto')).toBe(MENSAJE_SIN_CONEXION);
+  });
+
+  it('reconoce la sesión vencida y avisa a la aplicación', () => {
+    const ventana = new EventTarget();
+    vi.stubGlobal('window', ventana);
+    const escuchar = vi.fn();
+    ventana.addEventListener(EVENTO_SESION_EXPIRADA, escuchar);
+    expect(mensajeError({ code: 'PGRST303', message: 'JWT expired' }, 'Por defecto')).toBe(MENSAJE_SESION_EXPIRADA);
+    expect(escuchar).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('usa el mensaje por defecto para códigos desconocidos y nunca devuelve el texto de la base', () => {
+    const errores = [
+      { code: 'XX000', message: 'internal error in function fn_registrar_donante' },
+      { code: '23514', message: 'new row for relation "donante" violates check constraint "ck_donante_telefono_formato"' },
+      { code: '23503', message: 'insert or update on table "donante" violates foreign key constraint "donante_comuna_fkey"' },
+      { code: 'RS007', message: 'RUT con formato inválido: 12.345' },
+      { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' },
+    ];
+    for (const error of errores) {
+      const mensaje = mensajeError(error, 'No se pudo completar la operación.');
+      expect(mensaje).not.toBe(error.message);
+      expect(mensaje).not.toMatch(PALABRAS_INTERNAS);
+    }
+  });
+});
+
+describe('mensajeErrorAuth', () => {
+  it('reconoce la falta de conexión de Auth y traduce los códigos conocidos', () => {
+    expect(mensajeErrorAuth(new AuthRetryableFetchError('Failed to fetch', 0), 'x')).toBe(MENSAJE_SIN_CONEXION);
+    expect(mensajeErrorAuth({ code: 'invalid_credentials' }, 'x')).toBe('Correo o contraseña incorrectos.');
+    expect(mensajeErrorAuth({ code: 'otro' }, 'Por defecto')).toBe('Por defecto');
+  });
+});
+
+describe('validación de donante', () => {
+  it('acepta el RUT con o sin puntos y rechaza formatos que la base no acepta', () => {
+    expect(rutTieneFormatoValido('12.345.678-5')).toBe(true);
+    expect(rutTieneFormatoValido('1234567-k')).toBe(true);
+    expect(rutTieneFormatoValido('12345')).toBe(false);
+    expect(rutTieneFormatoValido('123456789-0')).toBe(false);
+  });
+
+  it('acepta teléfonos con el formato de la base', () => {
+    expect(telefonoTieneFormatoValido('+56 9 1234 5678')).toBe(true);
+    expect(telefonoTieneFormatoValido('912345678')).toBe(true);
+    expect(telefonoTieneFormatoValido('abc')).toBe(false);
+    expect(telefonoTieneFormatoValido('123')).toBe(false);
   });
 });

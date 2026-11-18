@@ -3,6 +3,7 @@
 // no deje vacío el resto de la pantalla.
 import { supabase } from '../utils/supabase';
 import type { Tables } from '../tipos/database.types';
+import { avisarSesionExpirada, esSesionExpirada } from '../utils/mensajesError';
 
 export type SolicitudActiva = Pick<Tables<'v_solicitud_activa'>, 'id' | 'codigo_solicitud' | 'grupo_sanguineo_requerido' | 'urgencia' | 'estado'>;
 export type DonacionesMes = Pick<Tables<'v_donaciones_mensuales'>, 'anio' | 'mes' | 'total_donaciones'>;
@@ -32,9 +33,17 @@ export async function cargarDashboard(): Promise<DatosDashboard> {
     supabase.from('donante').select('grupo_sanguineo, fenotipo'),
   ]);
 
-  [resumen.error, grupos.error, activas.error, donaciones.error, demanda.error, donantes.error]
-    .filter(Boolean)
-    .forEach((error) => console.error('Error cargando dashboard:', error));
+  // Comentarios - Manejo de errores y excepciones
+  // Ya no se imprime el error completo (traía mensaje y detalle de la base). Solo en desarrollo se anota el código.
+  if (import.meta.env.DEV) {
+    [resumen.error, grupos.error, activas.error, donaciones.error, demanda.error, donantes.error]
+      .forEach((error) => { if (error) console.warn('Error cargando dashboard:', error.code); });
+  }
+  // Comentarios - Manejo de errores y excepciones
+  // Si la base rechazó el token, se avisa para cerrar la sesión (los paneles muestran su propio error).
+  if ([resumen.error, grupos.error, activas.error, donaciones.error, demanda.error, donantes.error].some(esSesionExpirada)) {
+    avisarSesionExpirada();
+  }
 
   return {
     resumen: resumen.data,

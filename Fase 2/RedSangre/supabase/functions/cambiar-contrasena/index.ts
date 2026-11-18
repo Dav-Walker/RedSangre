@@ -6,7 +6,13 @@ import { verificarAdministrador } from '../_shared/administrador.ts';
 import { auditarAdmin } from '../_shared/auditoria.ts';
 import { clienteAdmin, clienteUsuario } from '../_shared/clientes.ts';
 import { conCors } from '../_shared/cors.ts';
-import { responder, revisarMetodo } from '../_shared/respuesta.ts';
+import {
+  leerCuerpo,
+  MENSAJE_DATOS_INVALIDOS,
+  MENSAJE_SOLICITUD_INVALIDA,
+  responder,
+  revisarMetodo,
+} from '../_shared/respuesta.ts';
 import { esUuid, validarContrasena } from '../_shared/validaciones.ts';
 
 Deno.serve(conCors(async (req) => {
@@ -20,19 +26,18 @@ Deno.serve(conCors(async (req) => {
 
   // Comentarios - Cambiar contraseña desde Configuración
   // 2. Lee los parámetros y repite la política de contraseña del formulario.
-  let usuarioId: unknown;
-  let nuevaContrasena: unknown;
-  try {
-    ({ usuario_id: usuarioId, nueva_contrasena: nuevaContrasena } = await req.json());
-  } catch {
-    return responder({ error: 'Cuerpo inválido' }, 400);
-  }
+  // Comentarios - Manejo de errores y excepciones
+  // Cuerpo mal formado o incompleto: mensaje para la persona, sin nombrar los parámetros.
+  const cuerpo = await leerCuerpo(req);
+  if (!cuerpo) return responder({ error: MENSAJE_SOLICITUD_INVALIDA }, 400);
+  const usuarioId = cuerpo.usuario_id;
+  const nuevaContrasena = cuerpo.nueva_contrasena;
 
-  if (!usuarioId || !nuevaContrasena) return responder({ error: 'Faltan parámetros' }, 400);
+  if (!usuarioId || !nuevaContrasena) return responder({ error: MENSAJE_SOLICITUD_INVALIDA }, 400);
   // Comentarios - Validación de entrada en las Edge Functions
   // El id debe ser un UUID y la contraseña un texto, antes de consultar la base o Auth
   if (!esUuid(usuarioId) || typeof nuevaContrasena !== 'string') {
-    return responder({ error: 'Parámetros inválidos' }, 400);
+    return responder({ error: MENSAJE_DATOS_INVALIDOS }, 400);
   }
   const errorPolitica = validarContrasena(nuevaContrasena);
   if (errorPolitica) return responder({ error: errorPolitica }, 422);
@@ -45,7 +50,11 @@ Deno.serve(conCors(async (req) => {
     .select('id')
     .eq('id', usuarioId)
     .maybeSingle();
-  if (errDestino || !destino) return responder({ error: 'Usuario no encontrado' }, 404);
+  if (errDestino) {
+    console.error('Error al buscar el usuario:', errDestino.message);
+    return responder({ error: 'No se pudo verificar el usuario. Inténtalo nuevamente.' }, 500);
+  }
+  if (!destino) return responder({ error: 'El usuario no existe.' }, 404);
 
   // Comentarios - Cambiar contraseña desde Configuración
   // 4. Cambia la contraseña con el cliente de administración.
@@ -55,7 +64,7 @@ Deno.serve(conCors(async (req) => {
 
   if (errCambio) {
     console.error('Error al cambiar contraseña:', errCambio);
-    return responder({ error: 'No se pudo actualizar la contraseña' }, 500);
+    return responder({ error: 'No se pudo actualizar la contraseña. Inténtalo nuevamente.' }, 500);
   }
 
   // Comentarios - Contraseña fijada por el administrador

@@ -22,7 +22,10 @@ export function ActivarCuentaPage() {
 
     setActivando(true);
     setError(null);
-    const errorActivacion = await activarCuenta(tokenHash, tipo);
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada se trata como error de activación, para liberar el botón y poder reintentar.
+    const errorActivacion = await activarCuenta(tokenHash, tipo)
+      .catch(() => 'No se pudo activar la cuenta. Inténtalo nuevamente.');
     if (errorActivacion) {
       setError(errorActivacion);
       setActivando(false);

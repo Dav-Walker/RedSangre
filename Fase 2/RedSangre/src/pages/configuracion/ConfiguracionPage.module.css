@@ -71,6 +71,16 @@
   border-radius: 50%;
 }
 
+/* Comentarios - Manejo de errores y excepciones */
+/* Punto gris: no se pudo saber si el usuario está conectado (falló el canal de presencia). */
+.puntoGris {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  background-color: #9ca3af;
+  border-radius: 50%;
+}
+
 .textoEstado {
   font-size: 13px;
   color: #666;

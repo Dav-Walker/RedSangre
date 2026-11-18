@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Modal } from '../../components/common/Modal';
 import { correoCanonico, validarCorreo } from '../../utils/validacionCorreo';
+import { LARGO_MAXIMO_CORREO, LARGO_MAXIMO_NOMBRE } from '../../utils/validacionDonante';
 import { crearUsuario, type UsuarioFila } from '../../servicios/usuarios';
 import type { RolUsuario } from '../../tipos/dominio';
 import styles from './NuevoUsuarioModal.module.css';
@@ -28,6 +29,10 @@ function validar(
   const errores: Errores = {};
   if (!nombre.trim()) errores.nombre = 'Ingresa el nombre.';
   if (!apellido.trim()) errores.apellido = 'Ingresa el apellido.';
+  // Comentarios - Manejo de errores y excepciones
+  // Mismo largo máximo que acepta la base (ck_usuario_nombre_largo) y que repite la Edge Function
+  if (nombre.trim().length > LARGO_MAXIMO_NOMBRE) errores.nombre = `El nombre admite hasta ${LARGO_MAXIMO_NOMBRE} caracteres.`;
+  if (apellido.trim().length > LARGO_MAXIMO_NOMBRE) errores.apellido = `El apellido admite hasta ${LARGO_MAXIMO_NOMBRE} caracteres.`;
   const errorCorreo = validarCorreo(correo) ?? errorDuplicado(correo);
   if (errorCorreo) errores.correo = errorCorreo;
   return errores;
@@ -85,12 +90,14 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
     if (Object.keys(erroresForm).length > 0) return;
 
     setCreando(true);
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada libera el botón y muestra un mensaje general.
     const resultado = await crearUsuario({
       nombre: nombre.trim(),
       apellido: apellido.trim(),
       correo: correo.trim().toLowerCase(),
       rol,
-    });
+    }).catch(() => ({ error: 'No se pudo crear el usuario. Inténtalo nuevamente.' }));
     setCreando(false);
 
     if ('error' in resultado) {
@@ -126,6 +133,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
                 id="nuevo-nombre"
                 className={claseInput('nombre')}
                 value={nombre}
+                maxLength={LARGO_MAXIMO_NOMBRE}
                 onChange={(e) => cambiarCampo('nombre', e.target.value)}
                 autoComplete="off"
               />
@@ -137,6 +145,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
                 id="nuevo-apellido"
                 className={claseInput('apellido')}
                 value={apellido}
+                maxLength={LARGO_MAXIMO_NOMBRE}
                 onChange={(e) => cambiarCampo('apellido', e.target.value)}
                 autoComplete="off"
               />
@@ -151,6 +160,7 @@ export function NuevoUsuarioModal({ usuariosExistentes, onCerrar, onCreado }: Nu
               type="email"
               className={claseInput('correo')}
               value={correo}
+              maxLength={LARGO_MAXIMO_CORREO}
               onChange={(e) => cambiarCampo('correo', e.target.value)}
               onBlur={revisarCorreo}
               placeholder="nombre@indisa.cl, @duocuc.cl o @gmail.com"
