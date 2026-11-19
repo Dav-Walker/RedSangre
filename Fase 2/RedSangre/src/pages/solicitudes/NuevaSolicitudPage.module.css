@@ -46,14 +46,19 @@
   background-color: #f4f7fa;
   padding: 30px;
   border-radius: 12px;
-  width: 1000px; /* Ancho para el formulario y la tabla de candidatos de 7 columnas */
-  max-width: 100%;
+  /* Comentarios - Tabla de candidatos */
+  /* El panel ocupa todo el ancho para que la tabla se extienda igual que en Solicitudes y Donantes. */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .filaFormulario {
   display: flex;
   gap: 20px;
   margin-bottom: 25px;
+  /* Comentarios - Tabla de candidatos */
+  /* Los filtros mantienen su ancho anterior para que los selects no se estiren de lado a lado. */
+  max-width: 940px;
 }
 
 .grupoInput {
