@@ -82,7 +82,8 @@ export function SolicitudDetallePage() {
   const navigate = useNavigate();
   const { id } = useParams();
   // Comentarios - Perfil TENS solo lectura
-  // TENS ve el estado y la bitácora y puede llamar; no cambia el estado ni contacta por correo o WhatsApp
+  // TENS ve el estado y la bitácora y contacta al donante (llamada, correo y WhatsApp); no cambia el estado,
+  // no registra respuestas ni cambia el donante asignado
   const { user } = useAuth();
   const conEscritura = puedeEditar(user?.rol);
 
@@ -561,17 +562,17 @@ export function SolicitudDetallePage() {
               )}
             </div>
             <div className={styles.bitacoraCelda}>
-              {conEscritura && (
-                <button
-                  type="button"
-                  className={styles.botonCorreo}
-                  onClick={handleEnviarCorreo}
-                  disabled={enviandoCorreo || !sePuedeContactar || !solicitud.donante?.correo}
-                >
-                  {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
-                </button>
-              )}
-              {conEscritura && !solicitud.donante?.correo && (
+              {/* Comentarios - Contacto por TENS */}
+              {/* Todo el personal, incluido TENS, puede enviar el correo de contacto. */}
+              <button
+                type="button"
+                className={styles.botonCorreo}
+                onClick={handleEnviarCorreo}
+                disabled={enviandoCorreo || !sePuedeContactar || !solicitud.donante?.correo}
+              >
+                {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
+              </button>
+              {!solicitud.donante?.correo && (
                 <span className={styles.avisoCorreo}>El donante no tiene correo registrado.</span>
               )}
               {mensajeCorreo && (
@@ -594,16 +595,16 @@ export function SolicitudDetallePage() {
               )}
             </div>
             <div className={styles.bitacoraCelda}>
-              {conEscritura && (
-                <button
-                  type="button"
-                  className={styles.botonCorreo}
-                  onClick={handleAbrirModalWhatsapp}
-                  disabled={!sePuedeContactar || !telefono}
-                >
-                  Mensaje
-                </button>
-              )}
+              {/* Comentarios - Contacto por TENS */}
+              {/* Todo el personal, incluido TENS, puede enviar el WhatsApp de contacto. */}
+              <button
+                type="button"
+                className={styles.botonCorreo}
+                onClick={handleAbrirModalWhatsapp}
+                disabled={!sePuedeContactar || !telefono}
+              >
+                Mensaje
+              </button>
               {mensajeWhatsappEstado && (
                 <span className={mensajeWhatsappEstado.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
                   {mensajeWhatsappEstado.texto}

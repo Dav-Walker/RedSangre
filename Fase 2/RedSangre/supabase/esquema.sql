@@ -6,6 +6,9 @@
    CAMBIOS 1.6.0
      · Casos de prueba (TC-20): fn_validar_contacto rechaza con RS006 el contacto con un donante bloqueado
        por reacción adversa, aunque ya estuviera asignado a una solicitud en curso.
+     · TC-28: fn_validar_usuario impide cambiar el rol de un usuario (se define al crear la cuenta).
+     · TC-46: TENS sigue en solo lectura, pero puede contactar por correo y WhatsApp (política contacto_insert);
+       fn_aplicar_contacto_a_solicitud pasa a SECURITY DEFINER para que ese contacto también actualice la solicitud.
 
    CAMBIOS 1.5.0
      · Seguridad de la capa de código: límite de correos por donante (fn_verificar_limite_correo, también en
@@ -1327,6 +1330,13 @@ BEGIN
       END IF;
     END IF;
 
+    -- Comentarios - Rol definido al crear el usuario
+    -- El rol se asigna solo al crear la cuenta: nadie lo cambia desde la app, tampoco un administrador.
+    -- (Las Edge Functions con service_role no tienen auth.uid() y no pasan por esta regla.)
+    IF v_uid IS NOT NULL AND NEW.rol IS DISTINCT FROM OLD.rol THEN
+      RAISE EXCEPTION 'El rol de un usuario no se puede modificar: se define al crear la cuenta' USING ERRCODE = 'RS006';
+    END IF;
+
     IF OLD.rol = 'administrador' AND OLD.activo
        AND (NEW.rol <> 'administrador' OR NOT NEW.activo)
        AND NOT EXISTS (SELECT 1 FROM public.usuario u
@@ -1537,9 +1547,12 @@ END $$;
 --   · Si el contacto es con el donante ASIGNADO, actualiza "reaccion":
 --     confirmado → 'Donación aceptada' · rechazado → 'Donación rechazada'.
 --   El cierre sigue siendo manual (botón "Finalizar solicitud").
+-- Comentarios - Contacto por TENS
+-- SECURITY DEFINER: TENS puede registrar contactos pero no editar solicitudes; así su contacto también
+-- mueve la solicitud a 'en_proceso'. Solo toca la solicitud del contacto que ya pasó las validaciones.
 CREATE OR REPLACE FUNCTION public.fn_aplicar_contacto_a_solicitud()
 RETURNS trigger
-LANGUAGE plpgsql SET search_path = ''
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 BEGIN
   UPDATE public.solicitud s
@@ -2128,8 +2141,14 @@ CREATE POLICY solicitud_update ON public.solicitud FOR UPDATE TO authenticated
 -- registra queda identificado y no se puede falsear.
 CREATE POLICY contacto_select ON public.seguimiento_contacto FOR SELECT TO authenticated
   USING ((SELECT public.fn_es_personal_activo()));
+-- Comentarios - Contacto por TENS
+-- TENS es de solo lectura, salvo contactar al donante: puede registrar el envío de correo o WhatsApp
+-- (resultado 'enviado'), pero no registrar respuestas ni otros resultados.
 CREATE POLICY contacto_insert ON public.seguimiento_contacto FOR INSERT TO authenticated
-  WITH CHECK ((SELECT public.fn_puede_escribir()) AND registrado_por = (SELECT auth.uid()));
+  WITH CHECK (registrado_por = (SELECT auth.uid())
+              AND ((SELECT public.fn_puede_escribir())
+                   OR ((SELECT public.fn_es_personal_activo())
+                       AND canal IN ('correo', 'whatsapp') AND resultado = 'enviado')));
 
 -- donacion: historial APPEND-ONLY. Quien registra queda identificado y no se puede falsear.
 CREATE POLICY donacion_select ON public.donacion FOR SELECT TO authenticated

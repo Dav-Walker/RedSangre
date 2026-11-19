@@ -48,20 +48,21 @@ Deno.serve(conCors(async (req) => {
 
   const supabase = clienteUsuario(req);
 
-  // Comentarios - Perfil TENS solo lectura
-  // El correo se envía antes de escribir en la bitácora, así que el permiso de escritura se revisa al inicio
-  const { data: puedeEscribir, error: errPermiso } = await supabase.rpc('fn_puede_escribir');
+  // Comentarios - Contacto por TENS
+  // Todo el personal activo puede contactar por correo, incluido TENS (solo lectura en lo demás). El correo se
+  // envía antes de escribir en la bitácora, así que el permiso se revisa al inicio.
+  const { data: esPersonalActivo, error: errPermiso } = await supabase.rpc('fn_es_personal_activo');
   if (errPermiso) return responder({ error: 'No se pudieron verificar tus permisos. Inténtalo nuevamente.' }, 500);
-  if (!puedeEscribir) {
+  if (!esPersonalActivo) {
     // Comentarios - Bitácora completa
-    // Un perfil de solo lectura que intenta enviar el correo queda registrado como acceso denegado
+    // Un usuario sin permiso que intenta enviar el correo queda registrado como acceso denegado
     await supabase.rpc('fn_auditar', {
       p_accion: 'ACCESO_DENEGADO',
       p_tabla: 'solicitud',
       p_registro: solicitudId,
-      p_detalle: { accion: 'enviar correo de contacto', motivo: 'solo_lectura' },
+      p_detalle: { accion: 'enviar correo de contacto', motivo: 'sin_permiso' },
     });
-    return responder({ error: 'Tu perfil es de solo lectura: no puedes contactar por correo.' }, 403);
+    return responder({ error: 'No tienes permiso para contactar donantes.' }, 403);
   }
 
   const { data: solicitud, error: errSolicitud } = await supabase
