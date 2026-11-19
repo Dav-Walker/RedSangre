@@ -468,6 +468,13 @@
   font-size: 13px;
 }
 
+/* Comentarios - Usuario que registró el contacto */
+/* Nombre de quien registró el contacto, en gris como la fecha. */
+.registradoPorHistorial {
+  color: #888;
+  font-size: 13px;
+}
+
 .observacionHistorial {
   flex-basis: 100%;
   color: #666;

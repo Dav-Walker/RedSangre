@@ -693,6 +693,11 @@ export function SolicitudDetallePage() {
                   {' · '}{TEXTOS_CANAL[c.canal]}
                 </span>
                 <Badge texto={BADGES_CONTACTO[c.resultado].texto} color={BADGES_CONTACTO[c.resultado].color} />
+                {/* Comentarios - Usuario que registró el contacto */}
+                {/* Quién registró el contacto, como pide la bitácora (fecha, canal, resultado y usuario). */}
+                <span className={styles.registradoPorHistorial}>
+                  Registrado por: {c.registradoPorNombre ?? 'No disponible'}
+                </span>
                 {c.observaciones && <span className={styles.observacionHistorial}>{c.observaciones}</span>}
               </li>
             ))}

@@ -16,8 +16,10 @@ import {
   LARGO_MAXIMO_RUT,
   LARGO_MAXIMO_TELEFONO,
   MENSAJE_NOMBRE_LARGO,
+  MENSAJE_RUT_DV_INVALIDO,
   MENSAJE_RUT_INVALIDO,
   MENSAJE_TELEFONO_INVALIDO,
+  rutDvValido,
   rutTieneFormatoValido,
   telefonoTieneFormatoValido,
 } from '../../utils/validacionDonante';
@@ -105,7 +107,10 @@ export function NuevoDonantePage() {
     // Comentarios - Manejo de errores y excepciones
     // Repite en el formulario las reglas que la base revisa al guardar (formato de RUT, teléfono y correo, largo
     // de nombres y fecha no futura), para avisar el problema concreto antes de enviar.
+    // Comentarios - Dígito verificador solo para RUT nuevos
+    // Después del formato se revisa el dígito verificador (módulo 11), que la base también exige al crear el donante.
     const errorFormato = !rutTieneFormatoValido(form.rut) ? MENSAJE_RUT_INVALIDO
+      : !rutDvValido(form.rut) ? MENSAJE_RUT_DV_INVALIDO
       : !telefonoTieneFormatoValido(form.telefono) ? MENSAJE_TELEFONO_INVALIDO
       : form.correo.trim() && !tieneFormatoCorreo(form.correo) ? 'El correo del donante no tiene un formato válido.'
       : form.nombre.trim().length > LARGO_MAXIMO_NOMBRE || form.apellido.trim().length > LARGO_MAXIMO_NOMBRE ? MENSAJE_NOMBRE_LARGO

@@ -20,7 +20,7 @@ import {
   mensajeError,
   restriccionDelError,
 } from './mensajesError';
-import { rutTieneFormatoValido, telefonoTieneFormatoValido } from './validacionDonante';
+import { rutDvValido, rutTieneFormatoValido, telefonoTieneFormatoValido } from './validacionDonante';
 import { separarUbicacion } from './regiones';
 
 describe('validarCorreo', () => {
@@ -250,5 +250,21 @@ describe('separarUbicacion', () => {
   it('deja vacío lo que no reconoce, para que el usuario lo elija', () => {
     expect(separarUbicacion('New jork')).toEqual({ region: '', comuna: '' });
     expect(separarUbicacion(null)).toEqual({ region: '', comuna: '' });
+  });
+});
+
+// Comentarios - Dígito verificador solo para RUT nuevos
+// Mismo resultado que fn_rut_dv_valido en la base (módulo 11), con o sin puntos y guion.
+describe('rutDvValido', () => {
+  it('acepta RUT con dígito verificador correcto, también con k', () => {
+    expect(rutDvValido('12.345.678-5')).toBe(true);
+    expect(rutDvValido('12345678-5')).toBe(true);
+    expect(rutDvValido('11.111.111-1')).toBe(true);
+    expect(rutDvValido('10.000.013-K')).toBe(true);
+  });
+
+  it('rechaza RUT con dígito verificador incorrecto (caso B de TC-13)', () => {
+    expect(rutDvValido('12.345.678-0')).toBe(false);
+    expect(rutDvValido('12.345.678-9')).toBe(false);
   });
 });

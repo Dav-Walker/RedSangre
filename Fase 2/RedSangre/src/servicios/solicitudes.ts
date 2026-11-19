@@ -338,6 +338,9 @@ export interface ContactoBitacora {
   resultado: ResultadoContacto;
   observaciones: string | null;
   donante: Pick<Donante, 'codigo_donante' | 'nombre' | 'apellido'> | null;
+  // Comentarios - Usuario que registró el contacto
+  // Nombre de quien registró el contacto, o null si no se pudo leer.
+  registradoPorNombre: string | null;
 }
 
 // Comentarios - Historial de contactos
@@ -345,11 +348,27 @@ export interface ContactoBitacora {
 export async function listarContactos(solicitudId: string): Promise<{ contactos: ContactoBitacora[]; error: string | null }> {
   const { data, error } = await supabase
     .from('seguimiento_contacto')
-    .select('id, fecha, canal, resultado, observaciones, donante:donante_id (codigo_donante, nombre, apellido)')
+    .select('id, fecha, canal, resultado, observaciones, registrado_por, donante:donante_id (codigo_donante, nombre, apellido)')
     .eq('solicitud_id', solicitudId)
     .order('fecha', { ascending: true });
   if (error) return { contactos: [], error: mensajeError(error, 'No se pudo cargar el historial de contactos.') };
-  return { contactos: (data ?? []) as ContactoBitacora[], error: null };
+
+  // Comentarios - Usuario que registró el contacto
+  // La tabla usuario solo la lee el administrador, así que el nombre se pide a fn_nombre_usuario, una vez por
+  // usuario distinto. Si un nombre no se puede leer, el contacto se muestra igual, sin el nombre.
+  const filas = data ?? [];
+  const ids = [...new Set(filas.map((f) => f.registrado_por))];
+  const nombres = new Map<string, string | null>();
+  await Promise.all(ids.map(async (id) => {
+    const { data: nombre } = await supabase.rpc('fn_nombre_usuario', { p_id: id });
+    nombres.set(id, nombre ?? null);
+  }));
+
+  const contactos = filas.map(({ registrado_por, ...fila }) => ({
+    ...fila,
+    registradoPorNombre: nombres.get(registrado_por) ?? null,
+  })) as ContactoBitacora[];
+  return { contactos, error: null };
 }
 
 // Comentarios - Reasignar donante de la solicitud

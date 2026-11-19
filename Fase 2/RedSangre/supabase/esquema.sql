@@ -9,6 +9,8 @@
      · TC-28: fn_validar_usuario impide cambiar el rol de un usuario (se define al crear la cuenta).
      · TC-46: TENS sigue en solo lectura, pero puede contactar por correo y WhatsApp (política contacto_insert);
        fn_aplicar_contacto_a_solicitud pasa a SECURITY DEFINER para que ese contacto también actualice la solicitud.
+     · TC-13: fn_normalizar_donante revisa el dígito verificador solo al crear el donante o si cambia el RUT.
+       En producción validar_dv_rut = 'true' (este script no lo pisa); dejarlo en 'false' solo al cargar datos simulados.
 
    CAMBIOS 1.5.0
      · Seguridad de la capa de código: límite de correos por donante (fn_verificar_limite_correo, también en
@@ -1272,7 +1274,11 @@ BEGIN
   IF NEW.rut !~ '^[0-9]{7,8}-[0-9k]$' THEN
     RAISE EXCEPTION 'RUT con formato inválido: %', v_rut_orig USING ERRCODE = 'RS007';
   END IF;
+  -- Comentarios - Dígito verificador solo para RUT nuevos
+  -- Se revisa al crear el donante o si cambia el RUT: los donantes ya registrados (datos simulados que no
+  -- cumplen el módulo 11) se pueden seguir editando y registrando donaciones.
   IF COALESCE(public.fn_config('validar_dv_rut'), 'false') = 'true'
+     AND (TG_OP = 'INSERT' OR NEW.rut IS DISTINCT FROM OLD.rut)
      AND NOT public.fn_rut_dv_valido(NEW.rut) THEN
     RAISE EXCEPTION 'El dígito verificador del RUT no es válido: %', v_rut_orig USING ERRCODE = 'RS007';
   END IF;
@@ -2315,7 +2321,7 @@ INSERT INTO public.configuracion (clave, valor, descripcion) VALUES
   ('exigir_mfa_admin', 'true',
    'true = las acciones de administrador exigen sesión MFA (aal2). El front ya implementa TOTP: debe quedar en true.'),
   ('validar_dv_rut', 'false',
-   'true = valida el dígito verificador (módulo 11) del RUT. Dejar en false mientras se usen datos simulados.'),
+   'true = valida el dígito verificador (módulo 11) de los RUT nuevos o modificados. Poner en false solo mientras se cargan datos simulados.'),
   -- Comentarios - Límites de envío
   -- Valores ajustables por el administrador sin tocar código
   ('max_correos_donante', '3',
