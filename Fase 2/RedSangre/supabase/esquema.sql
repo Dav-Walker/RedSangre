@@ -1,7 +1,11 @@
 /* =============================================================================
    RedSangre — Script completo de base de datos
    Clínica Indisa · Supabase (PostgreSQL 15+)
-   Versión 1.5.0 · 2026-11-16
+   Versión 1.6.0 · 2026-11-19
+
+   CAMBIOS 1.6.0
+     · Casos de prueba (TC-20): fn_validar_contacto rechaza con RS006 el contacto con un donante bloqueado
+       por reacción adversa, aunque ya estuviera asignado a una solicitud en curso.
 
    CAMBIOS 1.5.0
      · Seguridad de la capa de código: límite de correos por donante (fn_verificar_limite_correo, también en
@@ -1494,6 +1498,7 @@ END $$;
 
 -- fn_validar_contacto: BEFORE INSERT en seguimiento_contacto · RF-31 / ERS 3.4.2
 --   · No se registran contactos en solicitudes cerradas (RS005).
+--   · No se puede contactar a un donante bloqueado por reacción adversa (RS006).
 --   · No se puede contactar a un donante sin autorización de contacto vigente (RS002).
 --   · Límite de correos por donante (RS008).
 CREATE OR REPLACE FUNCTION public.fn_validar_contacto()
@@ -1509,6 +1514,11 @@ BEGIN
   END IF;
   IF v_estado = 'cerrada' THEN
     RAISE EXCEPTION 'La solicitud está cerrada: no admite nuevos contactos' USING ERRCODE = 'RS005';
+  END IF;
+  -- Comentarios - Contacto con donante bloqueado
+  -- Un donante con reacción adversa queda bloqueado: no se le contacta aunque ya estuviera asignado a una solicitud
+  IF EXISTS (SELECT 1 FROM public.donante d WHERE d.id = NEW.donante_id AND d.reaccion_adversa_previa) THEN
+    RAISE EXCEPTION 'El donante está bloqueado por reacción adversa: no puede ser contactado' USING ERRCODE = 'RS006';
   END IF;
   IF NOT public.fn_donante_puede_contactarse(NEW.donante_id) THEN
     RAISE EXCEPTION 'El donante no tiene autorización de contacto vigente' USING ERRCODE = 'RS002';

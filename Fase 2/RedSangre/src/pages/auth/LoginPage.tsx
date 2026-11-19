@@ -56,6 +56,9 @@ export function LoginPage() {
 
       if (error) {
         setMensajeError(error);
+        // Comentarios - Limpiar contraseña tras login fallido
+        // Borra la contraseña para que se vuelva a escribir; el correo se mantiene.
+        setContrasena('');
         reiniciarCaptcha();
         return;
       }

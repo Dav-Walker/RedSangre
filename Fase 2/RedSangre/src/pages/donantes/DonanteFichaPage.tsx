@@ -21,6 +21,7 @@ import { puedeEditar } from '../../utils/roles';
 import { formatearFecha, hoyISO, textoMesesDesde } from '../../utils/fechas';
 import { tieneFormatoCorreo } from '../../utils/validacionCorreo';
 import { ETIQUETAS_GENERICAS, esEtiquetaDeColumna } from '../../utils/etiquetas';
+import { REGIONES_CHILE, separarUbicacion } from '../../utils/regiones';
 import {
   actualizarDonante,
   fechaProximaDonacion,
@@ -62,6 +63,9 @@ export function DonanteFichaPage() {
   const [donanteOriginal, setDonanteOriginal] = useState<Donante | null>(null);
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [etiquetasEdit, setEtiquetasEdit] = useState<string[]>([]);
+  // Comentarios - Validar edición de donante
+  // Región y comuna elegidas en la edición; al guardar se unen como "Comuna, Región", igual que en el alta.
+  const [ubicacionEdit, setUbicacionEdit] = useState({ region: '', comuna: '' });
   const [panelDonacionAbierto, setPanelDonacionAbierto] = useState(false);
   const [fechaDonacion, setFechaDonacion] = useState(hoyISO());
   const [tipoDonacion, setTipoDonacion] = useState<TipoDonacion>('sangre_total');
@@ -131,6 +135,7 @@ export function DonanteFichaPage() {
     // Si el consentimiento no se pudo leer (null), no se ofrece editarlo: se compararía contra un valor falso.
     setConsentimientoEdit(consentimiento);
     setEtiquetasEdit(etiquetas.filter((e) => ETIQUETAS_GENERICAS.includes(e)));
+    if (donante) setUbicacionEdit(separarUbicacion(donante.ubicacion));
   };
 
   // Comentarios - Ficha de donante
@@ -138,6 +143,20 @@ export function DonanteFichaPage() {
   // Si algo falla, se avisa y la ficha queda en modo edición para reintentar.
   const handleGuardar = async () => {
     if (!donante) return;
+
+    // Comentarios - Validar edición de donante
+    // Los mismos datos obligatorios del alta: no se puede guardar dejando vacío el teléfono, el sexo ni la ubicación.
+    const camposFaltantes = [];
+    if (!donante.nombre.trim()) camposFaltantes.push('Nombre');
+    if (!donante.apellido.trim()) camposFaltantes.push('Apellido');
+    if (!donante.telefono?.trim()) camposFaltantes.push('Teléfono');
+    if (!donante.sexo) camposFaltantes.push('Sexo');
+    if (!ubicacionEdit.region) camposFaltantes.push('Región');
+    if (!ubicacionEdit.comuna) camposFaltantes.push('Comuna');
+    if (camposFaltantes.length > 0) {
+      setError(`Campos obligatorios incompletos: ${camposFaltantes.join(', ')}.`);
+      return;
+    }
 
     // Comentarios - Validar correo de donante
     // El correo es opcional, pero si se escribe debe tener formato válido para poder enviarle avisos.
@@ -168,12 +187,16 @@ export function DonanteFichaPage() {
     // Una excepción inesperada en cualquiera de los pasos libera el botón y muestra un mensaje general.
     const fallaInesperada = () => 'No se pudieron guardar los cambios. Inténtalo nuevamente.';
 
-    const errorDonante = await actualizarDonante(donante).catch(fallaInesperada);
+    // Comentarios - Validar edición de donante
+    // La ubicación va como "Comuna, Región": la base deriva de ahí la comuna y las coordenadas para la cercanía.
+    const donanteGuardado = { ...donante, ubicacion: `${ubicacionEdit.comuna}, ${ubicacionEdit.region}` };
+    const errorDonante = await actualizarDonante(donanteGuardado).catch(fallaInesperada);
     if (errorDonante) {
       setGuardando(false);
       setError(errorDonante);
       return;
     }
+    setDonante(donanteGuardado);
 
     const anterior = consentimiento ?? SIN_CONSENTIMIENTO;
     if (consentimientoEdit && (
@@ -184,7 +207,7 @@ export function DonanteFichaPage() {
         .catch(fallaInesperada);
       if (errorConsentimiento) {
         setGuardando(false);
-        setDonanteOriginal(donante);
+        setDonanteOriginal(donanteGuardado);
         setError(`Los datos del donante se guardaron. ${errorConsentimiento}`);
         return;
       }
@@ -197,7 +220,7 @@ export function DonanteFichaPage() {
       const errorEtiquetas = await reemplazarEtiquetasGenericas(donante.id, etiquetasEdit).catch(fallaInesperada);
       if (errorEtiquetas) {
         setGuardando(false);
-        setDonanteOriginal(donante);
+        setDonanteOriginal(donanteGuardado);
         setError(`Los datos del donante se guardaron. ${errorEtiquetas}`);
         return;
       }
@@ -205,7 +228,7 @@ export function DonanteFichaPage() {
     }
 
     setGuardando(false);
-    setDonanteOriginal(donante);
+    setDonanteOriginal(donanteGuardado);
     setConsentimientoEdit(null);
     setEtiquetasEdit([]);
     setEditando(false);
@@ -375,7 +398,7 @@ export function DonanteFichaPage() {
                 value={donante.sexo ?? ''}
                 onChange={(e) => setDonante({ ...donante, sexo: e.target.value || null })}
               >
-                <option value="">Sin registrar</option>
+                <option value="">Seleccionar sexo...</option>
                 {OPCIONES_SEXO.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             ) : (
@@ -495,13 +518,34 @@ export function DonanteFichaPage() {
 
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>Ubicación</span>
+            {/* Comentarios - Validar edición de donante */}
+            {/* Región y comuna desde la lista, como en el alta: la ubicación ya no se escribe a mano. */}
             {editando ? (
-              <input
-                type="text"
-                className={styles.inputEdit}
-                value={donante.ubicacion || ''}
-                onChange={(e) => setDonante({ ...donante, ubicacion: e.target.value })}
-              />
+              <div className={styles.selectsUbicacion}>
+                <select
+                  className={styles.selectEdit}
+                  aria-label="Región"
+                  value={ubicacionEdit.region}
+                  onChange={(e) => setUbicacionEdit({ region: e.target.value, comuna: '' })}
+                >
+                  <option value="">Seleccionar región...</option>
+                  {Object.keys(REGIONES_CHILE).map((region) => (
+                    <option key={region} value={region}>{region}</option>
+                  ))}
+                </select>
+                <select
+                  className={styles.selectEdit}
+                  aria-label="Comuna"
+                  value={ubicacionEdit.comuna}
+                  disabled={!ubicacionEdit.region}
+                  onChange={(e) => setUbicacionEdit({ ...ubicacionEdit, comuna: e.target.value })}
+                >
+                  <option value="">Seleccionar comuna...</option>
+                  {(REGIONES_CHILE[ubicacionEdit.region] ?? []).map((comuna) => (
+                    <option key={comuna} value={comuna}>{comuna}</option>
+                  ))}
+                </select>
+              </div>
             ) : (
               <span className={styles.valorDato}>{donante.ubicacion || '-'}</span>
             )}

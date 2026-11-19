@@ -166,11 +166,13 @@ export async function crearSolicitud(datos: {
 
 // Comentarios - Detalle de solicitud
 // Solicitud con los datos de contacto del donante asignado.
+// Comentarios - Contacto con donante bloqueado
+// Incluye si el donante está bloqueado por reacción adversa, para no ofrecer contactarlo.
 export type SolicitudConDonante = Solicitud & {
-  donante: Pick<Donante, 'id' | 'rut' | 'nombre' | 'apellido' | 'correo' | 'telefono'> | null;
+  donante: Pick<Donante, 'id' | 'rut' | 'nombre' | 'apellido' | 'correo' | 'telefono' | 'reaccion_adversa_previa'> | null;
 };
 
-const COLUMNAS_DETALLE = '*, donante:donante_asignado_id (id, rut, nombre, apellido, correo, telefono)';
+const COLUMNAS_DETALLE = '*, donante:donante_asignado_id (id, rut, nombre, apellido, correo, telefono, reaccion_adversa_previa)';
 
 // Comentarios - Detalle de solicitud
 // La ruta usa el código de la solicitud (S2026002); si no se encuentra, se intenta con el id (solicitudes sin código).
@@ -238,16 +240,20 @@ export async function cambiarEstadoSolicitud(
 
 // Comentarios - Bitácora de contacto
 // Resultado del último contacto registrado por un canal, o null si aún no hay ninguno.
+// Comentarios - Reasignar donante de la solicitud
+// Solo cuenta los contactos con el donante asignado ahora: tras reasignar, el estado parte de cero para el nuevo.
 // Comentarios - Manejo de errores y excepciones
 // Si la consulta falla devuelve 'no_disponible', para no mostrar "Sin enviar" cuando sí se pudo haber enviado.
 export async function consultarUltimoContacto(
   solicitudId: string,
   canal: 'correo' | 'whatsapp',
+  donanteId: string,
 ): Promise<ResultadoContacto | null | 'no_disponible'> {
   const { data, error } = await supabase
     .from('seguimiento_contacto')
     .select('resultado')
     .eq('solicitud_id', solicitudId)
+    .eq('donante_id', donanteId)
     .eq('canal', canal)
     .order('fecha', { ascending: false })
     .limit(1)
@@ -278,13 +284,95 @@ export async function registrarContactoWhatsapp(solicitudId: string, donanteId: 
   });
   if (error) {
     registrarRechazo('contactar_whatsapp', error.code, solicitudId);
-    return mensajeError(error, 'No se pudo registrar el contacto. Inténtalo nuevamente.', {
-      RS002: 'El donante no autorizó ser contactado.',
-      RS005: 'La solicitud está cerrada: no admite nuevos contactos.',
-      RS007: 'La solicitud ya no existe.',
-      RS008: 'Se alcanzó el límite de contactos a este donante. Inténtalo más tarde.',
-      '42501': 'No tienes permiso para contactar donantes.',
+    return mensajeError(error, 'No se pudo registrar el contacto. Inténtalo nuevamente.', ERRORES_CONTACTO);
+  }
+  return null;
+}
+
+// Comentarios - Contacto con donante bloqueado
+// Mensajes de los rechazos al registrar un contacto. RS006 es el donante bloqueado por reacción adversa.
+const ERRORES_CONTACTO: Record<string, string> = {
+  RS002: 'El donante no autorizó ser contactado.',
+  RS005: 'La solicitud está cerrada: no admite nuevos contactos.',
+  RS006: 'El donante está bloqueado por una reacción adversa: no puede ser contactado.',
+  RS007: 'La solicitud ya no existe.',
+  RS008: 'Se alcanzó el límite de contactos a este donante. Inténtalo más tarde.',
+  '42501': 'No tienes permiso para contactar donantes.',
+};
+
+// Comentarios - Registrar respuesta del donante
+// Canales y resultados que se pueden registrar a mano después de contactar al donante.
+export type CanalContacto = 'telefono' | 'correo' | 'whatsapp';
+export type RespuestaDonante = Exclude<ResultadoContacto, 'enviado'>;
+
+// Comentarios - Registrar respuesta del donante
+// Agrega a la bitácora la respuesta del donante (confirma, rechaza o no responde). La bitácora solo admite filas
+// nuevas: el historial no se pierde. El trigger fn_aplicar_contacto_a_solicitud actualiza la reacción de la solicitud.
+export async function registrarRespuestaDonante(datos: {
+  solicitudId: string;
+  donanteId: string;
+  canal: CanalContacto;
+  resultado: RespuestaDonante;
+  observaciones: string;
+}): Promise<string | null> {
+  const { error } = await supabase.from('seguimiento_contacto').insert({
+    solicitud_id: datos.solicitudId,
+    donante_id: datos.donanteId,
+    canal: datos.canal,
+    resultado: datos.resultado,
+    observaciones: datos.observaciones.trim() || null,
+  });
+  if (error) {
+    registrarRechazo('registrar_respuesta_donante', error.code, datos.solicitudId);
+    return mensajeError(error, 'No se pudo registrar la respuesta. Inténtalo nuevamente.', ERRORES_CONTACTO);
+  }
+  return null;
+}
+
+// Comentarios - Historial de contactos
+// Contacto de la bitácora con el donante al que se le hizo (puede ser uno anterior a una reasignación).
+export interface ContactoBitacora {
+  id: string;
+  fecha: string;
+  canal: CanalContacto;
+  resultado: ResultadoContacto;
+  observaciones: string | null;
+  donante: Pick<Donante, 'codigo_donante' | 'nombre' | 'apellido'> | null;
+}
+
+// Comentarios - Historial de contactos
+// Todos los contactos de la solicitud en orden cronológico, incluidos los de donantes reasignados.
+export async function listarContactos(solicitudId: string): Promise<{ contactos: ContactoBitacora[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('seguimiento_contacto')
+    .select('id, fecha, canal, resultado, observaciones, donante:donante_id (codigo_donante, nombre, apellido)')
+    .eq('solicitud_id', solicitudId)
+    .order('fecha', { ascending: true });
+  if (error) return { contactos: [], error: mensajeError(error, 'No se pudo cargar el historial de contactos.') };
+  return { contactos: (data ?? []) as ContactoBitacora[], error: null };
+}
+
+// Comentarios - Reasignar donante de la solicitud
+// Cambia el donante asignado de una solicitud que no está cerrada y borra la reacción del donante anterior.
+// El trigger fn_validar_solicitud revisa que el nuevo donante sea compatible, esté disponible y no tenga otra
+// solicitud activa. Los contactos con el donante anterior quedan en la bitácora.
+export async function cambiarDonanteAsignado(solicitudId: string, donanteId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('solicitud')
+    .update({ donante_asignado_id: donanteId, reaccion: null })
+    .eq('id', solicitudId)
+    .neq('estado', 'cerrada')
+    .select('id');
+  if (error) {
+    registrarRechazo('reasignar_donante', error.code, solicitudId);
+    return mensajeError(error, 'No se pudo cambiar el donante. Inténtalo nuevamente.', {
+      uq_solicitud_donante_activa: 'El donante ya está asignado a otra solicitud activa. Elige otro candidato.',
+      RS003: 'El donante elegido ya no está disponible (donó recientemente o tiene otra solicitud activa). Elige otro candidato.',
+      RS004: 'El donante elegido no es compatible con el grupo o fenotipo requerido.',
+      RS005: 'La solicitud está cerrada y no admite cambios.',
+      '42501': 'No tienes permiso para cambiar el donante de la solicitud.',
     });
   }
+  if (!data || data.length === 0) return 'La solicitud está cerrada o ya no existe: no se puede cambiar el donante.';
   return null;
 }

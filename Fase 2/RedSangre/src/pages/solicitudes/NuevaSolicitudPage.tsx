@@ -39,7 +39,10 @@ interface ResultadoCandidatos {
 
 export function NuevaSolicitudPage() {
   const navigate = useNavigate();
-  const [grupoSanguineo, setGrupoSanguineo] = useState<GrupoSanguineo>('O-');
+  // Comentarios - Grupo sanguíneo obligatorio
+  // Parte vacío: el usuario debe elegir el grupo requerido antes de buscar candidatos y crear la solicitud.
+  const [grupoSanguineo, setGrupoSanguineo] = useState<GrupoSanguineo | ''>('');
+  const sinGrupo = grupoSanguineo === '';
   // Comentarios - Búsqueda por fenotipo
   // Antígenos elegidos en el popup de tipificación; se buscan y se guardan como "C+, K-".
   const [valoresFenotipo, setValoresFenotipo] = useState<ValoresFenotipo>({});
@@ -56,11 +59,11 @@ export function NuevaSolicitudPage() {
   // El resultado guarda la búsqueda (grupo y fenotipo) con que se pidió: si no coincide, sigue cargando.
   const claveConsulta = JSON.stringify([grupoSanguineo, fenotipoRequerido]);
   const [resultado, setResultado] = useState<ResultadoCandidatos | null>(null);
-  const cargandoCandidatos = resultado?.clave !== claveConsulta;
-  const candidatos = cargandoCandidatos ? [] : resultado.candidatos;
+  const cargandoCandidatos = !sinGrupo && resultado?.clave !== claveConsulta;
+  const candidatos = cargandoCandidatos || sinGrupo || !resultado ? [] : resultado.candidatos;
   // Comentarios - Manejo de errores y excepciones
   // El error de búsqueda se muestra con botón Reintentar; el de creación, como mensaje sobre el formulario.
-  const errorCandidatos = cargandoCandidatos ? null : resultado.error;
+  const errorCandidatos = cargandoCandidatos || sinGrupo || !resultado ? null : resultado.error;
   const [intento, setIntento] = useState(0);
   const totalPaginas = Math.max(1, Math.ceil(candidatos.length / porPagina));
   const candidatosPagina = candidatos.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
@@ -68,8 +71,11 @@ export function NuevaSolicitudPage() {
   // Comentarios - Búsqueda de candidatos
   // "vigente" descarta la respuesta si el grupo o el fenotipo cambiaron mientras se esperaba.
   useEffect(() => {
+    const [grupo, fenotipo] = JSON.parse(claveConsulta) as [GrupoSanguineo | '', string];
+    // Comentarios - Grupo sanguíneo obligatorio
+    // Sin grupo elegido no se busca: la tabla pide elegirlo.
+    if (!grupo) return;
     let vigente = true;
-    const [grupo, fenotipo] = JSON.parse(claveConsulta) as [GrupoSanguineo, string];
     buscarCandidatos(grupo, fenotipo)
       .then((r) => {
         if (vigente) setResultado({ clave: claveConsulta, ...r });
@@ -96,6 +102,12 @@ export function NuevaSolicitudPage() {
   };
 
   const handleCrearSolicitud = async () => {
+    // Comentarios - Grupo sanguíneo obligatorio
+    // Sin grupo no hay búsqueda ni candidato; se avisa por si se llega aquí de todas formas.
+    if (sinGrupo) {
+      setErrorCreacion('Selecciona el grupo sanguíneo requerido.');
+      return;
+    }
     if (!candidatoSeleccionado) return;
 
     setGuardando(true);
@@ -140,13 +152,14 @@ export function NuevaSolicitudPage() {
         {/* FILA 1: GRUPO SANGUÍNEO Y FENOTIPO */}
         <div className={styles.filaFormulario}>
           <div className={styles.grupoInput}>
-            <label className={styles.label}>Grupo sanguíneo</label>
+            <label className={styles.label}>Grupo sanguíneo <span className={styles.requerido}>*</span></label>
             <div className={styles.selectContenedor}>
               <select
                 className={styles.select}
                 value={grupoSanguineo}
-                onChange={(e) => { setGrupoSanguineo(e.target.value as GrupoSanguineo); reiniciarSeleccion(); }}
+                onChange={(e) => { setGrupoSanguineo(e.target.value as GrupoSanguineo | ''); reiniciarSeleccion(); }}
               >
+                <option value="">Seleccionar grupo...</option>
                 {GRUPOS_SANGUINEOS.map(g => (
                   <option key={g} value={g}>{g}</option>
                 ))}
@@ -204,7 +217,9 @@ export function NuevaSolicitudPage() {
               </tr>
             </thead>
             <tbody>
-              {cargandoCandidatos ? (
+              {sinGrupo ? (
+                <tr><td colSpan={7} className={styles.celdaMensaje}>Selecciona el grupo sanguíneo requerido para buscar candidatos.</td></tr>
+              ) : cargandoCandidatos ? (
                 <tr><td colSpan={7} className={styles.celdaMensaje}>Cargando candidatos...</td></tr>
               ) : candidatos.length === 0 ? (
                 <tr>
@@ -271,7 +286,7 @@ export function NuevaSolicitudPage() {
 
       <button
         className={styles.botonGuardar}
-        disabled={!candidatoSeleccionado || guardando}
+        disabled={sinGrupo || !candidatoSeleccionado || guardando}
         onClick={handleCrearSolicitud}
       >
         {guardando ? 'Creando solicitud...' : 'Crear solicitud con candidato'}

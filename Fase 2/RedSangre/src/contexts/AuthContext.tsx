@@ -11,6 +11,9 @@ import { EVENTO_SESION_EXPIRADA, MENSAJE_SIN_CONEXION } from '../utils/mensajesE
 import { registrarEvento } from '../servicios/auditoria';
 
 const MENSAJE_CUENTA_DESACTIVADA = 'Tu cuenta está desactivada. Contacta al administrador.';
+// Comentarios - Cerrar sesión de cuenta desactivada
+// Cada cuánto se revisa si la cuenta conectada sigue activa.
+const INTERVALO_REVISION_CUENTA_MS = 60_000;
 // Comentarios - Manejo de errores y excepciones
 // El detalle técnico (archivo .env) solo se muestra en desarrollo; en producción, un aviso general.
 const MENSAJE_SIN_CONFIGURACION = import.meta.env.DEV
@@ -143,6 +146,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => { vigente = false; };
   }, [userId, intentoPerfil]);
+
+  // Comentarios - Cerrar sesión de cuenta desactivada
+  // Si el administrador desactiva la cuenta mientras está conectada, la base deja de responderle. Cada minuto y
+  // al volver a la pestaña se relee el perfil (cada usuario puede leer el suyo); si quedó inactivo, se cierra la
+  // sesión y el login avisa que la cuenta está desactivada. Una falla al leer no cierra la sesión.
+  useEffect(() => {
+    if (!userId) return;
+    let cerrando = false;
+
+    const revisarCuentaActiva = async () => {
+      if (cerrando || document.visibilityState === 'hidden') return;
+      const { perfil } = await cargarPerfil(userId);
+      if (cerrando || !perfil || perfil.activo) return;
+      cerrando = true;
+      motivoPendiente.current = 'desactivada';
+      setSession(null);
+      setUser(null);
+      void supabase.auth.signOut();
+    };
+
+    const temporizador = window.setInterval(() => { void revisarCuentaActiva(); }, INTERVALO_REVISION_CUENTA_MS);
+    const alVolver = () => { void revisarCuentaActiva(); };
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('focus', alVolver);
+
+    return () => {
+      cerrando = true;
+      window.clearInterval(temporizador);
+      document.removeEventListener('visibilitychange', alVolver);
+      window.removeEventListener('focus', alVolver);
+    };
+  }, [userId]);
 
   // Comentarios - Manejo de errores y excepciones
   // Vuelve a leer el perfil después de una falla (botón "Reintentar" de la pantalla de error del perfil).

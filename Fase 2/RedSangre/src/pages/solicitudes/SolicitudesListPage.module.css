@@ -211,7 +211,12 @@
     margin-left: 0;
     text-align: center;
   }
+}
 
+/* Comentarios - Listado de solicitudes responsive */
+/* La tabla pasa a tarjetas hasta 900 px: así también en celular horizontal, donde las 7 columnas no caben
+   y la Fecha de creación quedaba cortada. */
+@media (max-width: 900px) {
   /* La tabla pasa a tarjetas: una por solicitud, con cada dato etiquetado */
   .tablaContenedor {
     background: none;

@@ -21,26 +21,8 @@ import {
   rutTieneFormatoValido,
   telefonoTieneFormatoValido,
 } from '../../utils/validacionDonante';
+import { REGIONES_CHILE } from '../../utils/regiones';
 import styles from './NuevoDonantePage.module.css';
-
-const REGIONES_CHILE: Record<string, string[]> = {
-  "Arica y Parinacota": ["Arica", "Camarones", "Putre", "General Lagos"],
-  "Tarapacá": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Pica"],
-  "Antofagasta": ["Antofagasta", "Calama", "Tocopilla", "Mejillones"],
-  "Atacama": ["Copiapó", "Vallenar", "Caldera", "Chañaral"],
-  "Coquimbo": ["La Serena", "Coquimbo", "Ovalle", "Illapel"],
-  "Valparaíso": ["Valparaíso", "Viña del Mar", "Quilpué", "Villa Alemana", "San Antonio"],
-  "Metropolitana": ["Santiago", "Providencia", "Las Condes", "Peñalolén", "Maipú", "Puente Alto", "La Florida", "Melipilla"],
-  "O'Higgins": ["Rancagua", "Machalí", "San Fernando", "Rengo"],
-  "Maule": ["Talca", "Curicó", "Linares", "Constitución"],
-  "Ñuble": ["Chillán", "San Carlos", "Bulnes", "Coihueco"],
-  "Biobío": ["Concepción", "Talcahuano", "Los Ángeles", "San Pedro de la Paz"],
-  "Araucanía": ["Temuco", "Padre Las Casas", "Villarrica", "Angol"],
-  "Los Ríos": ["Valdivia", "La Unión", "Panguipulli", "Río Bueno"],
-  "Los Lagos": ["Puerto Montt", "Osorno", "Castro", "Ancud"],
-  "Aysén": ["Coyhaique", "Puerto Aysén", "Chile Chico", "Cochrane"],
-  "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir", "Cabo de Hornos"]
-};
 
 export function NuevoDonantePage() {
   const navigate = useNavigate();

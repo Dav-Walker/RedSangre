@@ -66,7 +66,7 @@ Deno.serve(conCors(async (req) => {
 
   const { data: solicitud, error: errSolicitud } = await supabase
     .from('solicitud')
-    .select('id, codigo_solicitud, estado, grupo_sanguineo_requerido, urgencia, donante:donante_asignado_id (id, nombre, apellido, correo)')
+    .select('id, codigo_solicitud, estado, grupo_sanguineo_requerido, urgencia, donante:donante_asignado_id (id, nombre, apellido, correo, reaccion_adversa_previa)')
     .eq('id', solicitudId)
     .maybeSingle();
 
@@ -82,8 +82,15 @@ Deno.serve(conCors(async (req) => {
   // Comentarios - Contactar donante por correo
   // donante_asignado_id apunta a un solo donante, así que PostgREST devuelve un objeto. El cliente sin esquema
   // tipado lo infiere como lista; por eso se convierte pasando por unknown.
-  const donante = solicitud.donante as unknown as { id: string; nombre: string; apellido: string; correo: string | null } | null;
+  const donante = solicitud.donante as unknown as {
+    id: string; nombre: string; apellido: string; correo: string | null; reaccion_adversa_previa: boolean;
+  } | null;
   if (!donante) return responder({ error: 'La solicitud no tiene donante asignado.' }, 422);
+  // Comentarios - Contacto con donante bloqueado
+  // Se revisa antes de enviar: el trigger de la bitácora lo rechaza, pero recién después de que el correo salió.
+  if (donante.reaccion_adversa_previa) {
+    return responder({ error: 'El donante está bloqueado por una reacción adversa: no puede ser contactado.' }, 409);
+  }
   if (!donante.correo) return responder({ error: 'El donante no tiene correo registrado.' }, 422);
 
   const { data: puedeContactar, error: errConsentimiento } = await supabase

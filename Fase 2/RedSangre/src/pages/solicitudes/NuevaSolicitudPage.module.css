@@ -69,6 +69,13 @@
   font-size: 15px;
 }
 
+/* Comentarios - Grupo sanguíneo obligatorio */
+/* Asterisco rojo de campo obligatorio, igual que en el formulario de donante. */
+.requerido {
+  color: var(--color-marca-rojo);
+  margin-left: 2px;
+}
+
 /* ESTILOS DE LOS SELECTORES (Reutilizados para mantener coherencia) */
 .selectContenedor {
   position: relative;

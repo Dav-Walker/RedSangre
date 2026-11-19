@@ -6,11 +6,19 @@ import { Badge, type ColorBadge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { ESTADOS_SOLICITUD, obtenerEstadoSolicitud, type EstadoSolicitud } from '../../utils/estadosSolicitud';
 import {
+  buscarCandidatos,
+  cambiarDonanteAsignado,
   cambiarEstadoSolicitud,
   consultarUltimoContacto,
   enviarCorreoContacto,
+  listarContactos,
   obtenerSolicitud,
   registrarContactoWhatsapp,
+  registrarRespuestaDonante,
+  type CanalContacto,
+  type Candidato,
+  type ContactoBitacora,
+  type RespuestaDonante,
   type SolicitudConDonante,
 } from '../../servicios/solicitudes';
 import { registrarEvento } from '../../servicios/auditoria';
@@ -34,6 +42,15 @@ const BADGES_CONTACTO: Record<ResultadoContacto | 'no_disponible', { texto: stri
 };
 
 type UltimoContacto = ResultadoContacto | null | 'no_disponible';
+
+// Comentarios - Registrar respuesta del donante
+// Textos de los canales y de las respuestas que se pueden registrar en la bitácora.
+const TEXTOS_CANAL: Record<CanalContacto, string> = { telefono: 'Teléfono', correo: 'Correo', whatsapp: 'WhatsApp' };
+const TEXTOS_RESPUESTA: Record<RespuestaDonante, string> = {
+  confirmado: 'Confirma la donación',
+  rechazado: 'Rechaza la donación',
+  sin_respuesta: 'Sin respuesta',
+};
 
 // Comentarios - Manejo de errores y excepciones
 // Mensajes generales cuando algo lanza una excepción inesperada en las acciones de la página.
@@ -84,9 +101,28 @@ export function SolicitudDetallePage() {
   const [modalPcAbierto, setModalPcAbierto] = useState(false);
   const [modalWhatsappAbierto, setModalWhatsappAbierto] = useState(false);
   const [mensajeWhatsapp, setMensajeWhatsapp] = useState('');
+  // Comentarios - Registrar respuesta del donante
+  // Formulario para anotar qué respondió el donante y por qué canal.
+  const [canalRespuesta, setCanalRespuesta] = useState<CanalContacto>('telefono');
+  const [resultadoRespuesta, setResultadoRespuesta] = useState<RespuestaDonante>('confirmado');
+  const [observacionesRespuesta, setObservacionesRespuesta] = useState('');
+  const [registrandoRespuesta, setRegistrandoRespuesta] = useState(false);
+  const [mensajeRespuesta, setMensajeRespuesta] = useState<Mensaje | null>(null);
+  // Comentarios - Historial de contactos
+  // Todos los contactos de la solicitud; errorContactos indica que no se pudieron leer.
+  const [contactos, setContactos] = useState<ContactoBitacora[]>([]);
+  const [errorContactos, setErrorContactos] = useState<string | null>(null);
+  // Comentarios - Reasignar donante de la solicitud
+  // Ventana con los candidatos aptos para reemplazar al donante asignado.
+  const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false);
+  const [candidatosReasignar, setCandidatosReasignar] = useState<Candidato[] | null>(null);
+  const [errorReasignar, setErrorReasignar] = useState<string | null>(null);
+  const [candidatoElegido, setCandidatoElegido] = useState<string | null>(null);
+  const [reasignando, setReasignando] = useState(false);
+  const [mensajeReasignar, setMensajeReasignar] = useState<Mensaje | null>(null);
 
   // Comentarios - Detalle de solicitud
-  // Carga la solicitud de la ruta y el último contacto por correo y por WhatsApp.
+  // Carga la solicitud de la ruta, el último contacto por correo y por WhatsApp con el donante asignado y el historial.
   // "vigente" descarta la respuesta si el usuario navegó a otra solicitud mientras se esperaba.
   useEffect(() => {
     if (!id) return;
@@ -104,14 +140,19 @@ export function SolicitudDetallePage() {
           setCargando(false);
           return;
         }
-        const [correo, whatsapp] = await Promise.all([
-          consultarUltimoContacto(resultado.solicitud.id, 'correo'),
-          consultarUltimoContacto(resultado.solicitud.id, 'whatsapp'),
+        const solicitudId = resultado.solicitud.id;
+        const donanteId = resultado.solicitud.donante?.id;
+        const [correo, whatsapp, historial] = await Promise.all([
+          donanteId ? consultarUltimoContacto(solicitudId, 'correo', donanteId) : null,
+          donanteId ? consultarUltimoContacto(solicitudId, 'whatsapp', donanteId) : null,
+          listarContactos(solicitudId),
         ]);
         if (!vigente) return;
         setSolicitud(resultado.solicitud);
         setUltimoCorreo(correo);
         setUltimoWhatsapp(whatsapp);
+        setContactos(historial.contactos);
+        setErrorContactos(historial.error);
         setError(null);
         setCargando(false);
       } catch {
@@ -130,10 +171,23 @@ export function SolicitudDetallePage() {
     setIntento((n) => n + 1);
   };
 
+  // Comentarios - Registrar respuesta del donante
+  // Vuelve a leer la solicitud y la bitácora sin mostrar la pantalla de carga (la reacción y el estado los cambia la base).
+  const recargar = () => setIntento((n) => n + 1);
+
   // Comentarios - Manejo de errores y excepciones
-  // Relee el último contacto de un canal; si falla por una excepción queda como "No disponible".
-  const releerUltimoContacto = (solicitudId: string, canal: 'correo' | 'whatsapp') =>
-    consultarUltimoContacto(solicitudId, canal).catch((): UltimoContacto => 'no_disponible');
+  // Relee el último contacto de un canal con el donante asignado; si falla por una excepción queda como "No disponible".
+  const releerUltimoContacto = (solicitudId: string, canal: 'correo' | 'whatsapp', donanteId: string) =>
+    consultarUltimoContacto(solicitudId, canal, donanteId).catch((): UltimoContacto => 'no_disponible');
+
+  // Comentarios - Historial de contactos
+  // Relee el historial después de registrar un contacto; una excepción se muestra como error del historial.
+  const releerHistorial = async (solicitudId: string) => {
+    const historial = await listarContactos(solicitudId)
+      .catch(() => ({ contactos: [], error: 'No se pudo cargar el historial de contactos.' }));
+    setContactos(historial.contactos);
+    setErrorContactos(historial.error);
+  };
 
   const handleEnviarCorreo = async () => {
     if (!solicitud) return;
@@ -151,7 +205,8 @@ export function SolicitudDetallePage() {
       return;
     }
     setMensajeCorreo({ tipo: 'ok', texto: 'Correo enviado y registrado en la bitácora.' });
-    setUltimoCorreo(await releerUltimoContacto(solicitud.id, 'correo'));
+    if (solicitud.donante) setUltimoCorreo(await releerUltimoContacto(solicitud.id, 'correo', solicitud.donante.id));
+    await releerHistorial(solicitud.id);
   };
 
   // Comentarios - Cambiar estado de solicitud
@@ -223,14 +278,91 @@ export function SolicitudDetallePage() {
     setMensajeWhatsappEstado(abierta
       ? { tipo: 'ok', texto: 'Contacto registrado en la bitácora.' }
       : { tipo: 'error', texto: 'Contacto registrado, pero tu navegador bloqueó la ventana de WhatsApp. Permite las ventanas emergentes para este sitio.' });
-    setUltimoWhatsapp(await releerUltimoContacto(solicitud.id, 'whatsapp'));
+    setUltimoWhatsapp(await releerUltimoContacto(solicitud.id, 'whatsapp', donante.id));
+    await releerHistorial(solicitud.id);
+  };
+
+  // Comentarios - Registrar respuesta del donante
+  // Agrega la respuesta a la bitácora y relee la solicitud, porque la base actualiza su reacción y su estado.
+  const handleRegistrarRespuesta = async () => {
+    const donante = solicitud?.donante;
+    if (!solicitud || !donante) return;
+    setRegistrandoRespuesta(true);
+    setMensajeRespuesta(null);
+
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada libera el botón y muestra un mensaje general.
+    const errorRegistro = await registrarRespuestaDonante({
+      solicitudId: solicitud.id,
+      donanteId: donante.id,
+      canal: canalRespuesta,
+      resultado: resultadoRespuesta,
+      observaciones: observacionesRespuesta,
+    }).catch(() => 'No se pudo registrar la respuesta. Inténtalo nuevamente.');
+    setRegistrandoRespuesta(false);
+
+    if (errorRegistro) {
+      setMensajeRespuesta({ tipo: 'error', texto: errorRegistro });
+      return;
+    }
+    setObservacionesRespuesta('');
+    setMensajeRespuesta({
+      tipo: 'ok',
+      texto: resultadoRespuesta === 'rechazado'
+        ? 'Respuesta registrada. El donante rechazó: puedes asignar otro donante con "Cambiar donante".'
+        : 'Respuesta registrada en la bitácora.',
+    });
+    recargar();
+  };
+
+  // Comentarios - Reasignar donante de la solicitud
+  // Abre la ventana y busca candidatos con el mismo grupo y fenotipo de la solicitud.
+  const handleAbrirReasignar = async () => {
+    if (!solicitud) return;
+    setModalReasignarAbierto(true);
+    setMensajeReasignar(null);
+    setCandidatosReasignar(null);
+    setErrorReasignar(null);
+    setCandidatoElegido(null);
+
+    // Comentarios - Manejo de errores y excepciones
+    // Una excepción inesperada se muestra como error de búsqueda en la ventana.
+    const resultado = await buscarCandidatos(solicitud.grupo_sanguineo_requerido, solicitud.fenotipo_requerido ?? '')
+      .catch(() => ({ candidatos: [], error: 'No se pudieron buscar donantes compatibles. Inténtalo nuevamente.' }));
+    setErrorReasignar(resultado.error);
+    setCandidatosReasignar(resultado.candidatos.filter((c) => c.apto && c.donante_id !== solicitud.donante?.id));
+  };
+
+  // Comentarios - Reasignar donante de la solicitud
+  // Asigna el candidato elegido; la base vuelve a validar que sea compatible y esté disponible.
+  const handleConfirmarReasignar = async () => {
+    if (!solicitud || !candidatoElegido) return;
+    setReasignando(true);
+    setErrorReasignar(null);
+
+    const errorCambio = await cambiarDonanteAsignado(solicitud.id, candidatoElegido)
+      .catch(() => 'No se pudo cambiar el donante. Inténtalo nuevamente.');
+    setReasignando(false);
+
+    if (errorCambio) {
+      setErrorReasignar(errorCambio);
+      return;
+    }
+    setModalReasignarAbierto(false);
+    setMensajeRespuesta(null);
+    setMensajeCorreo(null);
+    setMensajeWhatsappEstado(null);
+    setMensajeReasignar({ tipo: 'ok', texto: 'Donante cambiado. Los contactos con el donante anterior quedan en el historial.' });
+    recargar();
   };
 
   // Comentarios - Llamar al donante
   // En celulares abre el marcador; en computador muestra el número en un aviso.
   const handleLlamar = () => {
     const telefono = solicitud?.donante?.telefono;
-    if (!telefono) return;
+    // Comentarios - Contacto con donante bloqueado
+    // No se llama en una solicitud cerrada ni a un donante bloqueado (el botón también queda deshabilitado).
+    if (!telefono || solicitud?.estado === 'cerrada' || solicitud?.donante?.reaccion_adversa_previa) return;
 
     // Comentarios - Bitácora completa
     // La llamada no pasa por la base, así que se registra aquí: quién llamó (o vio el número) a qué donante
@@ -278,6 +410,10 @@ export function SolicitudDetallePage() {
   const estadoActual = obtenerEstadoSolicitud(solicitud.estado);
   const esCerrada = estadoActual === 'cerrada';
   const telefono = solicitud.donante?.telefono;
+  // Comentarios - Contacto con donante bloqueado
+  // Un donante bloqueado por reacción adversa no se contacta; tampoco se contacta en una solicitud cerrada.
+  const donanteBloqueado = Boolean(solicitud.donante?.reaccion_adversa_previa);
+  const sePuedeContactar = !esCerrada && !donanteBloqueado;
 
   return (
     <div className={styles.contenedor}>
@@ -350,11 +486,25 @@ export function SolicitudDetallePage() {
 
           <div className={styles.filaDatos}>
             <span className={styles.etiquetaDato}>Donante asignado</span>
-            <span className={styles.valorDato}>
-              {solicitud.donante
-                ? `${solicitud.donante.rut || 'Sin RUT'} - ${solicitud.donante.nombre} ${solicitud.donante.apellido}`
-                : 'Sin asignar'}
-            </span>
+            <div className={styles.valorEstado}>
+              <span className={styles.valorDato}>
+                {solicitud.donante
+                  ? `${solicitud.donante.rut || 'Sin RUT'} - ${solicitud.donante.nombre} ${solicitud.donante.apellido}`
+                  : 'Sin asignar'}
+              </span>
+              {/* Comentarios - Reasignar donante de la solicitud */}
+              {/* Permite reemplazar al donante (por ejemplo, si rechazó o quedó bloqueado) mientras la solicitud no esté cerrada. */}
+              {conEscritura && !esCerrada && (
+                <button type="button" className={styles.botonSecundario} onClick={handleAbrirReasignar}>
+                  Cambiar donante
+                </button>
+              )}
+              {mensajeReasignar && (
+                <span className={mensajeReasignar.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
+                  {mensajeReasignar.texto}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className={styles.filaDatos}>
@@ -374,6 +524,15 @@ export function SolicitudDetallePage() {
         <div className={styles.tarjeta}>
           <h3 className={styles.tarjetaHeader}>Bitácora de contacto</h3>
 
+          {/* Comentarios - Contacto con donante bloqueado */}
+          {/* Aviso y botones deshabilitados: al donante bloqueado no se le contacta por ningún canal. */}
+          {donanteBloqueado && (
+            <p className={styles.avisoBloqueo} role="alert">
+              ⚠ El donante asignado está bloqueado por una reacción adversa: no se puede contactar.
+              {conEscritura && !esCerrada && ' Usa "Cambiar donante" para asignar otro.'}
+            </p>
+          )}
+
           <div className={`${styles.bitacoraFila} ${styles.bitacoraCabecera}`}>
             <span>Canal</span>
             <span>Resultado</span>
@@ -386,7 +545,7 @@ export function SolicitudDetallePage() {
               <Badge texto={telefono ? 'Disponible' : 'Sin número'} color={telefono ? 'verde' : 'gris'} />
             </div>
             <div className={styles.bitacoraCelda}>
-              <button type="button" className={styles.botonCorreo} onClick={handleLlamar} disabled={!telefono}>
+              <button type="button" className={styles.botonCorreo} onClick={handleLlamar} disabled={!telefono || !sePuedeContactar}>
                 Llamada
               </button>
             </div>
@@ -407,7 +566,7 @@ export function SolicitudDetallePage() {
                   type="button"
                   className={styles.botonCorreo}
                   onClick={handleEnviarCorreo}
-                  disabled={enviandoCorreo || esCerrada || !solicitud.donante?.correo}
+                  disabled={enviandoCorreo || !sePuedeContactar || !solicitud.donante?.correo}
                 >
                   {enviandoCorreo ? 'Enviando...' : 'Enviar correo'}
                 </button>
@@ -440,7 +599,7 @@ export function SolicitudDetallePage() {
                   type="button"
                   className={styles.botonCorreo}
                   onClick={handleAbrirModalWhatsapp}
-                  disabled={esCerrada || !telefono}
+                  disabled={!sePuedeContactar || !telefono}
                 >
                   Mensaje
                 </button>
@@ -453,9 +612,151 @@ export function SolicitudDetallePage() {
             </div>
           </div>
 
+          {/* Comentarios - Registrar respuesta del donante */}
+          {/* Anota en la bitácora si el donante confirmó, rechazó o no respondió, y por qué canal. */}
+          {conEscritura && solicitud.donante && sePuedeContactar && (
+            <div className={styles.formRespuesta}>
+              <h4 className={styles.tituloRespuesta}>Registrar respuesta del donante</h4>
+              <div className={styles.filaRespuesta}>
+                <label className={styles.campoRespuesta}>
+                  <span>Canal</span>
+                  <select
+                    className={styles.selectRespuesta}
+                    value={canalRespuesta}
+                    onChange={(e) => setCanalRespuesta(e.target.value as CanalContacto)}
+                  >
+                    {Object.entries(TEXTOS_CANAL).map(([valor, texto]) => (
+                      <option key={valor} value={valor}>{texto}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.campoRespuesta}>
+                  <span>Respuesta</span>
+                  <select
+                    className={styles.selectRespuesta}
+                    value={resultadoRespuesta}
+                    onChange={(e) => setResultadoRespuesta(e.target.value as RespuestaDonante)}
+                  >
+                    {Object.entries(TEXTOS_RESPUESTA).map(([valor, texto]) => (
+                      <option key={valor} value={valor}>{texto}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className={styles.campoRespuesta}>
+                <span>Observaciones (opcional)</span>
+                <textarea
+                  className={styles.textareaRespuesta}
+                  rows={2}
+                  maxLength={500}
+                  value={observacionesRespuesta}
+                  onChange={(e) => setObservacionesRespuesta(e.target.value)}
+                  placeholder="Ej.: confirma asistencia mañana a las 9:00"
+                />
+              </label>
+              <button
+                type="button"
+                className={styles.botonCorreo}
+                onClick={handleRegistrarRespuesta}
+                disabled={registrandoRespuesta}
+              >
+                {registrandoRespuesta ? 'Registrando...' : 'Registrar respuesta'}
+              </button>
+              {mensajeRespuesta && (
+                <span className={mensajeRespuesta.tipo === 'ok' ? styles.mensajeOk : styles.mensajeError}>
+                  {mensajeRespuesta.texto}
+                </span>
+              )}
+            </div>
+          )}
+
         </div>
 
       </div>
+
+      {/* Comentarios - Historial de contactos */}
+      {/* Todos los contactos en orden cronológico, también los de donantes que se reemplazaron. */}
+      <div className={`${styles.tarjeta} ${styles.tarjetaHistorial}`}>
+        <h3 className={styles.tarjetaHeader}>Historial de contactos</h3>
+        {errorContactos ? (
+          <p className={`${styles.mensajeError} ${styles.historialVacio}`}>{errorContactos}</p>
+        ) : contactos.length === 0 ? (
+          <p className={styles.historialVacio}>Aún no hay contactos registrados.</p>
+        ) : (
+          <ul className={styles.listaHistorial}>
+            {contactos.map((c) => (
+              <li key={c.id} className={styles.itemHistorial}>
+                <span className={styles.fechaHistorial}>{new Date(c.fecha).toLocaleString('es-CL')}</span>
+                <span>
+                  {c.donante ? `${c.donante.nombre} ${c.donante.apellido} (${c.donante.codigo_donante})` : 'Donante'}
+                  {' · '}{TEXTOS_CANAL[c.canal]}
+                </span>
+                <Badge texto={BADGES_CONTACTO[c.resultado].texto} color={BADGES_CONTACTO[c.resultado].color} />
+                {c.observaciones && <span className={styles.observacionHistorial}>{c.observaciones}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Comentarios - Reasignar donante de la solicitud */}
+      {/* Lista de candidatos aptos (misma búsqueda priorizada de Nueva solicitud) para elegir el reemplazo. */}
+      {modalReasignarAbierto && (
+        <Modal
+          className={styles.modalReasignar}
+          idTitulo="titulo-reasignar"
+          onCerrar={reasignando ? undefined : () => setModalReasignarAbierto(false)}
+        >
+          <h2 id="titulo-reasignar" className={styles.tituloReasignar}>Cambiar donante asignado</h2>
+          <p className={styles.modalSubtitulo}>
+            Candidatos disponibles para {solicitud.grupo_sanguineo_requerido}
+            {solicitud.fenotipo_requerido ? ` con fenotipo ${solicitud.fenotipo_requerido}` : ''}, en orden de prioridad.
+          </p>
+          {errorReasignar && <p className={styles.mensajeError} role="alert">{errorReasignar}</p>}
+          {candidatosReasignar === null ? (
+            <p className={styles.historialVacio}>Buscando candidatos...</p>
+          ) : candidatosReasignar.length === 0 ? (
+            <p className={styles.historialVacio}>No hay otros candidatos disponibles en este momento.</p>
+          ) : (
+            <ul className={styles.listaCandidatos}>
+              {candidatosReasignar.map((c) => (
+                <li key={c.donante_id}>
+                  <button
+                    type="button"
+                    className={`${styles.opcionCandidato} ${candidatoElegido === c.donante_id ? styles.opcionElegida : ''}`}
+                    onClick={() => setCandidatoElegido(c.donante_id)}
+                    aria-pressed={candidatoElegido === c.donante_id}
+                  >
+                    <strong>{c.nombre_completo}</strong>
+                    <span>
+                      {c.codigo_donante} · {c.grupo_sanguineo} · {c.fenotipo || 'Sin fenotipo'}
+                      {c.distancia_km != null ? ` · ${c.distancia_km.toFixed(1)} km` : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className={styles.botonesModal}>
+            <button
+              type="button"
+              className={styles.botonCancelarModal}
+              onClick={() => setModalReasignarAbierto(false)}
+              disabled={reasignando}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className={styles.botonCorreo}
+              onClick={handleConfirmarReasignar}
+              disabled={!candidatoElegido || reasignando}
+            >
+              {reasignando ? 'Cambiando...' : 'Asignar donante'}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {/* MODAL DE WHATSAPP */}
       {modalWhatsappAbierto && (

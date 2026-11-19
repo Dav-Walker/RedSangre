@@ -21,6 +21,7 @@ import {
   restriccionDelError,
 } from './mensajesError';
 import { rutTieneFormatoValido, telefonoTieneFormatoValido } from './validacionDonante';
+import { separarUbicacion } from './regiones';
 
 describe('validarCorreo', () => {
   it('acepta correos de los dominios permitidos', () => {
@@ -232,5 +233,22 @@ describe('validación de donante', () => {
     expect(telefonoTieneFormatoValido('912345678')).toBe(true);
     expect(telefonoTieneFormatoValido('abc')).toBe(false);
     expect(telefonoTieneFormatoValido('123')).toBe(false);
+  });
+});
+
+// Comentarios - Validar edición de donante
+// La ubicación guardada se separa en región y comuna para precargar los selectores de la edición.
+describe('separarUbicacion', () => {
+  it('separa "Comuna, Región" cuando ambas están en la lista', () => {
+    expect(separarUbicacion('Maipú, Metropolitana')).toEqual({ region: 'Metropolitana', comuna: 'Maipú' });
+  });
+
+  it('busca la región por la comuna en ubicaciones antiguas', () => {
+    expect(separarUbicacion('Peñalolén, Santiago')).toEqual({ region: 'Metropolitana', comuna: 'Peñalolén' });
+  });
+
+  it('deja vacío lo que no reconoce, para que el usuario lo elija', () => {
+    expect(separarUbicacion('New jork')).toEqual({ region: '', comuna: '' });
+    expect(separarUbicacion(null)).toEqual({ region: '', comuna: '' });
   });
 });
